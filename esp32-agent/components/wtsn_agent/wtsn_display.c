@@ -61,6 +61,7 @@ static const char *TAG = "display";
 #define SSD1306_BUF_SZ 1024
 
 static bool g_present = false;
+static uint8_t g_i2c_found = 0;   /* actual SSD1306 address ACKed on the bus */
 static uint8_t g_fb[SSD1306_BUF_SZ];
 
 static char g_dev_id[16] = "esp32-02";
@@ -97,10 +98,12 @@ static bool g_btn_enabled = true;               /* disabled if the OLED is prese
 /* SDD1306 helpers (only used when g_present)                            */
 /* ===================================================================== */
 
+static inline uint8_t ssd1306_addr(void) { return g_i2c_found ? g_i2c_found : SSD1306_ADDR; }
+
 static void i2c_write_cmd(uint8_t cmd) {
     i2c_cmd_handle_t c = i2c_cmd_link_create();
     i2c_master_start(c);
-    i2c_master_write_byte(c, (SSD1306_ADDR << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
     i2c_master_write_byte(c, SSD1306_CTRL_CMD, 1);
     i2c_master_write_byte(c, cmd, 1);
     i2c_master_stop(c);
@@ -113,7 +116,7 @@ static void ssd1306_flush(void) {
     static const uint8_t zero[8] = {0};
     i2c_cmd_handle_t c = i2c_cmd_link_create();
     i2c_master_start(c);
-    i2c_master_write_byte(c, (SSD1306_ADDR << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
     i2c_master_write_byte(c, SSD1306_CTRL_CMD, 1);
     i2c_master_write_byte(c, SSD1306_CMD_SET_COL_ADDR, 1);
     i2c_master_write_byte(c, 0, 1);
@@ -148,10 +151,46 @@ static void ssd1306_init_seq(void) {
     i2c_write_cmd(SSD1306_CMD_DISPLAY_ON);
 }
 
-/* Check the SSD1306 answers NAK-free at its address on the I2C bus. */
+/* Check an address ACKs on the I2C bus: start + address-byte(with ACK check)
+ * + stop. This is the reliable way to probe with the legacy I2C driver; the
+ * zero-length i2c_master_write_to_device() is not dependable here. */
+static bool i2c_addr_acks(uint8_t addr) {
+    i2c_cmd_handle_t c = i2c_cmd_link_create();
+    i2c_master_start(c);
+    i2c_master_write_byte(c, (uint8_t)((addr << 1) | I2C_MASTER_WRITE), 1);
+    i2c_master_stop(c);
+    esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(50));
+    i2c_cmd_link_delete(c);
+    return (err == ESP_OK);
+}
+
+/* Check the SSD1306 answers NAK-free at its address on the I2C bus.
+ * Some clones answer at 0x3D instead of the usual 0x3C, so probe both. */
 static bool ssd1306_present(void) {
-    return i2c_master_write_to_device(I2C_NUM_0, SSD1306_ADDR, (const uint8_t *)"", 0,
-                                      pdMS_TO_TICKS(50)) == ESP_OK;
+    if (i2c_addr_acks(0x3C)) {
+        g_i2c_found = 0x3C;
+        return true;
+    }
+    if (i2c_addr_acks(0x3D)) {
+        g_i2c_found = 0x3D;
+        return true;
+    }
+    return false;
+}
+
+/* Log every address that ACKs on the display I2C bus, to help debug why the
+ * OLED is not detected. */
+static void ssd1306_scan_bus(void) {
+    char buf[64] = "";
+    int n = 0;
+    for (int a = 0x04; a < 0x78; a++) {
+        if (i2c_addr_acks((uint8_t)a)) {
+            n += snprintf(buf + n, sizeof(buf) - (size_t)n, "%s0x%02X",
+                          (n ? "," : ""), a);
+        }
+    }
+    ESP_LOGI(TAG, "I2C scan on SDA%d SCL%d: %s", (int)WTSN_SSD1306_SDA,
+             (int)WTSN_SSD1306_SCL, n ? buf : "(no devices)");
 }
 
 /* ---------------------------------------------------------------- */
@@ -356,6 +395,7 @@ void wtsn_display_init(const char *device_id, wtsn_mqtt *mq) {
 
     /* Try to attach the display on the I2C bus (SDA21/SCL22). The bus is
      * already installed by the sensor add-on init; only reuse, don't own. */
+    ssd1306_scan_bus();
     for (int attempt = 0; attempt < 2 && !g_present; attempt++) {
         if (attempt == 0) {
             vTaskDelay(pdMS_TO_TICKS(50));
@@ -371,9 +411,10 @@ void wtsn_display_init(const char *device_id, wtsn_mqtt *mq) {
             ssd1306_flush();
             g_present = true;
             ESP_LOGI(TAG, "SSD1306 found at 0x%02X (SDA%d SCL%d)",
-                     SSD1306_ADDR, (int)WTSN_SSD1306_SDA, (int)WTSN_SSD1306_SCL);
+                     ssd1306_addr(), (int)WTSN_SSD1306_SDA, (int)WTSN_SSD1306_SCL);
         } else {
-            ESP_LOGW(TAG, "no SSD1306 on I2C (0x%02X) - display disabled", SSD1306_ADDR);
+            ESP_LOGW(TAG, "no SSD1306 on I2C (0x%02X) - display disabled",
+                     SSD1306_ADDR);
         }
     }
 }
