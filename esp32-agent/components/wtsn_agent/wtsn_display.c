@@ -11,6 +11,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include "freertos/FreeRTOS.h"
@@ -22,6 +23,7 @@
 
 #include "wtsn_display.h"
 #include "wtsn_mqtt.h"
+#include "wtsn_json.h"
 
 static const char *TAG = "display";
 
@@ -68,6 +70,16 @@ static char g_line1[24] = "WTSN node";
 static char g_line2[24] = "connecting...";
 
 static int64_t g_last_pub_us = 0;
+
+/* ---- telemetry HUD (values from esp32-01 over tsn/sensors) ---- */
+static bool g_hud = true;                      /* 4-corner HUD vs 2-line text */
+static float g_hum = 0, g_press = 0, g_temp = 0;
+static int   g_pir = 0, g_light = 0;
+static int64_t g_last_telem_us = -1;           /* when we last saw telemetry */
+
+/* ---- button action callback ---- */
+static wtsn_display_btn_cb g_btn_cb = NULL;
+static void *g_btn_ud = NULL;
 
 /* ---- buttons ---- */
 #define BTN_COUNT 4
@@ -308,6 +320,8 @@ static void buttons_tick(void) {
             snprintf(payload, sizeof(payload), "{\"id\":\"%s\",\"ok\":true,\"button\":\"%s\"}",
                      g_dev_id, g_btn_label[i]);
             if (g_mq) wtsn_mqtt_publish(g_mq, topic, payload);
+            /* hand off to the action callback (registered by main.c) */
+            if (g_btn_cb) g_btn_cb(i + 1, g_btn_ud);
         }
         g_prev_btn[i] = now;
     }
@@ -335,6 +349,8 @@ void wtsn_display_buttons(int *k1, int *k2, int *k3, int *k4) {
 void wtsn_display_init(const char *device_id, wtsn_mqtt *mq) {
     if (device_id) snprintf(g_dev_id, sizeof(g_dev_id), "%s", device_id);
     g_mq = mq;
+    g_hum = g_press = g_temp = 0;
+    g_pir = g_light = 0;
 
     buttons_init();
 
@@ -362,6 +378,82 @@ void wtsn_display_init(const char *device_id, wtsn_mqtt *mq) {
     }
 }
 
+/* Small JSON float extractor (the vendored wtsn_json only has int/str). */
+static bool json_get_f(const char *json, const char *key, float *out) {
+    if (!json || !key || !out) return false;
+    char pat[48];
+    snprintf(pat, sizeof(pat), "\"%s\"", key);
+    const char *h = strstr(json, pat);
+    if (!h) return false;
+    h = strchr(h, ':');
+    if (!h) return false;
+    h++;
+    while (*h == ' ' || *h == '\t') h++;
+    char *end = NULL;
+    float v = strtof(h, &end);
+    if (end == h) return false;
+    *out = v;
+    return true;
+}
+
+void wtsn_display_on_telemetry(const char *topic, const char *payload) {
+    (void)topic;
+    if (!payload || !payload[0]) return;
+    /* Only parse the aggregated telemetry from the sensor board node
+     * (esp32-01). Our own button/status payloads must not feed the HUD. */
+    char did[24] = "";
+    wtsn_json_get_str(payload, "id", did, sizeof(did));
+    if (did[0] && strstr(did, "esp32-01") == NULL && strcmp(did, "esp32-1") != 0) {
+        return;
+    }
+    float v;
+    if (json_get_f(payload, "temp", &v)) g_temp = v;
+    if (json_get_f(payload, "hum", &v) || json_get_f(payload, "hum1", &v)) g_hum = v;
+    if (json_get_f(payload, "press", &v) || json_get_f(payload, "press1", &v)) g_press = v;
+    if (json_get_f(payload, "light", &v) || json_get_f(payload, "light1", &v)) g_light = (int)v;
+    if (json_get_f(payload, "motion", &v) || json_get_f(payload, "pir1", &v)) g_pir = (v > 0.5f);
+    if (json_get_f(payload, "pir", &v)) g_pir = (v > 0.5f);
+    g_last_telem_us = esp_timer_get_time();
+}
+
+void wtsn_display_set_hud(bool enable) { g_hud = enable; }
+bool wtsn_display_hud(void) { return g_hud; }
+void wtsn_display_set_btn_cb(wtsn_display_btn_cb cb, void *ud) {
+    g_btn_cb = cb;
+    g_btn_ud = ud;
+}
+
+/* Render the 4-corner sensor HUD:
+ *   TL = temperature   TR = humidity
+ *   BL = light         BR = pressure
+ * Middle row = K1..K4 levels. */
+static void hud_render(void) {
+    char tl[20], tr[20], bl[20], br[20];
+    if (g_temp > -100) snprintf(tl, sizeof(tl), "T:%.1fC", g_temp);
+    else snprintf(tl, sizeof(tl), "T:--");
+    if (g_hum > 0) snprintf(tr, sizeof(tr), "H:%.1f%%", g_hum);
+    else snprintf(tr, sizeof(tr), "H:--");
+    if (g_light > 0) snprintf(bl, sizeof(bl), "L:%d", g_light);
+    else snprintf(bl, sizeof(bl), "L:--");
+    if (g_press > 0) snprintf(br, sizeof(br), "P:%.0f", g_press);
+    else snprintf(br, sizeof(br), "P:--");
+
+    fb_clear();
+    fb_text(0,  0, tl);          /* top-left  = temperature */
+    fb_text(9,  0, tr);          /* top-right = humidity    */
+    fb_text(0,  7, bl);          /* bottom-left = light     */
+    fb_text(9,  7, br);          /* bottom-right = pressure */
+
+    char tmp[20];
+    int b1 = (int)((g_btn_levels >> 0) & 1u);
+    int b2 = (int)((g_btn_levels >> 1) & 1u);
+    int b3 = (int)((g_btn_levels >> 2) & 1u);
+    int b4 = (int)((g_btn_levels >> 3) & 1u);
+    snprintf(tmp, sizeof(tmp), "K%d %d %d %d", b1, b2, b3, b4);
+    fb_text(0, 3, tmp);
+    ssd1306_flush();
+}
+
 void wtsn_display_tick(void) {
     buttons_tick();
 
@@ -372,6 +464,11 @@ void wtsn_display_tick(void) {
     }
 
     if (!g_present) return;
+
+    if (g_hud) {
+        hud_render();
+        return;
+    }
     fb_clear();
     fb_text(0, 0, g_line1);
     fb_text(0, 1, g_line2);

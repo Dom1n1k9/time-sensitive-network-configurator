@@ -166,6 +166,13 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         return;
     }
 
+    /* The shared telemetry feed: feed the actor board OLED HUD with
+     * esp32-01's temp/hum/press/motion values. */
+    if (strcmp(topic, "tsn/sensors") == 0) {
+        wtsn_display_on_telemetry(topic, payload);
+        return;
+    }
+
     if (strstr(topic, "/apply")) { apply_snapshot(payload); return; }
 
     char *slash = strrchr(topic, '/');
@@ -453,6 +460,47 @@ static void prov_fallback_task(void *arg) {
     vTaskDelete(NULL);
 }
 
+/* esp32-02 physical button actions (registered as the display button cb).
+ *   K1 = toggle relay actor on/off
+ *   K2 = publish a status report + beep
+ *   K3 = toggle the OLED between HUD (sensor corners) and 2-line status
+ *   K4 = identify (LED blink + beep) */
+static void display_btn_action(int btn, void *ud) {
+    (void)ud;
+    if (btn == 1) {
+        int cur = wtsn_sensor_actor_get();
+        int next = cur == 1 ? 0 : 1;   /* manual-on <-> off */
+        wtsn_sensor_actor_set(next);
+        char buf[80];
+        snprintf(buf, sizeof(buf), "{\"id\":\"%s\",\"ok\":true,\"mode\":%d}",
+                 g_device_id, next);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, buf);
+        if (wtsn_display_present()) wtsn_display_status("actor", next ? "ON" : "off");
+        ESP_LOGI(TAG, "K1: actor -> %d", next);
+    } else if (btn == 2) {
+        /* publish current status (like the tsn/cmd/<id>/status handler) */
+        char buf[224];
+        snprintf(buf, sizeof(buf),
+                 "{\"id\":\"%s\",\"status\":\"online\",\"lane\":\"btn\","
+                 "\"fw\":\"%s\",\"rssi\":%d,\"ts\":%lld}",
+                 g_device_id, WTSN_FW_VERSION, current_rssi(), (long long)time(NULL));
+        wtsn_mqtt_publish(g_mqtt, "tsn/status", buf);
+        wtsn_sensor_buzzer_beep(1000, 120);
+        ESP_LOGI(TAG, "K2: status published");
+    } else if (btn == 3) {
+        bool hud = wtsn_display_hud();
+        wtsn_display_set_hud(!hud);
+        if (wtsn_display_present()) wtsn_display_status("view", hud ? "status" : "hud");
+        ESP_LOGI(TAG, "K3: display mode -> %s", hud ? "status text" : "HUD");
+    } else if (btn == 4) {
+        identify_start();
+        wtsn_sensor_buzzer_beep(1800, 150);
+        ESP_LOGI(TAG, "K4: identify");
+    }
+}
+
 static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *data) {
     (void)arg;
     wifi_ctx_t *ctx = (wifi_ctx_t *)arg;
@@ -536,6 +584,8 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
                 wtsn_sensor_actor_set(7);
                 /* actor board: OLED (SDD1306 I2C) + K1..K4 buttons */
                 wtsn_display_init(g_device_id, g_mqtt);
+                wtsn_display_set_btn_cb(display_btn_action, NULL);
+                wtsn_display_set_hud(true);   /* 4-corner sensor HUD */
                 wtsn_display_status(g_device_id, "online");
             }
             wtsn_uart_init(g_mqtt, g_device_id);

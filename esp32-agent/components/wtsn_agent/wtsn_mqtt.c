@@ -88,6 +88,10 @@ static void on_connected(esp_mqtt_event_handle_t e, wtsn_mqtt *m) {
     esp_mqtt_client_subscribe(m->c, "tsn/fx/data", 0);
     /* motion events raised by the sensor board's PIR */
     esp_mqtt_client_subscribe(m->c, "tsn/sensors/event", 0);
+    /* The shared telemetry feed (esp32-01 publishes temp/hum/press/light/pir
+     * here). The actor board's OLED parses the esp32-01 values to show a live
+     * sensor HUD. */
+    esp_mqtt_client_subscribe(m->c, "tsn/sensors", 0);
     ESP_LOGI(TAG, "subscribed to commands for device '%s'", m->device_id);
     if (m->conn_cb) m->conn_cb("", m->ud);
 }

@@ -57,6 +57,22 @@ void wtsn_display_status(const char *line1, const char *line2);
 /* Per-period update: refresh the rendered text + aggregate button state. */
 void wtsn_display_tick(void);
 
+/* Feed a received MQTT message (topic + payload) to the display so it can
+ * parse esp32-01's telemetry (temp/hum/press/light/pir) for the HUD. */
+void wtsn_display_on_telemetry(const char *topic, const char *payload);
+
+/* Set the OLED to the 4-corner sensor HUD mode (temp/hum/press/motion). */
+void wtsn_display_set_hud(bool enable);
+
+/* True when the HUD layout is active (vs. the 2-line status text). */
+bool wtsn_display_hud(void);
+
+/* Register a callback invoked (in the display tick task) whenever a button is
+ * pressed. main.c maps K1..K4 to concrete actions (relay toggle, status,
+ * page, identify). */
+typedef void (*wtsn_display_btn_cb)(int btn, void *ud);
+void wtsn_display_set_btn_cb(wtsn_display_btn_cb cb, void *ud);
+
 /* True when an SSD1306 was actually found on the bus. */
 bool wtsn_display_present(void);
 
