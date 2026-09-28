@@ -92,6 +92,29 @@ static void on_connected(esp_mqtt_event_handle_t e, wtsn_mqtt *m) {
      * here). The actor board's OLED parses the esp32-01 values to show a live
      * sensor HUD. */
     esp_mqtt_client_subscribe(m->c, "tsn/sensors", 0);
+    /* Actor board OLED commands (REAL-MODE.md §7b): display text, panel
+     * controller toggle, and the fill/readback diagnostics. Only the actor
+     * board acts on these; other nodes ignore them. */
+    snprintf(t, sizeof(t), "tsn/cmd/%s/display", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/button", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/oled", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/fill", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/read", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/run", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/dump", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/paneldump", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/quad", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/bars", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
     ESP_LOGI(TAG, "subscribed to commands for device '%s'", m->device_id);
     if (m->conn_cb) m->conn_cb("", m->ud);
 }

@@ -67,6 +67,39 @@ void wtsn_display_set_hud(bool enable);
 /* True when the HUD layout is active (vs. the 2-line status text). */
 bool wtsn_display_hud(void);
 
+/* Switch panel controller: false = SSD1306 (128 segs), true = SH1106
+ * (132 segs, 2 invisible -> 2-col offset). Re-inits + re-renders. Returns
+ * true when the OLED is present. */
+bool wtsn_display_set_controller(bool sh1106);
+
+/* True when the SH1106 controller mode is active. */
+bool wtsn_display_controller_sh1106(void);
+
+/* Fill the whole panel with a test pattern (0xFF lit / 0x00 off / 0xAA stripes)
+ * and flush. Pure I2C transport check for debugging. Also freezes the frame. */
+void wtsn_display_fill(uint8_t pattern);
+
+/* Freeze (hold the current frame) or resume normal rendering. */
+void wtsn_display_freeze(bool on);
+
+/* Decisive mapping test: re-init + fill 4 solid quadrants (TL+BR lit) + freeze. */
+void wtsn_display_quad(void);
+
+/* Combined row+column mapping test: 4 horizontal bars, each left-half lit. */
+void wtsn_display_bars(void);
+
+/* Render the current content and log the framebuffer as an ASCII bitmap to
+ * the serial console — for inspecting the pixels we compute. */
+void wtsn_display_dump(void);
+
+/* Read the panel's own GDDRAM back over I2C and log it as an ASCII bitmap.
+ * Compare against wtsn_display_dump() to see if our data actually landed. */
+void wtsn_display_dump_panel(void);
+
+/* Fill with 0xFF, flush, then read the GDDRAM back over I2C and log it —
+ * definitive check for whether the panel stores our data. */
+void wtsn_display_readback(void);
+
 /* Register a callback invoked (in the display tick task) whenever a button is
  * pressed. main.c maps K1..K4 to concrete actions (relay toggle, status,
  * page, identify). */

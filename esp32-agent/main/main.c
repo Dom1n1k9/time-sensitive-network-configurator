@@ -275,6 +275,90 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
         wtsn_mqtt_publish(g_mqtt, topic, ack);
         return;
+    } else if (strcmp(cmd, "oled") == 0) {
+        /* Panel controller: "sh1106" or "ssd1306" (also "1"/"0").
+         * Re-inits the OLED with the matching addressing. */
+        bool sh = (strstr(payload, "sh1106") != NULL) || (payload[0] == '1');
+        bool on = wtsn_display_set_controller(sh);
+        char ack[96];
+        snprintf(ack, sizeof(ack),
+                 "{\"id\":\"%s\",\"ok\":true,\"oled\":\"%s\",\"present\":%d}",
+                 g_device_id, sh ? "sh1106" : "ssd1306", on ? 1 : 0);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "fill") == 0) {
+        /* OLED transport test: "on" (0xFF), "off" (0x00), "stripe" (0xAA),
+         * "dots" (0x55). Fills the whole panel with the pattern. */
+        uint8_t pat = 0xFF;
+        if (strcmp(payload, "off") == 0) pat = 0x00;
+        else if (strcmp(payload, "stripe") == 0) pat = 0xAA;
+        else if (strcmp(payload, "dots") == 0) pat = 0x55;
+        wtsn_display_fill(pat);
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"fill\":\"%s\"}",
+                 g_device_id, payload);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "read") == 0) {
+        /* OLED GDDRAM readback: fills 0xFF, flushes, reads the panel memory
+         * back and logs it (see serial). "ff ff ff ..." = panel stores data;
+         * random = panel not receiving our writes. */
+        wtsn_display_readback();
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"read\":1}", g_device_id);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "run") == 0) {
+        /* Resume normal OLED rendering (clears a fill/freeze test pattern). */
+        wtsn_display_freeze(false);
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"run\":1}", g_device_id);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "dump") == 0) {
+        /* Log the current framebuffer as an ASCII bitmap to the serial console. */
+        wtsn_display_dump();
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"dump\":1}", g_device_id);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "paneldump") == 0) {
+        /* Read the panel's own GDDRAM back over I2C and log it as an ASCII bitmap. */
+        wtsn_display_dump_panel();
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"paneldump\":1}", g_device_id);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "quad") == 0) {
+        /* Decisive mapping test: 4 solid quadrants (TL+BR lit), frozen. */
+        wtsn_display_quad();
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"quad\":1}", g_device_id);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
+    } else if (strcmp(cmd, "bars") == 0) {
+        /* Combined row+column mapping test: 4 bars, each left-half lit. */
+        wtsn_display_bars();
+        char ack[96];
+        snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"bars\":1}", g_device_id);
+        char topic[40];
+        snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
+        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        return;
     } else if (strcmp(cmd, "button") == 0) {
         /* Echo which button(s) to act on: {"k":1} returns the latched level.
          * The physical K1..K4 events are published autonomously on

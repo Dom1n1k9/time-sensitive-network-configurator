@@ -35,6 +35,7 @@ static const char *TAG = "display";
 #define SSD1306_CMD_DISPLAY_ON      0xAF
 #define SSD1306_CMD_SET_MEM_MODE    0x20
 #define SSD1306_CMD_MEM_HORZ        0x00
+#define SSD1306_CMD_MEM_PAGE        0x02
 #define SSD1306_CMD_SET_COL_ADDR    0x21
 #define SSD1306_CMD_SET_PAGE_ADDR   0x22
 #define SSD1306_CMD_SET_START_LINE  0x40
@@ -62,6 +63,10 @@ static const char *TAG = "display";
 
 static bool g_present = false;
 static uint8_t g_i2c_found = 0;   /* actual SSD1306 address ACKed on the bus */
+static bool g_sh1106 = false;     /* SH1106 panel (132 segs, 2 invisible) vs SSD1306 */
+static bool g_freeze = false;     /* hold the current frame (test patterns) */
+static int64_t g_init_us = 0;     /* when we first looked for the panel */
+static int64_t g_found_us = 0;    /* when the panel first answered */
 static uint8_t g_fb[SSD1306_BUF_SZ];
 
 static char g_dev_id[16] = "esp32-02";
@@ -71,6 +76,15 @@ static char g_line1[24] = "WTSN node";
 static char g_line2[24] = "connecting...";
 
 static int64_t g_last_pub_us = 0;
+
+/* Info-panel refresh policy: the display is a low-frequency status panel, not
+ * a live scope. Re-render at most every RENDER_INTERVAL_US, and only push a
+ * flush when the framebuffer actually changed — otherwise the panel flickers
+ * on every tick. A button press forces an immediate refresh for feedback. */
+static int64_t g_last_render_us = 0;
+static const int64_t RENDER_INTERVAL_US = 10000000LL;   /* 10 s */
+static uint8_t g_fb_last[SSD1306_BUF_SZ];               /* last pushed frame */
+static bool g_fb_last_valid = false;
 
 /* ---- telemetry HUD (values from esp32-01 over tsn/sensors) ---- */
 static bool g_hud = true;                      /* 4-corner HUD vs 2-line text */
@@ -91,6 +105,10 @@ static const gpio_num_t g_btn_gpio[BTN_COUNT] = {
 static volatile uint32_t g_btn_levels = 0;      /* debounced 0/1 per button */
 static volatile uint32_t g_btn_rising = 0;      /* level rise seen since last tick */
 static int g_prev_btn[BTN_COUNT];
+static int g_btn_raw[BTN_COUNT];                /* last observed raw level (1=pressed) */
+static int64_t g_btn_change_us[BTN_COUNT];      /* when the raw level last changed */
+static const int64_t BTN_DEBOUNCE_US = 30000;   /* 30 ms stable before we commit */
+static bool g_btn_inited = false;               /* buttons_tick must not run before buttons_init */
 static char g_btn_label[BTN_COUNT][6] = {"K1", "K2", "K3", "K4"};
 static bool g_btn_enabled = true;               /* disabled if the OLED is present for K3/K4 without pullup */
 
@@ -100,55 +118,102 @@ static bool g_btn_enabled = true;               /* disabled if the OLED is prese
 
 static inline uint8_t ssd1306_addr(void) { return g_i2c_found ? g_i2c_found : SSD1306_ADDR; }
 
-static void i2c_write_cmd(uint8_t cmd) {
+static bool i2c_write_cmd(uint8_t cmd) {
     i2c_cmd_handle_t c = i2c_cmd_link_create();
     i2c_master_start(c);
     i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
     i2c_master_write_byte(c, SSD1306_CTRL_CMD, 1);
     i2c_master_write_byte(c, cmd, 1);
     i2c_master_stop(c);
-    i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(50));
+    esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(50));
     i2c_cmd_link_delete(c);
+    return (err == ESP_OK);
 }
 
-/* Write the whole framebuffer to the display RAM. */
+/* Write the whole framebuffer using HORIZONTAL addressing mode (0x20 0x00).
+ *
+ * In horizontal mode the X/Y pointer auto-advances the column and wraps to the
+ * next page, so one linear 1024-byte stream fills the entire panel. We set the
+ * page range (0x22) and column range (0x21) once, then stream the framebuffer
+ * in 128-byte I2C chunks (the pointer keeps advancing across transactions).
+ *
+ * This is the addressing the panel reliably honours. The previous per-page
+ * approach used the 0xB0+page command, which is only valid on SH1106 clones —
+ * on a real SSD1306 the page command is 0x80+page, so 0xB0 was ignored and
+ * every page of data landed in the wrong place, turning any column-varying
+ * image into fuzz while uniform fills (0xFF / 0xAA) still looked fine.
+ * 128-byte chunks also stay well under the I2C transfer timeout. */
 static void ssd1306_flush(void) {
-    static const uint8_t zero[8] = {0};
-    i2c_cmd_handle_t c = i2c_cmd_link_create();
-    i2c_master_start(c);
-    i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
-    i2c_master_write_byte(c, SSD1306_CTRL_CMD, 1);
-    i2c_master_write_byte(c, SSD1306_CMD_SET_COL_ADDR, 1);
-    i2c_master_write_byte(c, 0, 1);
-    i2c_master_write_byte(c, 127, 1);
-    i2c_master_write_byte(c, SSD1306_CMD_SET_PAGE_ADDR, 1);
-    i2c_master_write_byte(c, 0, 1);
-    i2c_master_write_byte(c, 7, 1);
-    i2c_master_write_byte(c, SSD1306_CTRL_DATA, 1);
-    i2c_master_write(c, g_fb, SSD1306_BUF_SZ, 1);
-    /* upper 8 bytes of the control stream are the display data; nothing else */
-    (void)zero;
-    i2c_master_stop(c);
-    i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(c);
+    int col_off = g_sh1106 ? 2 : 0;   /* SH1106 has 132 segs, first 2 invisible */
+    static int errs = 0;
+
+    /* Set page + column ranges (this also positions the pointer at page 0,
+     * column col_off), then stream the first 128 bytes (page 0). */
+    i2c_cmd_handle_t c0 = i2c_cmd_link_create();
+    i2c_master_start(c0);
+    i2c_master_write_byte(c0, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c0, SSD1306_CTRL_CMD, 1);
+    i2c_master_write_byte(c0, 0x22, 1);                    /* page address range */
+    i2c_master_write_byte(c0, 0x00, 1);                    /*   page start */
+    i2c_master_write_byte(c0, 0x07, 1);                    /*   page end   */
+    i2c_master_write_byte(c0, 0x21, 1);                    /* column address range */
+    i2c_master_write_byte(c0, (uint8_t)col_off, 1);        /*   column start */
+    i2c_master_write_byte(c0, (uint8_t)(col_off + 127), 1);/*   column end   */
+    i2c_master_write_byte(c0, SSD1306_CTRL_DATA, 1);       /* data mode */
+    i2c_master_write(c0, g_fb, 128, 1);                    /* page 0 */
+    i2c_master_stop(c0);
+    esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0, c0, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(c0);
+    if (err != ESP_OK) {
+        errs++;
+        ESP_LOGE(TAG, "flush range+page0 FAILED err=0x%x", err);
+    }
+
+    /* Pages 1..7: data only — the pointer auto-advances from the last byte. */
+    for (int page = 1; page < 8; page++) {
+        i2c_cmd_handle_t c = i2c_cmd_link_create();
+        i2c_master_start(c);
+        i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
+        i2c_master_write_byte(c, SSD1306_CTRL_DATA, 1);
+        i2c_master_write(c, &g_fb[page * 128], 128, 1);
+        i2c_master_stop(c);
+        err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(100));
+        i2c_cmd_link_delete(c);
+        if (err != ESP_OK) {
+            errs++;
+            if (errs == 1 || (errs % 25) == 0)
+                ESP_LOGE(TAG, "flush page %d FAILED err=0x%x (cum %d)", page, err, errs);
+        }
+    }
 }
 
-static void ssd1306_init_seq(void) {
-    i2c_write_cmd(SSD1306_CMD_DISPLAY_OFF);
-    i2c_write_cmd(SSD1306_CMD_SET_MUX_RATIO); i2c_write_cmd(SSD1306_CMD_MUX_64);
-    i2c_write_cmd(SSD1306_CMD_DISP_OFFSET);   i2c_write_cmd(0x00);
-    i2c_write_cmd(SSD1306_CMD_SET_START_LINE | 0x00);
-    i2c_write_cmd(SSD1306_CMD_SET_COM_SCAN_DEC);
-    i2c_write_cmd(SSD1306_CMD_SEG_REMAP);
-    i2c_write_cmd(SSD1306_CMD_SET_COMPIN);    i2c_write_cmd(SSD1306_CMD_COMPIN_64);
-    i2c_write_cmd(SSD1306_CMD_SET_CONTRAST);  i2c_write_cmd(SSD1306_CMD_CONTRAST);
-    i2c_write_cmd(SSD1306_CMD_CLOCKDIV);      i2c_write_cmd(SSD1306_CMD_CLOCKDIV_VAL);
-    i2c_write_cmd(SSD1306_CMD_PRECHARGE);     i2c_write_cmd(SSD1306_CMD_PRECHARGE_VAL);
-    i2c_write_cmd(SSD1306_CMD_SET_VCOMH);     i2c_write_cmd(SSD1306_CMD_VCOMH_1_150);
-    i2c_write_cmd(SSD1306_CMD_CHARGE_PUMP);   i2c_write_cmd(SSD1306_CMD_CP_ON);
-    i2c_write_cmd(SSD1306_CMD_SET_MEM_MODE);  i2c_write_cmd(SSD1306_CMD_MEM_HORZ);
-    i2c_write_cmd(SSD1306_CMD_SET_SCROLL);
-    i2c_write_cmd(SSD1306_CMD_DISPLAY_ON);
+static int ssd1306_init_seq(void) {
+    int ok = 0;
+#define W(cmd) do { if (i2c_write_cmd(cmd)) ok++; \
+                    else ESP_LOGE(TAG, "init 0x%02X FAILED", (cmd)); } while (0)
+    W(SSD1306_CMD_DISPLAY_OFF);
+    W(SSD1306_CMD_SET_MUX_RATIO); W(SSD1306_CMD_MUX_64);
+    W(SSD1306_CMD_DISP_OFFSET);   W(0x00);
+    W(SSD1306_CMD_SET_START_LINE | 0x00);
+    W(SSD1306_CMD_SET_COM_SCAN_DEC);
+    W(SSD1306_CMD_SEG_REMAP);
+    W(SSD1306_CMD_SET_COMPIN);    W(SSD1306_CMD_COMPIN_64);
+    W(SSD1306_CMD_SET_CONTRAST);  W(SSD1306_CMD_CONTRAST);
+    W(SSD1306_CMD_CLOCKDIV);      W(SSD1306_CMD_CLOCKDIV_VAL);
+    W(SSD1306_CMD_PRECHARGE);     W(SSD1306_CMD_PRECHARGE_VAL);
+    W(SSD1306_CMD_SET_VCOMH);     W(SSD1306_CMD_VCOMH_1_150);
+    W(SSD1306_CMD_CHARGE_PUMP);   W(SSD1306_CMD_CP_ON);
+    /* HORIZONTAL addressing mode (0x20 0x00) — matches ssd1306_flush(), which
+     * streams the framebuffer linearly. 0xA4 = display from RAM (not
+     * "entire-on"), 0xA6 = normal (non-inverted) — both per the reference
+     * init so the panel shows our GDDRAM content correctly. */
+    W(SSD1306_CMD_SET_MEM_MODE);  W(SSD1306_CMD_MEM_HORZ);
+    W(0xA4);                      /* entire-display off, resume to RAM */
+    W(0xA6);                      /* normal display (not inverted) */
+    W(SSD1306_CMD_SET_SCROLL);
+    W(SSD1306_CMD_DISPLAY_ON);
+#undef W
+    return ok;
 }
 
 /* Check an address ACKs on the I2C bus: start + address-byte(with ACK check)
@@ -254,17 +319,25 @@ static void fb_set_px(int x, int y) {
     g_fb[(y >> 3) * 128 + x] |= (uint8_t)(1 << (y & 7));
 }
 
-static void fb_text(int col, int row, const char *text) {
-    int x = col * 6;
-    int y = row * 8;
+static void draw_text_px(int x, int y, const char *text) {
     if (!text) return;
     for (const char *p = text; *p; p++) {
         unsigned char ch = (unsigned char)*p;
-        if (ch < 0x20 || ch > 0x7E) ch = ' ';
+        const uint8_t *glyph;
+        if (ch == 0xB0) {                 /* degree sign (not in the ASCII font) */
+            static const uint8_t deg[5] = {0x06, 0x09, 0x09, 0x09, 0x06};
+            glyph = deg;
+        } else {
+            if (ch < 0x20 || ch > 0x7E) ch = ' ';
+            glyph = FONT5[ch - 0x20];
+        }
         for (int c = 0; c < 5; c++) {
-            uint8_t line = FONT5[ch - 0x20][c];
+            uint8_t line = glyph[c];
+            /* FONT5 stores each glyph column with bit 0 = top row, so bit b
+             * maps straight down to row y+b. (The old y+6-b flipped every
+             * character vertically, which is why text looked like noise.) */
             for (int b = 0; b < 7; b++) {
-                if (line & (1 << b)) fb_set_px(x + c, y + 6 - b);
+                if (line & (1 << b)) fb_set_px(x + c, y + b);
             }
         }
         x += 6;
@@ -272,9 +345,23 @@ static void fb_text(int col, int row, const char *text) {
     }
 }
 
+static void fb_text(int col, int row, const char *text) {
+    draw_text_px(col * 6, row * 8, text);
+}
+
+/* Draw a string horizontally centred on the 128 px panel at the given row. */
+static void fb_text_centered(int row, const char *text) {
+    int x = (128 - (int)strlen(text) * 6) / 2;
+    if (x < 0) x = 0;
+    draw_text_px(x, row * 8, text);
+}
+
 /* ===================================================================== */
 /* Public API                                                             */
 /* ===================================================================== */
+
+static bool display_probe_init(void);   /* probe + init, returns true when found */
+static void hud_render(void);           /* render the 4-corner sensor HUD */
 
 bool wtsn_display_present(void) { return g_present; }
 
@@ -316,7 +403,8 @@ static void buttons_publish(void) {
 static void buttons_init(void) {
     /* 34/35 have no internal pull-up on classic ESP32: use external 10k or
      * rely on the module's own pull. We configure pull-up where available and
-     * treat a floating/active-low as "pressed" only on a real falling edge. */
+     * debounce so a floating line can't register as a press. */
+    int64_t now = esp_timer_get_time();
     for (int i = 0; i < BTN_COUNT; i++) {
         gpio_config_t io = {0};
         io.pin_bit_mask = (1ULL << g_btn_gpio[i]);
@@ -325,27 +413,38 @@ static void buttons_init(void) {
         io.pull_down_en = GPIO_PULLDOWN_DISABLE;
         gpio_config(&io);
         g_prev_btn[i] = -1;
+        /* Seed the raw state from the current level so boot isn't seen as a
+         * press, and start the debounce window now. */
+        g_btn_raw[i] = (gpio_get_level(g_btn_gpio[i]) == 0) ? 1 : 0;
+        g_btn_change_us[i] = now;
     }
+    g_btn_inited = true;
 }
 
 static void buttons_tick(void) {
-    uint32_t now_levels = 0;
+    if (!g_btn_inited) return;   /* GPIOs not configured yet — don't sample */
+    int64_t now = esp_timer_get_time();
     for (int i = 0; i < BTN_COUNT; i++) {
-        int lvl = 0;
-        if (g_btn_gpio[i] >= GPIO_NUM_34) {
-            /* input-only pins return a valid level via gpio_get_level too */
-            lvl = gpio_get_level(g_btn_gpio[i]);
-        } else {
-            lvl = gpio_get_level(g_btn_gpio[i]);
-        }
         /* active low: pressed = 0 */
-        if (lvl == 0) now_levels |= (1u << i);
-    }
-    g_btn_levels = now_levels;
-    /* rising edges (was up, now down) -> publish */
-    for (int i = 0; i < BTN_COUNT; i++) {
-        int now = (now_levels >> i) & 1u;
-        if (g_prev_btn[i] == 0 && now == 1) {
+        int raw = (gpio_get_level(g_btn_gpio[i]) == 0) ? 1 : 0;
+        if (raw != g_btn_raw[i]) {
+            /* Level just changed: restart the debounce window, don't commit
+             * yet. This is what stops a floating input (K3/K4 on the
+             * input-only GPIOs 34/35) from flickering the HUD row or
+             * auto-toggling the display mode. */
+            g_btn_raw[i] = raw;
+            g_btn_change_us[i] = now;
+            continue;
+        }
+        if (now - g_btn_change_us[i] < BTN_DEBOUNCE_US) continue;
+        int committed = (g_btn_levels >> i) & 1u;
+        if (committed == raw) continue;   /* already in the committed state */
+        /* Commit the new stable level. */
+        if (raw) g_btn_levels |= (1u << i);
+        else g_btn_levels &= ~(1u << i);
+        g_prev_btn[i] = raw;
+        g_last_render_us = 0;   /* force an immediate panel refresh for feedback */
+        if (committed == 0 && raw == 1) {
             g_btn_rising |= (1u << i);
             ESP_LOGI(TAG, "button %d (%s) pressed", i + 1, g_btn_label[i]);
             char topic[64], payload[96];
@@ -362,7 +461,6 @@ static void buttons_tick(void) {
             /* hand off to the action callback (registered by main.c) */
             if (g_btn_cb) g_btn_cb(i + 1, g_btn_ud);
         }
-        g_prev_btn[i] = now;
     }
 }
 
@@ -393,30 +491,49 @@ void wtsn_display_init(const char *device_id, wtsn_mqtt *mq) {
 
     buttons_init();
 
+    /* Startup delay: give the OLED module time to power on and finish its
+     * internal reset before the first I2C contact. Clones ACK their address
+     * as soon as the I2C peripheral is up, but silently drop commands sent
+     * too early — which leaves the panel half-initialised and showing
+     * static. */
+    vTaskDelay(pdMS_TO_TICKS(400));
+    g_init_us = esp_timer_get_time();
+
     /* Try to attach the display on the I2C bus (SDA21/SCL22). The bus is
      * already installed by the sensor add-on init; only reuse, don't own. */
     ssd1306_scan_bus();
     for (int attempt = 0; attempt < 2 && !g_present; attempt++) {
-        if (attempt == 0) {
-            vTaskDelay(pdMS_TO_TICKS(50));
-        } else {
-            vTaskDelay(pdMS_TO_TICKS(150));
-        }
-        if (ssd1306_present()) {
-            ssd1306_init_seq();
-            fb_clear();
-            fb_text(0, 0, "WTSN node");
-            fb_text(0, 1, g_dev_id);
-            fb_text(0, 7, "display: OK");
-            ssd1306_flush();
-            g_present = true;
-            ESP_LOGI(TAG, "SSD1306 found at 0x%02X (SDA%d SCL%d)",
-                     ssd1306_addr(), (int)WTSN_SSD1306_SDA, (int)WTSN_SSD1306_SCL);
-        } else {
-            ESP_LOGW(TAG, "no SSD1306 on I2C (0x%02X) - display disabled",
+        if (attempt) vTaskDelay(pdMS_TO_TICKS(150));
+        if (!display_probe_init()) {
+            ESP_LOGW(TAG, "no SSD1306 on I2C (0x%02X) yet - retrying in tick",
                      SSD1306_ADDR);
         }
     }
+}
+
+/* Probe the panel and, if it answers, run the full init + first frame.
+ * Returns true when the panel is attached. Called from init and re-called
+ * from the tick for the first ~15 s to catch a slowly powering panel. */
+static bool display_probe_init(void) {
+    if (!ssd1306_present()) return false;
+    vTaskDelay(pdMS_TO_TICKS(20));   /* settle after first contact */
+    int ok = ssd1306_init_seq();
+    vTaskDelay(pdMS_TO_TICKS(20));
+    /* Boot straight into the 4-value info panel (no "display: OK" splash) so
+     * the first thing on the glass is the same panel seen in steady state.
+     * Values read "--" until the first telemetry frame arrives. */
+    hud_render();
+    ssd1306_flush();
+    memcpy(g_fb_last, g_fb, SSD1306_BUF_SZ);
+    g_fb_last_valid = true;
+    g_present = true;
+    if (g_found_us == 0) g_found_us = esp_timer_get_time();
+    /* Arm the refresh interval so the first tick re-renders (to pick up any
+     * telemetry that just arrived) and then holds for RENDER_INTERVAL_US. */
+    g_last_render_us = esp_timer_get_time() - RENDER_INTERVAL_US;
+    ESP_LOGI(TAG, "SSD1306 found at 0x%02X (SDA%d SCL%d), init %d/26 cmds",
+             ssd1306_addr(), (int)WTSN_SSD1306_SDA, (int)WTSN_SSD1306_SCL, ok);
+    return true;
 }
 
 /* Small JSON float extractor (the vendored wtsn_json only has int/str). */
@@ -437,6 +554,27 @@ static bool json_get_f(const char *json, const char *key, float *out) {
     return true;
 }
 
+/* The sensor board publishes an aggregated frame:
+ *   {"id":"esp32-01","sensors":[{"sensor_id":"temp1","value":22.7,...},...]}
+ * This finds the value that belongs to a given sensor_id (the "value" field
+ * that follows the matching "sensor_id" entry). */
+static bool sensor_value(const char *json, const char *sensor_id, float *out) {
+    if (!json || !sensor_id || !out) return false;
+    char pat[64];
+    snprintf(pat, sizeof(pat), "\"sensor_id\":\"%s\"", sensor_id);
+    const char *h = strstr(json, pat);
+    if (!h) return false;
+    const char *v = strstr(h, "\"value\":");
+    if (!v) return false;
+    v += 8; /* len("\"value\":") */
+    while (*v == ' ' || *v == '\t') v++;
+    char *end = NULL;
+    float val = strtof(v, &end);
+    if (end == v) return false;
+    *out = val;
+    return true;
+}
+
 void wtsn_display_on_telemetry(const char *topic, const char *payload) {
     (void)topic;
     if (!payload || !payload[0]) return;
@@ -448,17 +586,237 @@ void wtsn_display_on_telemetry(const char *topic, const char *payload) {
         return;
     }
     float v;
-    if (json_get_f(payload, "temp", &v)) g_temp = v;
-    if (json_get_f(payload, "hum", &v) || json_get_f(payload, "hum1", &v)) g_hum = v;
-    if (json_get_f(payload, "press", &v) || json_get_f(payload, "press1", &v)) g_press = v;
-    if (json_get_f(payload, "light", &v) || json_get_f(payload, "light1", &v)) g_light = (int)v;
-    if (json_get_f(payload, "motion", &v) || json_get_f(payload, "pir1", &v)) g_pir = (v > 0.5f);
-    if (json_get_f(payload, "pir", &v)) g_pir = (v > 0.5f);
+    if (sensor_value(payload, "temp1", &v) || json_get_f(payload, "temp", &v)) g_temp = v;
+    if (sensor_value(payload, "hum1", &v) || json_get_f(payload, "hum", &v) || json_get_f(payload, "hum1", &v)) g_hum = v;
+    if (sensor_value(payload, "press1", &v) || json_get_f(payload, "press", &v) || json_get_f(payload, "press1", &v)) g_press = v;
+    if (sensor_value(payload, "light1", &v) || json_get_f(payload, "light", &v) || json_get_f(payload, "light1", &v)) g_light = (int)v;
+    if (sensor_value(payload, "pir1", &v) || sensor_value(payload, "motion", &v) || json_get_f(payload, "motion", &v) || json_get_f(payload, "pir", &v)) g_pir = (v > 0.5f);
+    bool first = (g_last_telem_us < 0);
     g_last_telem_us = esp_timer_get_time();
+    /* Only force a redraw on the very first frame (so the values show up right
+     * after boot). After that the tick's 10 s throttle + dirty check handle
+     * updates — redrawing on every telemetry frame (~1 s) made the panel
+     * flicker, because each full-frame I2C write is briefly visible. */
+    if (first) g_last_render_us = 0;
 }
 
 void wtsn_display_set_hud(bool enable) { g_hud = enable; }
 bool wtsn_display_hud(void) { return g_hud; }
+
+/* Switch the panel controller between SSD1306 (128 segments) and SH1106
+ * (132 segments, 2 invisible -> 2-column offset) at runtime. Re-inits the
+ * panel and re-renders the current content. Returns true when the OLED is
+ * present. Lets us match the panel without reflashing. */
+bool wtsn_display_set_controller(bool sh1106) {
+    g_sh1106 = sh1106;
+    if (g_present) {
+        ssd1306_init_seq();
+        fb_clear();
+        fb_text(0, 0, g_dev_id);
+        fb_text(0, 2, sh1106 ? "sh1106" : "ssd1306");
+        fb_text(0, 3, "ctrl set");
+        ssd1306_flush();
+    }
+    ESP_LOGI(TAG, "panel controller -> %s (display %s)",
+             sh1106 ? "SH1106" : "SSD1306", g_present ? "on" : "off");
+    return g_present;
+}
+bool wtsn_display_controller_sh1106(void) { return g_sh1106; }
+
+/* Fill the whole panel with a test pattern and flush — a pure I2C transport
+ * check. pattern 0xFF = all lit, 0x00 = all off, 0xAA/0x55 = stripes. If the
+ * panel shows the solid/striped pattern, data is reaching it and the content
+ * (controller type / addressing) is the only thing left to match. */
+void wtsn_display_fill(uint8_t pattern) {
+    if (!g_present) return;
+    /* Re-run the full init first: if the boot-time init was sent before the
+     * panel's core finished power-on (and got dropped), the display-control
+     * commands (charge pump, display-on) were lost and the panel shows
+     * static. Re-initialising right before the fill guarantees the control
+     * state is correct at the moment we test it. */
+    ssd1306_init_seq();
+    vTaskDelay(pdMS_TO_TICKS(20));
+    memset(g_fb, pattern, sizeof(g_fb));
+    ssd1306_flush();
+    g_freeze = true;   /* hold the pattern so the tick doesn't overwrite it */
+}
+
+/* Freeze (hold the current frame) or resume normal rendering. */
+void wtsn_display_freeze(bool on) { g_freeze = on; }
+
+/* Decisive mapping test: re-init, then fill 4 solid quadrants (TL+BR lit,
+ * TR+BL dark) and freeze. Unlike a uniform fill, quadrant edges reveal any
+ * wrong segment remap / COM order / column offset — if the user sees the
+ * correct 2x2 checkerboard the display geometry is right; if it's scrambled,
+ * the panel config must be adjusted. */
+void wtsn_display_quad(void) {
+    if (!g_present) return;
+    ssd1306_init_seq();
+    vTaskDelay(pdMS_TO_TICKS(20));
+    fb_clear();
+    for (int y = 0; y < 64; y++) {
+        for (int x = 0; x < 128; x++) {
+            bool tl = (x < 64) && (y < 32);
+            bool br = (x >= 64) && (y >= 32);
+            if (tl || br) fb_set_px(x, y);
+        }
+    }
+    ssd1306_flush();
+    g_freeze = true;
+}
+
+/* Combined row+column mapping test: 4 horizontal bars (at y 0,16,32,48),
+ * each bar's LEFT half (x<64) lit and RIGHT half dark. 4 clean bars => rows
+ * (COM) map correctly. Each bar cleanly split at the middle => columns (SEG)
+ * map in order. Bars present but the split scrambled => segment order is the
+ * fault (text would look like noise). */
+void wtsn_display_bars(void) {
+    if (!g_present) return;
+    ssd1306_init_seq();
+    vTaskDelay(pdMS_TO_TICKS(20));
+    fb_clear();
+    for (int bar = 0; bar < 4; bar++) {
+        int y0 = bar * 16;
+        for (int y = y0; y < y0 + 12; y++)
+            for (int x = 0; x < 64; x++)
+                fb_set_px(x, y);
+    }
+    ssd1306_flush();
+    g_freeze = true;
+}
+
+/* Render the current content into the framebuffer (same as the tick) and log
+ * it as an ASCII bitmap to the serial console. This shows the exact pixels we
+ * compute, independent of the panel — if the dump is clean text but the panel
+ * shows noise, the fault is display-side; if the dump is noise, the fault is in
+ * our rendering. */
+void wtsn_display_dump(void) {
+    if (!g_present) { ESP_LOGW(TAG, "dump: no display"); return; }
+    if (g_hud) {
+        hud_render();   /* also flushes to the panel */
+    } else {
+        fb_clear();
+        fb_text(0, 0, g_line1);
+        fb_text(0, 1, g_line2);
+        fb_text(0, 7, g_dev_id);
+        ssd1306_flush();
+    }
+    ESP_LOGI(TAG, "=== framebuffer dump (128x64, # = lit) ===");
+    for (int y = 0; y < 64; y++) {
+        char line[130];
+        for (int x = 0; x < 128; x++)
+            line[x] = (g_fb[(y >> 3) * 128 + x] & (1 << (y & 7))) ? '#' : '.';
+        line[128] = 0;
+        ESP_LOGI(TAG, "%02d %s", y, line);
+    }
+    ESP_LOGI(TAG, "=== end dump ===");
+}
+
+/* Read the panel's OWN GDDRAM back over I2C and log it as an ASCII bitmap in
+ * the same format as wtsn_display_dump(). Compare the two: if the panel's
+ * GDDRAM matches our framebuffer, the data reached the panel and the fault is
+ * in its display geometry; if it differs, our writes are being corrupted. */
+void wtsn_display_dump_panel(void) {
+    if (!g_present) { ESP_LOGW(TAG, "dump_panel: no display"); return; }
+    uint8_t *ram = malloc(SSD1306_BUF_SZ);
+    if (!ram) { ESP_LOGE(TAG, "dump_panel: oom"); return; }
+    uint8_t *p = ram;
+    for (int page = 0; page < 8; page++) {
+        /* Set the X/Y pointer to this page, column 0 (write transaction). */
+        i2c_cmd_handle_t w = i2c_cmd_link_create();
+        i2c_master_start(w);
+        i2c_master_write_byte(w, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
+        i2c_master_write_byte(w, SSD1306_CTRL_CMD, 1);
+        i2c_master_write_byte(w, (uint8_t)(0xB0 | page), 1);
+        i2c_master_write_byte(w, 0x00, 1);
+        i2c_master_write_byte(w, 0x10, 1);
+        i2c_master_stop(w);
+        i2c_master_cmd_begin(I2C_NUM_0, w, pdMS_TO_TICKS(50));
+        i2c_cmd_link_delete(w);
+
+        /* Read the 128 bytes of this page (read transaction). */
+        i2c_cmd_handle_t r = i2c_cmd_link_create();
+        i2c_master_start(r);
+        i2c_master_write_byte(r, (ssd1306_addr() << 1) | I2C_MASTER_READ, 1);
+        for (int i = 0; i < 127; i++) i2c_master_read(r, &p[i], 1, I2C_MASTER_ACK);
+        i2c_master_read_byte(r, &p[127], I2C_MASTER_NACK);
+        i2c_master_stop(r);
+        esp_err_t e = i2c_master_cmd_begin(I2C_NUM_0, r, pdMS_TO_TICKS(100));
+        i2c_cmd_link_delete(r);
+        if (e != ESP_OK) ESP_LOGE(TAG, "dump_panel page %d read err 0x%x", page, e);
+        p += 128;
+    }
+    ESP_LOGI(TAG, "=== PANEL GDDRAM dump (128x64, # = lit) ===");
+    for (int y = 0; y < 64; y++) {
+        char line[130];
+        for (int x = 0; x < 128; x++)
+            line[x] = (ram[(y >> 3) * 128 + x] & (1 << (y & 7))) ? '#' : '.';
+        line[128] = 0;
+        ESP_LOGI(TAG, "%02d %s", y, line);
+    }
+    ESP_LOGI(TAG, "=== end panel dump ===");
+    free(ram);
+}
+
+/* Read 16 bytes from the GDDRAM at page 0, column 0. */
+static void gddram_read16(uint8_t *out, esp_err_t *err) {
+    i2c_cmd_handle_t c = i2c_cmd_link_create();
+    i2c_master_start(c);
+    i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_READ, 1);
+    i2c_master_read(c, out, 15, I2C_MASTER_ACK);
+    i2c_master_read_byte(c, &out[15], I2C_MASTER_NACK);
+    i2c_master_stop(c);
+    *err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(c);
+}
+
+/* Write 16 bytes of `val` to the GDDRAM at page 0, column 0. */
+static void gddram_write16(uint8_t val, esp_err_t *err) {
+    uint8_t data[16];
+    memset(data, val, sizeof(data));
+    i2c_cmd_handle_t c = i2c_cmd_link_create();
+    i2c_master_start(c);
+    i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c, SSD1306_CTRL_CMD, 1);
+    i2c_master_write_byte(c, 0xB0, 1);
+    i2c_master_write_byte(c, 0x00, 1);
+    i2c_master_write_byte(c, 0x10, 1);
+    i2c_master_write_byte(c, SSD1306_CTRL_DATA, 1);
+    i2c_master_write(c, data, sizeof(data), 1);
+    i2c_master_stop(c);
+    *err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(c);
+}
+
+static void gddram_log16(const char *label, const uint8_t *b, esp_err_t e) {
+    char logbuf[160] = "";
+    int n = 0;
+    for (int i = 0; i < 16; i++)
+        n += snprintf(logbuf + n, sizeof(logbuf) - (size_t)n, "%02x ", b[i]);
+    ESP_LOGI(TAG, "%s (err=0x%x): %s", label, e, logbuf);
+}
+
+/* Comprehensive transport test: read the native GDDRAM, then write 0xFF and
+ * 0x00 and read each back. Tells us exactly whether the panel stores our data. */
+void wtsn_display_readback(void) {
+    if (!g_present) { ESP_LOGW(TAG, "readback: no display"); return; }
+    uint8_t b[16];
+    esp_err_t e;
+
+    gddram_read16(b, &e);
+    gddram_log16("native    ", b, e);
+
+    esp_err_t w;
+    gddram_write16(0xFF, &w);
+    ESP_LOGI(TAG, "write 0xFF wr-err=0x%x", w);
+    gddram_read16(b, &e);
+    gddram_log16("after-0xFF", b, e);
+
+    gddram_write16(0x00, &w);
+    ESP_LOGI(TAG, "write 0x00 wr-err=0x%x", w);
+    gddram_read16(b, &e);
+    gddram_log16("after-0x00", b, e);
+}
 void wtsn_display_set_btn_cb(wtsn_display_btn_cb cb, void *ud) {
     g_btn_cb = cb;
     g_btn_ud = ud;
@@ -469,30 +827,26 @@ void wtsn_display_set_btn_cb(wtsn_display_btn_cb cb, void *ud) {
  *   BL = light         BR = pressure
  * Middle row = K1..K4 levels. */
 static void hud_render(void) {
-    char tl[20], tr[20], bl[20], br[20];
-    if (g_temp > -100) snprintf(tl, sizeof(tl), "T:%.1fC", g_temp);
-    else snprintf(tl, sizeof(tl), "T:--");
-    if (g_hum > 0) snprintf(tr, sizeof(tr), "H:%.1f%%", g_hum);
-    else snprintf(tr, sizeof(tr), "H:--");
-    if (g_light > 0) snprintf(bl, sizeof(bl), "L:%d", g_light);
-    else snprintf(bl, sizeof(bl), "L:--");
-    if (g_press > 0) snprintf(br, sizeof(br), "P:%.0f", g_press);
-    else snprintf(br, sizeof(br), "P:--");
+    char row[24];
 
     fb_clear();
-    fb_text(0,  0, tl);          /* top-left  = temperature */
-    fb_text(9,  0, tr);          /* top-right = humidity    */
-    fb_text(0,  7, bl);          /* bottom-left = light     */
-    fb_text(9,  7, br);          /* bottom-right = pressure */
 
-    char tmp[20];
-    int b1 = (int)((g_btn_levels >> 0) & 1u);
-    int b2 = (int)((g_btn_levels >> 1) & 1u);
-    int b3 = (int)((g_btn_levels >> 2) & 1u);
-    int b4 = (int)((g_btn_levels >> 3) & 1u);
-    snprintf(tmp, sizeof(tmp), "K%d %d %d %d", b1, b2, b3, b4);
-    fb_text(0, 3, tmp);
-    ssd1306_flush();
+    if (g_temp > -100) snprintf(row, sizeof(row), "T: %.1f \xB0" "C", g_temp);
+    else snprintf(row, sizeof(row), "T: --");
+    fb_text_centered(1, row);
+
+    if (g_hum > 0) snprintf(row, sizeof(row), "H: %.0f %%", g_hum);
+    else snprintf(row, sizeof(row), "H: --");
+    fb_text_centered(3, row);
+
+    if (g_press > 0) snprintf(row, sizeof(row), "P: %.0f hPa", g_press);
+    else snprintf(row, sizeof(row), "P: --");
+    fb_text_centered(5, row);
+
+    if (g_light > 0) snprintf(row, sizeof(row), "L: %d lx", g_light);
+    else snprintf(row, sizeof(row), "L: --");
+    fb_text_centered(7, row);
+    /* flush is done by the caller through the dirty check */
 }
 
 void wtsn_display_tick(void) {
@@ -504,25 +858,69 @@ void wtsn_display_tick(void) {
         buttons_publish();
     }
 
-    if (!g_present) return;
+    if (!g_present) {
+        /* Keep re-probing for the first 15 s after we first looked: a panel
+         * whose supply is still settling (slow power-on / weak 3V3) may only
+         * start answering I2C a couple of seconds later. One probe/second. */
+        if (g_init_us > 0 && (esp_timer_get_time() - g_init_us) < 15000000LL) {
+            static int64_t last_probe_us = 0;
+            int64_t now = esp_timer_get_time();
+            if (now - last_probe_us >= 1000000LL) {
+                last_probe_us = now;
+                display_probe_init();
+            }
+        }
+        return;
+    }
+
+    /* Re-run the init sequence for ~10 s after the panel first answered.
+     * The very first init is sent right after the first I2C contact, but the
+     * panel's core is often not ready to latch commands yet (the I2C
+     * peripheral ACKs before the display engine is up) — so that first init
+     * is silently dropped and the panel shows static. Re-initialising once a
+     * second for the first few seconds guarantees the control state
+     * (charge-pump, display-on, memory mode) is latched by the time the core
+     * is ready. */
+    if (g_found_us > 0 && (esp_timer_get_time() - g_found_us) < 10000000LL) {
+        static int64_t last_reinit_us = 0;
+        int64_t now = esp_timer_get_time();
+        if (now - last_reinit_us >= 1000000LL) {
+            last_reinit_us = now;
+            ssd1306_init_seq();
+        }
+    }
+
+    if (g_freeze) return;   /* hold the current frame (test pattern) */
+
+    /* Info-panel refresh policy: re-render at most every RENDER_INTERVAL_US.
+     * Between renders the panel holds the last frame (no flicker). */
+    int64_t now = esp_timer_get_time();
+    if (now - g_last_render_us < RENDER_INTERVAL_US) return;
 
     if (g_hud) {
         hud_render();
+    } else {
+        fb_clear();
+        fb_text(0, 0, g_line1);
+        fb_text(0, 1, g_line2);
+        char tmp[24];
+        int b1 = (int)((g_btn_levels >> 0) & 1u);
+        int b2 = (int)((g_btn_levels >> 1) & 1u);
+        int b3 = (int)((g_btn_levels >> 2) & 1u);
+        int b4 = (int)((g_btn_levels >> 3) & 1u);
+        snprintf(tmp, sizeof(tmp), "1:%d 2:%d 3:%d 4:%d", b1, b2, b3, b4);
+        fb_text(0, 6, tmp);
+        fb_text(0, 7, g_dev_id);
+    }
+
+    /* Dirty check: only push a flush when the frame actually changed. This is
+     * what stops the panel from flickering on every tick when nothing moved. */
+    if (g_fb_last_valid && memcmp(g_fb, g_fb_last, SSD1306_BUF_SZ) == 0) {
+        g_last_render_us = now;
         return;
     }
-    fb_clear();
-    fb_text(0, 0, g_line1);
-    fb_text(0, 1, g_line2);
-
-    /* button press indicator row at the bottom */
-    char tmp[24];
-    int b1 = (int)((g_btn_levels >> 0) & 1u);
-    int b2 = (int)((g_btn_levels >> 1) & 1u);
-    int b3 = (int)((g_btn_levels >> 2) & 1u);
-    int b4 = (int)((g_btn_levels >> 3) & 1u);
-    snprintf(tmp, sizeof(tmp), "1:%d 2:%d 3:%d 4:%d", b1, b2, b3, b4);
-    fb_text(0, 6, tmp);
-    fb_text(0, 7, g_dev_id);
-
     ssd1306_flush();
+    memcpy(g_fb_last, g_fb, SSD1306_BUF_SZ);
+    g_fb_last_valid = true;
+    g_last_render_us = now;
 }
