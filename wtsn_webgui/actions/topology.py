@@ -79,15 +79,6 @@ SENSOR_BOARD = {
         "sensor_ids": ("wifi_motion", "wifi_rssi"),
         "icons": {"wifi_motion": "", "wifi_rssi": "dBm"},
     },
-    "microbit": {
-        "label": "micro:bit V2",
-        "sub": "UART GPIO14<RX, GPIO15>TX @115200",
-        "power": "3V",
-        "bus": "UART",
-        "sensor_ids": ("mb_temp", "mb_light", "mb_sound", "mb_pir",
-                       "mb_sync_offset", "mb_sync_jitter", "mb_sync_state"),
-        "icons": {"mb_temp": "°C", "mb_light": "", "mb_sound": ""},
-    },
     "gpio": {
         "label": "GPIO input",
         "sub": "digital I/O",
@@ -151,17 +142,17 @@ def _dev_kind(dev):
 
 # Per-board wiring of this project's actual setup:
 #   esp32-01 = sensor add-on board    → BME280 + light + PIR + buzzer (PIR alarm)
-#                                      + WiFi Vision; NO relay/switch, NO micro:bit
-#   esp32-02 = display/sync board     → micro:bit panel + piezo buzzer only;
-#                                      NO sensors, NO relay/switch
+#                                      + WiFi Vision; NO relay/switch
+#   esp32-02 = display/actor board    → SSD1306 OLED + panning sonar (HC-SR04 + servo)
+#                                      + buzzer only; NO sensors, NO relay/switch
 # Any other ESP keeps the full component set.
 BOARD_WIRING = {
     "esp32-01": ("bme280", "light", "pir", "buzzer", "wifi_motion"),
-    "esp32-02": ("buzzer", "microbit", "sonar"),
+    "esp32-02": ("buzzer", "sonar"),
 }
 
 _FULL_ESP_ORDER = ("bme280", "imu", "light", "pir", "buzzer", "relay",
-                   "wifi_motion", "microbit", "gpio")
+                   "wifi_motion", "gpio")
 
 
 def _esp_components(con, dev):

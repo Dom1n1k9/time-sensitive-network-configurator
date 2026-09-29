@@ -705,14 +705,14 @@ function sensors(){
   let r="";
   for(const dev in byDev){
    const g=byDev[dev],t=g.temp1,h=g.hum1,p=g.press1;
-   const info=(n)=>{const s=g[n];if(!s)return"";const nm=sensorLabel(n);const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","mb_sound":""}[s.sensor_id]||"";return "<span class='chip' data-sen='"+esc(n)+"' data-val='"+esc(fmtAxis(s.value))+"'>"+esc(nm)+": <b>"+fmtAxis(s.value)+" "+un+"</b></span>"};
+   const info=(n)=>{const s=g[n];if(!s)return"";const nm=sensorLabel(n);const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx"}[s.sensor_id]||"";return "<span class='chip' data-sen='"+esc(n)+"' data-val='"+esc(fmtAxis(s.value))+"'>"+esc(nm)+": <b>"+fmtAxis(s.value)+" "+un+"</b></span>"};
    const chips=[];
-   ["temp1","hum1","press1","light1","mb_temp","mb_light","mb_sound"].forEach(n=>{if(g[n])chips.push(info(n))});
+    ["temp1","hum1","press1","light1"].forEach(n=>{if(g[n])chips.push(info(n))});
    if(g.pir1)chips.push("<span class='chip "+(g.pir1.value?"det":"")+"' data-sen='pir1' data-val='"+(g.pir1.value?"1":"0")+"'>Motion: <b>"+(g.pir1.value?"detected":"no motion")+"</b></span>");
    if(g.wifi_motion)chips.push("<span class='chip "+(g.wifi_motion.value?"det":"")+"' data-sen='wifi_motion' data-val='"+(g.wifi_motion.value?"1":"0")+"' title='RSSI-jitter/CSI based WiFi motion (WiFiVision)'>WiFi: <b>"+(g.wifi_motion.value?"detected":"no motion")+"</b></span>");
    if(g.ai_detect)chips.push("<span class='chip "+(g.ai_person.value?"det":"")+"' data-sen='ai_detect' data-val='"+g.ai_detect.value+"' title='AI object detection (YOLOv4-tiny on RPi)'>AI: <b>"+(g.ai_detect.value?(g.ai_person.value?"person detected":g.ai_detect.value+" objects"):"clear")+"</b></span>");
    ["btn1","btn2","btn3","btn4"].forEach(n=>{if(g[n])chips.push("<span class='chip "+(g[n].value?"det":"")+"' data-sen='"+n+"' data-val='"+g[n].value+"' title='"+sensorLabel(n)+" (actor board)'>"+sensorLabel(n)+": <b>"+(g[n].value?"pressed":"idle")+"</b></span>")});
-    const anyLatest=[t,h,p,g.light1,g.pir1,g.wifi_motion,g.ai_detect,g.mb_temp,g.mb_light,g.mb_sound,g.btn1,g.btn2,g.btn3,g.btn4].find(Boolean);
+     const anyLatest=[t,h,p,g.light1,g.pir1,g.wifi_motion,g.ai_detect,g.btn1,g.btn2,g.btn3,g.btn4].find(Boolean);
    if(!chips.length)continue;
    const mapsWrap=(dev==="esp32-01")
      ?"<div data-map='wifi' data-mapdev='"+esc(dev)+"'></div>"
@@ -772,7 +772,7 @@ function bigSensorChart(sid, pts, hist, color, unit){
    "</svg></div>"
 }
 function sensorLabel(sid){
-  return {"temp1":"Temperature","press1":"Pressure","hum1":"Humidity","light1":"Light","pir1":"Motion","wifi_motion":"WiFi Motion","wifi_rssi":"WiFi RSSI jitter","ai_detect":"AI Detect","ai_person":"AI Person","actor_mode":"Actor","mb_temp":"micro:bit Temp","mb_light":"micro:bit Light","mb_pir":"micro:bit Motion","mb_sound":"micro:bit Sound","btn1":"Button K1","btn2":"Button K2","btn3":"Button K3","btn4":"Button K4"}[sid]||sid;
+  return {"temp1":"Temperature","press1":"Pressure","hum1":"Humidity","light1":"Light","pir1":"Motion","wifi_motion":"WiFi Motion","wifi_rssi":"WiFi RSSI jitter","ai_detect":"AI Detect","ai_person":"AI Person","actor_mode":"Actor","btn1":"Button K1","btn2":"Button K2","btn3":"Button K3","btn4":"Button K4"}[sid]||sid;
 }
 /* ---- radar/coverage mini-maps shown inside the Sensors cards ---- */
 function sweepOf(dev){
@@ -825,7 +825,7 @@ function sensorsLive(){
     const sid=ch.dataset.sen;
     const s=byDev[did]&&byDev[did][sid];
     if(!s)return;
-    const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","mb_sound":""}[sid]||"";
+    const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx"}[sid]||"";
     const b=ch.querySelector("b");
     if(b)b.textContent=fmtAxis(s.value)+" "+un;
     ch.dataset.val=""+(fmtAxis(s.value));
@@ -838,7 +838,7 @@ function sensorsLive(){
   // update "updated x ago"
   document.querySelectorAll("[data-age]").forEach(el=>{
     const did=el.dataset.age,dev=byDev[did];if(!dev)return;
-    const t=dev.temp1||dev.hum1||dev.press1||dev.light1||dev.pir1||dev.wifi_motion||dev.ai_detect||dev.mb_temp||dev.mb_light||dev.mb_sound||dev.btn1||dev.btn2||dev.btn3||dev.btn4;
+    const t=dev.temp1||dev.hum1||dev.press1||dev.light1||dev.pir1||dev.wifi_motion||dev.ai_detect||dev.btn1||dev.btn2||dev.btn3||dev.btn4;
     if(t&&t.last_update){let a=now-(t.last_update>1000000000000?t.last_update/1000:t.last_update);el.textContent=a<0?"":a<60?"updated "+Math.round(a)+"s ago":a<3600?"updated "+Math.floor(a/60)+"m ago":"updated "+Math.floor(a/3600)+"h "+Math.floor((a%3600)/60)+"m ago"}
   });
 }
@@ -860,7 +860,7 @@ const ARCH_LBL={
 };
 function adotcol(n){return n.status==="offline"?"var(--err)":({cnc:"var(--pri)",broker:"var(--sec)",radio:"var(--warn)",esp:"var(--ok)",cam:"var(--warn)",host:"var(--dim)",sensor:"var(--sec)"}[n.type]||"var(--dim)")}
 function asensorVals(n){
- const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","mb_temp":"°C","mb_sound":"","mb_light":"","wifi_motion":"","wifi_rssi":"dBm","actor_mode":"","imu1":"g","gpio1":"V"};
+  const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","wifi_motion":"","wifi_rssi":"dBm","actor_mode":"","imu1":"g","gpio1":"V"};
  const v=n.values||{};
  return Object.keys(v).map(k=>"<span class='achip'>"+esc(k)+" = "+esc(fmtAxis(v[k].value))+" "+(un[k]||v[k].unit||"")+"</span>").join("");
 }
@@ -1143,9 +1143,9 @@ function loadBigSensorCharts(dev){
     const hist=j.history||{};
     const box=document.querySelector("[data-big='"+CSS.escape(dev)+"']");
     if(!box)return;
-    const cols={"temp1":"var(--err)","press1":"var(--pri)","hum1":"var(--ok)","light1":"var(--warn)","pir1":"var(--sec)","actor_mode":"var(--dim)","mb_temp":"var(--err)","mb_light":"var(--warn)","mb_sound":"var(--sec)"};
-    const units={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","actor_mode":"","mb_temp":"°C","mb_light":"","mb_sound":""};
-    const order=["temp1","press1","hum1","light1","pir1","mb_temp","mb_light","mb_sound"];
+    const cols={"temp1":"var(--err)","press1":"var(--pri)","hum1":"var(--ok)","light1":"var(--warn)","pir1":"var(--sec)","actor_mode":"var(--dim)"};
+    const units={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","actor_mode":""};
+    const order=["temp1","press1","hum1","light1","pir1"];
     let html="<div class='sensor-grid'>";
     order.forEach(sid=>{ if(hist[sid]&&hist[sid].length>=2){ html+=bigSensorChart(sid,hist[sid],hist,cols[sid]||"var(--sec)",units[sid]||"") } });
     html+="</div>";

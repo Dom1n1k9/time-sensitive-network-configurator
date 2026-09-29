@@ -140,15 +140,13 @@ def sim_tick():
             # the generic temp/press/imu/gpio telemetry.
             is_esp = str(did).startswith("esp32")
             # esp32-01 = sensor add-on board (BME280, light, PIR, WiFi Vision,
-            # buzzer). esp32-02 = display/sync board with the micro:bit panel +
+            # buzzer). esp32-02 = display/actor board with the panning sonar +
             # buzzer only (no relay/switch, no sensors). Mirrors BOARD_WIRING
             # in actions/topology.py so Simulation and Architecture agree.
             sensor_board = (("temp1", 0, "C", 25.0), ("press1", 1, "hPa", 1005.0),
                             ("hum1", 0, "%", 42.0), ("light1", 4, "lx", 300.0),
                             ("pir1", 4, "", 0.0), ("wifi_motion", 4, "", 0.0))
-            microbit_board = (("mb_temp", 0, "C", 25.0), ("mb_light", 4, "lx", 200.0),
-                              ("mb_pir", 4, "", 0.0), ("mb_sound", 4, "", 0.0),
-                              ("dist1", 3, "cm", 120.0), ("sonar_angle", 4, "deg", 90.0))
+            sonar_board = (("dist1", 3, "cm", 120.0), ("sonar_angle", 4, "deg", 90.0))
             generic = (("temp1", 0, "C", 25.0), ("press1", 1, "hPa", 1005.0),
                        ("imu1", 2, "g", 0.3), ("gpio1", 4, "V", 1.0))
             ai_board = (("ai_detect", 4, "", 0.0), ("ai_person", 4, "", 0.0),
@@ -156,7 +154,7 @@ def sim_tick():
             if did == "esp32-01":
                 board = sensor_board
             elif did == "esp32-02":
-                board = microbit_board
+                board = sonar_board
             elif did == "esp32-cam":
                 board = ai_board
             else:
@@ -184,9 +182,8 @@ def sim_tick():
             fx_map = {"temp1": "temp_c", "press1": "pressure_hpa",
                       "hum1": "humidity_pct", "light1": "light_lx",
                       "pir1": "motion", "wifi_motion": "wifi_motion",
-                      "ai_person": "ai_person", "ai_detect": "ai_objects",
-                      "dist1": "sonar_cm", "mb_temp": "temp_c",
-                      "mb_sound": "sound_db"}
+                       "ai_person": "ai_person", "ai_detect": "ai_objects",
+                       "dist1": "sonar_cm"}
             n_fx = 0
             for row in con.execute("SELECT device_id,sensor_id,value FROM sensors"):
                 data_id = fx_map.get(row["sensor_id"])

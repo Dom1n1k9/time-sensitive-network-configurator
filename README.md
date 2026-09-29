@@ -240,14 +240,10 @@ Rollback for any AI change: **Config Versions** page. See [AI on the edge](#ai-o
   - **OTA** — A/B slots, **device-side CRC32 verification** of the downloaded image
     before reboot, automatic rollback on bad boot (`shared/wtsn_ota`),
   - **LWT last-will**, **SNTP** time, **LED** status (provisioning = fast blink,
-    connecting = blink, online = solid), **factory reset** (BOOT 3 s),
-  - **UART panel** — micro:bit V2 display over wired UART with a **CRC-16/CCITT**
-    checksum on every frame (`T/P/H/L/M/A` values).
+     connecting = blink, online = solid), **factory reset** (BOOT 3 s),
 - **`esp32-cam/`** — ESP32-CAM node streaming MJPEG to the Devices page, motion-driven
   **microSD clip recording** (triggered by the vision service or any PIR/WiFiVision
   event), provisioned with the same shared portal, OTA-capable (CRC-verified).
-- **micro:bit sensor panel** (`microbit-sensor/`) — MakeCode (`main.ts`) or MicroPython
-  (`microbit_sensor.py`) variant; B/A button cycling, beep on PIR motion.
 
 See [esp32-agent/README.md](esp32-agent/README.md) for the full firmware protocol and
 wiring tables, and `docs/SIMULATOR.md` for the virtual nodes.
@@ -526,7 +522,6 @@ src/                  C11 control-plane core
 esp32-agent/          ESP-IDF ESP32 firmware agent (reference)
 esp32-cam/            ESP-IDF ESP32-CAM firmware (MJPEG stream node, clips)
 shared/               shared ESP-IDF components (wtsn_prov, wtsn_ota, wtsn_version)
-microbit-sensor/      micro:bit V2 display panel (wired UART, MakeCode + MicroPython)
 rpi-ai/               Raspberry Pi edge services
   vision_service.py   YOLOv4-tiny detection on the ESP32-CAM stream (wtsn-ai)
   policy_engine.py    autonomous TSN rules R1..R3 (wtsn-policy)
@@ -589,9 +584,7 @@ CMake/pkg-config at them — see [docs/BUILD.md](docs/BUILD.md).
   answer. Use short, concrete requests ("raise esp32-cam priority to 6") for the
   action path, and open-ended questions ("how do I configure this from scratch?")
   for the guide path.
-- **UART integrity** — the ESP32 ↔ micro:bit link appends a CRC-16/CCITT checksum to
-  every line; corrupted frames are dropped instead of showing wrong values.
-- **OTA integrity** — firmware images carry a CRC32; the device verifies it after
+ - **OTA integrity** — firmware images carry a CRC32; the device verifies it after
   download and refuses to boot unverified images.
 - **CI** (GitHub Actions) builds, tests (incl. ASan/UBSan + cppcheck) and packages on
   every push.

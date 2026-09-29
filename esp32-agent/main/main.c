@@ -20,7 +20,6 @@
 #include "wtsn_prov.h"
 #include "wtsn_sensor.h"
 #include "wtsn_display.h"
-#include "wtsn_uart.h"
 #include "wtsn_sonar.h"
 #include "wtsn_version.h"
 #include "wtsn_ota.h"
@@ -672,8 +671,6 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
                 wtsn_display_set_hud(true);   /* 4-corner sensor HUD */
                 wtsn_display_status(g_device_id, "online");
             }
-            wtsn_uart_init(g_mqtt, g_device_id);
-            wtsn_uart_start();
             ESP_LOGI(TAG, "agent %s broker %s:%d", g_device_id, mqtt_host, ctx->port);
         }
     }

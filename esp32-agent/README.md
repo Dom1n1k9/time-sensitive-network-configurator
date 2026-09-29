@@ -148,30 +148,6 @@ are detected locally, and only motion/no-motion events are emitted on the **same
 the wired PIR** (`tsn/sensors/event` + `tsn/fx/data`) — so it plugs straight into the
 existing FX / relay-actor / policy path.
 
-## micro:bit display panel (wired UART)
-
-The agent drives a micro:bit V2 as a local display panel over UART1 (no BLE),
-both directions:
-
-| Wire                                      | Purpose                                                            |
-|-------------------------------------------|--------------------------------------------------------------------|
-| micro:bit P0 (TX) --> ESP GPIO14          | micro:bit reports its own onboard sensors -> MQTT `tsn/sensors` (mb_* sensors of this node) |
-| ESP GPIO15 (TX) --> micro:bit P1 (RX)     | agent pushes the node sensors once a second: `T:<C> P:<hPa> H:<%RH> L:<lx> M:<0\|1> A:<mode>` |
-| GND --> GND                               | common ground (3.3V logic, no level shift needed)                  |
-
-The micro:bit firmware (see `../microbit-sensor/`, MakeCode `main.ts` or
-MicroPython `microbit_sensor.py`) shows one value with its unit at a time
-(`T:27C`, `P:1006hPa`, `H:48%`, `L:918lx`, `M:1`) and holds it — **B** = next
-value, **A** = previous. It **beeps through the V2 built-in speaker**
-(`music.setBuiltInSpeakerEnabled(true)`) and flashes a heart when the PIR
-reports motion (`M:1`, rising edge). A test tone plays at startup. No external
-piezo needed (MakeCode variant).
-
-Every UART frame is terminated with a **CRC-16/CCITT** trailer (`*XXXX`, poly
-`0x1021`, init `0xFFFF`); both the ESP and the panel drop frames that fail the
-check, so a corrupted wire never shows wrong values. Legacy frames without the
-trailer are still accepted for compatibility.
-
 ## Limitations on ESP32
 
 - **Real 802.1Qbv TAS, 802.1Qbu preemption, HW PTP (802.1AS)** require a
