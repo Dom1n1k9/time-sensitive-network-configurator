@@ -1,0 +1,66 @@
+/* wtsn-tsn endpoint peripheral overlay — Nucleo-F767ZI (Zephyr).
+ *
+ * The board DTS (boards/st/nucleo_f7/nucleo_f767zi.dts) provides the base
+ * (UART, I2C2, the Ethernet MAC + LAN8742A PHY, GPIO controllers, timers).
+ * This overlay (1) points the console at USART6, (2) enables the I2C2 OLED
+ * bus and the Ethernet MAC with the endpoint MAC, and (3) declares the
+ * actuator pins — the single source of truth for the physical wiring.
+ *
+ * RESERVED (on-board LAN8742A PHY): PA1/PA2/PA7/PC1/PC4/PC5 — do not reuse.
+ *
+ * The servo (PA8/TIM1_CH1) and buzzer (PB1/TIM3_CH4) PWM outputs are NOT
+ * declared here: they are programmed directly in Board/pwm.c (a CMSIS shim),
+ * which keeps the port independent of the version-fragile STM32 PWM binding.
+ */
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		wtsn-console = &usart6;
+	};
+	chosen {
+		zephyr,console = &usart6;
+	};
+
+	/* Logical actuator wiring. C code reads these via GPIO_DT_SPEC_GET(). */
+	wtsn_actuators: wtsn-actuators {
+		compatible = "wtsn,actuators";
+
+		/* HC-SR04 sonar */
+		sonar-trig-gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+		sonar-echo-gpios = <&gpiob 4 GPIO_ACTIVE_HIGH>;
+
+		/* Relay (drive high to energise) */
+		relay-gpios      = <&gpiob 0 GPIO_ACTIVE_HIGH>;
+
+		/* 4 push-buttons (active low, internal pull-up) */
+		btn1-gpios = <&gpioc 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		btn2-gpios = <&gpioc 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		btn3-gpios = <&gpioc 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		btn4-gpios = <&gpiod 0  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+		/* On-board heartbeat LED (LD1, PC8) */
+		led-hb-gpios   = <&gpioc 8 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* ---- console: USART6 at 115200 (ST-Link VCP) ---- */
+&usart6 {
+	status = "okay";
+	current-speed = <115200>;
+};
+
+/* ---- I2C2: SSD1306 OLED (PB10/PB11) ---- */
+&i2c2 {
+	status = "okay";
+	oled@3c {
+		compatible = "solomon,ssd1306";
+		reg = <0x3c>;
+	};
+};
+
+/* ---- Ethernet MAC: the on-board LAN8742A (PHY handled by the board DTS) ---- */
+&ethernet {
+	status = "okay";
+	local-mac-address = [ 70 b3 d5 a8 10 2c ];
+};
