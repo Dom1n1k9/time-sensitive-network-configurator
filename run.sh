@@ -226,11 +226,61 @@ do_flash() {
     log "Connect to WiFi 'WTSN-Setup' and open http://192.168.4.1/ to enter your WiFi details."
 }
 
+# ---------------- TSN endpoint CNC (RPi) ----------------
+# Starts when WTSN_TSN=1 (on the RPi; never on the dev PC). The RPi is the CNC:
+#   - ptpd grandmaster: the STM32 PTP slave (tsn/ptp.c) syncs to this (PTP v2).
+#   - cnc_opcua server : the WIRED data plane. The STM32 is an OPC UA CLIENT that
+#     writes telemetry and monitors cmd_* variables on this server (opc.tcp :4840).
+#     The GUI/SCADA also talk OPC UA to it. The ESP32 (wireless) uses MQTT only.
+start_tsn_cnc() {
+    if [ ! -f "$PROJ_DIR/rpi-tsn/cnc_opcua.c" ]; then
+        log "rpi-tsn/ not present - skipping TSN CNC"
+        return 0
+    fi
+    # PTP GM wants a PREEMPT_RT kernel for tight jitter (optional but recommended).
+    if ! uname -v 2>/dev/null | grep -qiE 'preempt[-_ ]?rt'; then
+        log "note: not on a PREEMPT_RT kernel - for lower PTP jitter run:  sudo bash $PROJ_DIR/deploy/enable_preempt_rt.sh"
+    fi
+    if command -v ptpd >/dev/null 2>&1 && [ -n "$WTSN_TSN_IFACE" ]; then
+        if pgrep -x ptpd >/dev/null 2>&1; then
+            log "ptpd grandmaster already running"
+        elif ptpd -i "$WTSN_TSN_IFACE" -f "$PROJ_DIR/rpi-tsn/ptpd.conf" 2>/dev/null; then
+            log "ptpd grandmaster on $WTSN_TSN_IFACE"
+        else
+            log "ptpd failed to start (needs root:  sudo ptpd -i $WTSN_TSN_IFACE -f $PROJ_DIR/rpi-tsn/ptpd.conf)"
+        fi
+    else
+        log "ptpd not started (set WTSN_TSN_IFACE=<wired-nic> and install linuxptp to enable the GM)"
+    fi
+
+    local bin="$PROJ_DIR/rpi-tsn/cnc_opcua"
+    local poller="$PROJ_DIR/rpi-tsn/tsn_opcua_link"
+    if [ ! -x "$bin" ]; then
+        log "cnc_opcua not built - build on the RPi:  cd rpi-tsn && make PFX=\$WTSN_O62541_PFX   (open62541 v1.5, -DUA_ENABLE_SUBSCRIBERS=ON)"
+    else
+        pkill -x cnc_opcua 2>/dev/null || true
+        "$bin" < /dev/null > /tmp/wtsn_tsn_cnc.log 2>&1 &
+        disown
+        log "TSN CNC OPC UA server on opc.tcp://$LAN_IP:4840 (log /tmp/wtsn_tsn_cnc.log)"
+        # Poller: one persistent OPC UA client -> JSON file the GUI reads
+        # (rpi-tsn/tsn_opcua_link). Default out/url match the GUI's defaults.
+        if [ -x "$poller" ]; then
+            pkill -x tsn_opcua_link 2>/dev/null || true
+            "$poller" < /dev/null > /tmp/wtsn_tsn_poller.log 2>&1 &
+            disown
+            log "TSN OPC UA poller -> ${WTSN_OPCUA_OUT:-/tmp/wtsn_tsn_opcua.json} (log /tmp/wtsn_tsn_poller.log)"
+        fi
+    fi
+}
+
 main() {
     LAN_IP="$(get_lan_ip)"
     ensure_mdns
     ensure_broker
     ensure_gui
+    if [ "$WTSN_TSN" = "1" ]; then
+        start_tsn_cnc
+    fi
     log "Done. Broker=$LAN_IP:$MQTT_PORT  GUI=http://127.0.0.1:$GUI_PORT"
     if [ "$1" != "--headless" ]; then
         open_browser
