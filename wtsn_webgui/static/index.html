@@ -121,13 +121,13 @@ ul{padding-left:20px}.card p{margin:6px 0}.card li{margin:3px 0}
 <select id="execScope" onchange="execAll()" style="margin-left:12px;background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px" title="Scope the deploy to a TSN domain (physical 802.11 cell)"><option value="">All domains</option></select>
 <button class="execbtn" onclick="execAll()">Execute settings on controller</button>
 <div class="spacer"></div>
-<span class="mode"><button id="md_real" onclick="setMode('real')">Real</button><button id="md_sim" class="on" onclick="setMode('sim')">Simulation</button></span>
-<span id="bkBadge" class="badge" style="display:none"></span>
+ <span id="modeBadge" class="badge" title="Real mode — simulation mode has been removed" style="background:var(--ok);color:#fff">Real</span>
+ <span id="bkBadge" class="badge" style="display:none"></span>
 </header>
 <div class="wrap"><nav id="nav"></nav><main id="main"></main></div>
 <div id="toast"></div>
 <script>
-const NAV=[["System",[["devices","Devices"],["recordings","Recordings"],["monitor","Monitor"],["metrics","Metrics"],["sensors","Sensors"],["assistant","AI Assistant"],["architecture","Architecture"]]],["OPC UA FX over MQTT",[["fxmqtt","FXMQTT Config"]]],["IEEE 802.1AS",[["timesync","Synchronization"]]],["IEEE 802.1Q",[["qos","QoS Priority"],["vlan","WVLAN ID"]]],["IEEE 802.1Qbv",[["tas","TAS / GCL"]]],["IEEE 802.1Qbu",[["preemption","Preemption"]]],["IEEE 802.1Qcc",[["streams","TSN Streams"]]]];
+const NAV=[["System",[["devices","Devices"],["recordings","Recordings"],["monitor","Monitor"],["metrics","Metrics"],["sensors","Sensors"],["tsn","TSN Endpoint"],["assistant","AI Assistant"],["architecture","Architecture"]]],["OPC UA FX over MQTT",[["fxmqtt","FXMQTT Config"]]],["IEEE 802.1AS",[["timesync","Synchronization"]]],["IEEE 802.1Q",[["qos","QoS Priority"],["vlan","WVLAN ID"]]],["IEEE 802.1Qbv",[["tas","TAS / GCL"]]],["IEEE 802.1Qbu",[["preemption","Preemption"]]],["IEEE 802.1Qcc",[["streams","TSN Streams"]]]];
 let D={},cur="devices",MON_RUNNING=true;
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -138,8 +138,7 @@ function syncExecScope(){const sel=$("execScope");if(!sel)return;const cur=sel.v
 window.addEventListener("hashchange",()=>{const p=(location.hash||"").replace("#","");if(p)go(p)});
 function renderNav(){const n=$("nav");n.innerHTML="";
  NAV.forEach(g=>{if(g[0]){const h=document.createElement("div");h.className="navgroup";n.appendChild(h);const t=document.createElement("div");t.className="navtitle";t.textContent=g[0];h.appendChild(t)}const cont=g[1];cont.forEach(pp=>{const b=document.createElement("button");b.textContent=pp[1];b.onclick=()=>go(pp[0]);b.id="nv_"+pp[0];(g[0]?n.lastElementChild:n).appendChild(b)})});
- $("md_real").className=D.mode==="real"?"on":"";$("md_sim").className=D.mode==="sim"?"on":""}
-function setMode(m){api("set_mode",{mode:m}).then(load)}
+  const mb=$("modeBadge");if(mb)mb.textContent=D.mode||"real"}
 function stat(l,v){return "<div class='stat'><div class='l'>"+l+"</div><div class='v'>"+v+"</div></div>"}
 function stBadge(s){const map=[["ok","online"],["warn","offline"],["err","error"]];const b=map[s]||["dim",s];return "<span class='badge "+(b[0])+"'>"+esc(b[1])+"</span>"}
 function types(d){return (D.device_tsn_features||[]).filter(f=>f.device_id==d).map(f=>f.feature).join(", ")}
@@ -154,8 +153,9 @@ function go(p){cur=p;document.querySelectorAll("#nav button").forEach(b=>b.class
  else if(p==="preemption")m.innerHTML=preemption(); else if(p==="timesync"){m.innerHTML=timesync();redrawSetup();}
  else if(p==="streams")m.innerHTML=streams();
  else if(p==="fxmqtt")m.innerHTML=fxmqtt();
-  else if(p==="monitor"){m.innerHTML=monitor();refreshMon();}
-   else if(p==="metrics"){m.innerHTML=metrics();mtLoad();}
+   else if(p==="monitor"){m.innerHTML=monitor();refreshMon();}
+   else if(p==="tsn"){m.innerHTML=tsnEndpoint();tsnRender();}
+    else if(p==="metrics"){m.innerHTML=metrics();mtLoad();}
     else if(p==="sensors")m.innerHTML=sensors();
     else if(p==="decisions"||p==="help")go("assistant");
     else if(p==="assistant"){m.innerHTML=assistant();llmLoad()}
@@ -164,6 +164,46 @@ function go(p){cur=p;document.querySelectorAll("#nav button").forEach(b=>b.class
 
 function execAll(){api("exec_all",{domain:$("execScope")?$("execScope").value:""}).then(load)}
 function execDomain(d){api("exec_all",{domain:d}).then(load)}
+
+function tsnEndpoint(){
+  const e=D.tsn_endpoint,on=e&&e.online;
+  const st=on?"<span class='badge ok'>online</span>":"<span class='badge err'>offline / warming up</span>";
+  return "<h2>TSN Endpoint <span class='muted'>(STM32, wired via OPC UA)</span></h2>"+
+   "<div class='card'><div class='row'><span class='muted'>Endpoint <b>stm32-tsn-01</b>: RPi CNC &harr; STM32 over <code>opc.tcp://</code>. The ESP32 (wireless) side uses MQTT and is separate.</span>"+
+   "<span class='spacer'></span>"+st+"<span class='muted' id='tsn_ts' style='margin-left:10px'></span></div></div>"+
+   "<div class='row' style='gap:16px;margin:16px 0'>"+
+     "<div class='card' style='flex:1'><h3>Telemetry</h3><table>"+
+       "<tr><th>servo angle</th><td><b id='tsn_servo'>&ndash;</b> &deg;</td></tr>"+
+       "<tr><th>relay</th><td><b id='tsn_relay'>&ndash;</b></td></tr>"+
+       "<tr><th>buzzer</th><td><b id='tsn_buzzer'>&ndash;</b></td></tr>"+
+       "<tr><th>sonar sweep</th><td id='tsn_sonar'>&ndash;</td></tr>"+
+       "<tr><th>buttons K1&ndash;K4</th><td id='tsn_btns'>&ndash;</td></tr>"+
+       "<tr><th>PTP (802.1AS)</th><td id='tsn_ptp'>&ndash;</td></tr>"+
+     "</table></div>"+
+     "<div class='card' style='flex:1'><h3>Commands</h3>"+
+       "<div class='row'><label style='width:150px'>servo angle 0&ndash;180&deg;</label><input type='range' id='tsn_sld' min=0 max=180 value=90 oninput=\"$('tsn_sldv').textContent=this.value\" style='flex:1'><b id='tsn_sldv'>90</b> <button class='ghost' onclick='tsnCmd(\"cmd_servo_angle\",$(\"tsn_sld\").value)'>Set</button></div>"+
+       "<div class='row'><label style='width:150px'>relay</label><label><input type='checkbox' id='tsn_relaychk'> on</label> <button class='ghost' onclick='tsnCmd(\"cmd_relay_on\",$(\"tsn_relaychk\").checked?1:0)'>Set</button></div>"+
+       "<div class='row'><label style='width:150px'>beep (ms)</label><input id='tsn_beep' type='number' min=0 value=300 style='width:80px'> <button class='ghost' onclick='tsnCmd(\"cmd_beep_ms\",$(\"tsn_beep\").value)'>Beep</button></div>"+
+       "<div class='row'><label style='width:150px'>sonar</label><button class='ghost' onclick='tsnCmd(\"cmd_sonar_trigger\",1)'>Trigger sweep</button></div>"+
+       "<div class='row'><label style='width:150px'>system</label><button class='ghost' style='color:var(--err)' onclick='if(confirm(\"Reboot the TSN endpoint?\"))tsnCmd(\"cmd_reboot\",1)'>Reboot</button></div>"+
+     "</div></div>";
+}
+function tsnCmd(node,value){api("tsn_cmd",{node:node,value:value})}
+function tsnRender(){
+  const e=D.tsn_endpoint,set=(id,v)=>{const el=$(id);if(el)el.innerHTML=v};
+  if(!e||!e.ok){set("tsn_ts","(waiting &mdash; OPC UA server warming up or offline)");return}
+  if(!e.online)set("tsn_ts","(stale &mdash; no data in "+(e.stale_after||20)+"s)");
+  set("tsn_servo",e.servo_angle==null?"&ndash;":e.servo_angle);
+  set("tsn_relay",e.relay_on?"ON":"off");
+  set("tsn_buzzer",(e.buzzer_hz||0)+" Hz / "+(e.buzzer_ms||0)+" ms");
+  const sw=e.sonar_sweep||[];
+  set("tsn_sonar",sw.length?("n="+sw.length+", min="+Math.min.apply(null,sw)+", max="+Math.max.apply(null,sw)):"&ndash; (no sweep yet)");
+  set("tsn_btns",["btn1","btn2","btn3","btn4"].map(b=>(e[b]?"&#9679;":"&#183;")).join("  "));
+  let ptp=(e.ptp_state==null?"&ndash;":("state "+e.ptp_state));
+  if(e.ptp_locked)ptp+=" (locked)";
+  if(e.ptp_offset_ns)ptp+=" offset "+e.ptp_offset_ns+" ns";
+  set("tsn_ptp",ptp);
+}
 function aiClipUrl(id,path){
   const f=String(path||"").replace(/^\/ai\//,"");
   return "/clip/"+encodeURIComponent(id)+"/"+encodeURIComponent(f);
@@ -855,10 +895,11 @@ const ARCH_LBL={
  "gpio":{"t":"GPIO","c":"#8a8aa0"},
  "uart":{"t":"UART","c":"#8a8aa0"},
  "dvp":{"t":"DVP","c":"#8a8aa0"},
- "rf":{"t":"RF","c":"#8a8aa0"},
- "bus":{"t":"bus","c":"#8a8aa0"}
-};
-function adotcol(n){return n.status==="offline"?"var(--err)":({cnc:"var(--pri)",broker:"var(--sec)",radio:"var(--warn)",esp:"var(--ok)",cam:"var(--warn)",host:"var(--dim)",sensor:"var(--sec)"}[n.type]||"var(--dim)")}
+  "rf":{"t":"RF","c":"#8a8aa0"},
+  "bus":{"t":"bus","c":"#8a8aa0"},
+  "opcua":{"t":"OPC UA opc.tcp:// (wired TSN)","c":"#19c9b0"}
+ };
+function adotcol(n){return n.status==="offline"?"var(--err)":({cnc:"var(--pri)",broker:"var(--sec)",radio:"var(--warn)",esp:"var(--ok)",cam:"var(--warn)",host:"var(--dim)",sensor:"var(--sec)",stm32:"#19c9b0"}[n.type]||"var(--dim)")}
 function asensorVals(n){
   const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","wifi_motion":"","wifi_rssi":"dBm","actor_mode":"","imu1":"g","gpio1":"V"};
  const v=n.values||{};
@@ -1274,8 +1315,11 @@ async function pollEvents(){const r=await fetch("/api/events");const j=await r.j
  const statusChanged=D.devices.length!==dj.devices.length||D.devices.some((d,i)=>dj.devices[i]&&d.status!==dj.devices[i].status);
  if((added.length||removed||statusChanged)&&cur==="devices"){D.devices=dj.devices;if($("main"))devices_render()}
   if($("mon") && MON_RUNNING){const f=($("mon_filter")?$("mon_filter").value:"").trim().toLowerCase();let list=(dj.events||[]).slice(0,120);if(f){list=list.filter(e=>((e.source||"")+(e.dest||"")+(e.proto||"")+(e.msg||"")+(e.ts||"")).toLowerCase().indexOf(f)>=0)}const ev=list.map(e=>"<div class='monrow'><span class='t'>"+esc(e.ts)+"</span><span class='s'>"+esc(e.source)+"</span><span class='ip'>"+esc(e.src_ip||"-")+"</span><span class='s'>"+esc(e.dest||"-")+"</span><span class='ip'>"+esc(e.dst_ip||"-")+"</span><span class='pro'>"+esc(e.proto||"-")+"</span><span>"+esc(e.msg||e.data||"")+"</span></div>").join("");$("mon").innerHTML=ev||""}
- D.events=dj.events;D.devices=dj.devices;
- if(JSON.stringify(D.sonar_sweeps)!==JSON.stringify(dj.sonar_sweeps)){D.sonar_sweeps=dj.sonar_sweeps;if(cur==="sensors"&&$("main"))updateMaps()}
+  D.events=dj.events;D.devices=dj.devices;
+  const tsnChanged=JSON.stringify(D.tsn_endpoint)!==JSON.stringify(dj.tsn_endpoint);
+  D.tsn_endpoint=dj.tsn_endpoint;
+  if(tsnChanged&&cur==="tsn"&&$("main"))tsnRender();
+  if(JSON.stringify(D.sonar_sweeps)!==JSON.stringify(dj.sonar_sweeps)){D.sonar_sweeps=dj.sonar_sweeps;if(cur==="sensors"&&$("main"))updateMaps()}
   // refresh sensor values live so the Sensors page updates in real time
   if(JSON.stringify(D.sensors)!==JSON.stringify(dj.sensors)){D.sensors=dj.sensors;if(cur==="sensors"&&$("main")){sensorsLive();document.querySelectorAll("[data-big]").forEach(b=>{const d=b.getAttribute("data-big");if(d)loadBigSensorCharts(d)})}}
   if(JSON.stringify(D.sonar_sweeps)!==JSON.stringify(dj.sonar_sweeps)&&cur==="sensors"&&$("main"))updateMaps();

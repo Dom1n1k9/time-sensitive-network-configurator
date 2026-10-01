@@ -25,6 +25,13 @@ static const char *TAG = "sonar";
 #ifndef WTSN_SONAR_SERVO_GPIO
 #define WTSN_SONAR_SERVO_GPIO GPIO_NUM_18
 #endif
+/* The wiring doc (wtsn_sonar.h) lists the servo on GPIO16, but the driver has
+ * always used GPIO18. Both are free on the actor board, so we drive both (two
+ * LEDC channels on the same timer) until the real pin is confirmed — the servo
+ * responds on whichever one it is actually wired to. */
+#ifndef WTSN_SONAR_SERVO_GPIO2
+#define WTSN_SONAR_SERVO_GPIO2 GPIO_NUM_16
+#endif
 
 #define SONAR_ECHO_TIMEOUT_US  40000
 #define SONAR_SWEEP_ANGLES     180          /* one step per degree */
@@ -32,7 +39,8 @@ static const char *TAG = "sonar";
 #define SERVO_FREQ_HZ          50           /* SG90: 50 Hz */
 #define SERVO_MIN_US           1000         /* 0 deg (safe SG90 pulse) */
 #define SERVO_MAX_US           2000         /* 180 deg (safe SG90 pulse) */
-#define SERVO_DUTY_RES         LEDC_TIMER_14_BIT   /* 16384 */
+#define SERVO_DUTY_RES         LEDC_TIMER_14_BIT   /* enum: select 14-bit resolution */
+#define SERVO_DUTY_MAX         (1u << 14)          /* 16384 = max duty count at 14-bit */
 
 static char g_dev_id[32] = "esp32-02";
 static wtsn_mqtt *g_mq = NULL;
@@ -49,9 +57,16 @@ static volatile int  g_cur_angle = -1;
 /* ---------------- servo (SG90, 50 Hz PWM) ---------------- */
 /* Set pulse width in microseconds: 500 us = 0 deg, 2500 us = 180 deg. */
 static void servo_set_us(uint16_t us) {
-    uint32_t duty = ((uint32_t)us * SERVO_DUTY_RES) / 20000u;   /* us / 20000 * 2^duty */
+    /* duty = (us / 20000) * 2^14. 20000 us is the 50 Hz period; SERVO_DUTY_MAX
+     * (16384) is the max count for 14-bit resolution. (The old code used the
+     * LEDC_TIMER_14_BIT *enum* value (14) here, giving ~0-1 counts = no pulse,
+     * so the servo never moved.) Drive both servo channels (GPIO18 + GPIO16) so
+     * the pulse reaches the servo regardless of which pin it is wired to. */
+    uint32_t duty = ((uint32_t)us * SERVO_DUTY_MAX) / 20000u;
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
 }
 
 static void servo_set_angle(int deg) {
@@ -169,7 +184,7 @@ void wtsn_sonar_init(const char *device_id, wtsn_mqtt *mq) {
         .freq_hz = SERVO_FREQ_HZ,
         .clk_cfg = LEDC_AUTO_CLK,
     };
-    ledc_timer_config(&tc);
+    esp_err_t er_timer = ledc_timer_config(&tc);
     ledc_channel_config_t ch = {
         .gpio_num = WTSN_SONAR_SERVO_GPIO,
         .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -179,14 +194,26 @@ void wtsn_sonar_init(const char *device_id, wtsn_mqtt *mq) {
         .duty = 0,
         .hpoint = 0,
     };
-    ledc_channel_config(&ch);
+    esp_err_t er_ch1 = ledc_channel_config(&ch);
+    ledc_channel_config_t ch2 = {
+        .gpio_num = WTSN_SONAR_SERVO_GPIO2,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_2,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = LEDC_TIMER_1,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    esp_err_t er_ch2 = ledc_channel_config(&ch2);
     servo_set_angle(0);
 
     for (int i = 0; i < SONAR_SWEEP_ANGLES; i++) g_sweep[i] = -1;
 
     xTaskCreatePinnedToCore(sonar_task, "wtsn_sonar", 4096, NULL, 5, NULL, 1);
-    ESP_LOGI(TAG, "sonar ready: TRIG=%d ECHO=%d SERVO=%d (SG90)",
-             WTSN_SONAR_TRIG_GPIO, WTSN_SONAR_ECHO_GPIO, WTSN_SONAR_SERVO_GPIO);
+    ESP_LOGI(TAG, "sonar ready v2: TRIG=%d ECHO=%d SERVO=%d/%d ledc t=0x%x c1=0x%x c2=0x%x (SG90)",
+             WTSN_SONAR_TRIG_GPIO, WTSN_SONAR_ECHO_GPIO,
+             WTSN_SONAR_SERVO_GPIO, WTSN_SONAR_SERVO_GPIO2,
+             (unsigned)er_timer, (unsigned)er_ch1, (unsigned)er_ch2);
 }
 
 void wtsn_sonar_trigger(void) { g_trigger = true; }

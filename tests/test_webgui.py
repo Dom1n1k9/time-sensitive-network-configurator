@@ -46,9 +46,11 @@ class WebGuiActionTest(unittest.TestCase):
         self.assertEqual(state.MODE["mode"], "real")
         r = self.act("set_mode", {"mode": "bogus"})
         self.assertFalse(r["ok"])
+        # Simulation mode has been removed: requesting it is rejected and the
+        # GUI stays in real mode.
         r = self.act("set_mode", {"mode": "sim"})
-        self.assertTrue(r["ok"])
-        self.assertEqual(state.MODE["mode"], "sim")
+        self.assertFalse(r["ok"])
+        self.assertEqual(state.MODE["mode"], "real")
 
     def test_unknown_action(self):
         r = self.act("no_such_action")
@@ -152,8 +154,8 @@ class WebGuiActionTest(unittest.TestCase):
         con.execute("INSERT INTO qos_configs(device_id,priority) VALUES('d9',6)")
         con.commit()
         con.close()
-        saved = state.DB_SIM
-        state.DB_SIM = p
+        saved = state.DB_REAL
+        state.DB_REAL = p
         try:
             con2 = connect()
             rows = con2.execute("SELECT grandmaster FROM timesync_status "
@@ -166,7 +168,7 @@ class WebGuiActionTest(unittest.TestCase):
             self.assertEqual(qrows[0][0], 6)
             con2.close()
         finally:
-            state.DB_SIM = saved
+            state.DB_REAL = saved
 
     def test_sim_fleet_deterministic(self):
         from wtsn_webgui import sim

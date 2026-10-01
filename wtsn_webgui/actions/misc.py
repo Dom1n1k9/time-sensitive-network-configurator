@@ -11,15 +11,12 @@ from .. import mqtt_link
 
 
 def _set_mode(con, body):
-    m = body.get("mode")
-    if m not in ("sim", "real"):
-        return {"ok": False, "msg": "mode must be 'sim' or 'real'"}
-    state.MODE["mode"] = m
-    with state.EVENT_LOCK:
-        state.EVENTS.clear()
-    add_event("config", "cnc",
-              "mode = SIMULATION" if m == "sim" else "mode = REAL (waiting for real devices)")
-    return {"ok": True, "msg": "mode = " + m}
+    # Simulation mode has been removed; the GUI is real-mode only. Only "real"
+    # is accepted; anything else (sim, typos) is rejected.
+    if body.get("mode") != "real":
+        return {"ok": False, "msg": "simulation mode has been removed; only 'real' is available"}
+    state.MODE["mode"] = "real"
+    return {"ok": True, "msg": "mode = real"}
 
 
 def _sim_ack(did):

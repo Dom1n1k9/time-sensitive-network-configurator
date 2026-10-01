@@ -6,8 +6,8 @@ import threading
 
 from . import mqtt_link, state
 from .mqtt_link import mqtt_listener_loop
+from .opcua_link import endpoint_listener_loop
 from .server import WEB_HOST, WTSNServer, make_handler, ws_broadcaster
-from .sim import sim_runner
 
 
 def main(argv=None):
@@ -48,8 +48,8 @@ def main(argv=None):
         os.environ["WTSN_BROKER"] = "%s:%d" % (mqtt_host, mqtt_port if mqtt_port is not None else 1883)
 
     state.LISTENER_STOP.clear()
-    threading.Thread(target=sim_runner, daemon=True).start()
     threading.Thread(target=mqtt_listener_loop, daemon=True).start()
+    threading.Thread(target=endpoint_listener_loop, daemon=True).start()
     threading.Thread(target=ws_broadcaster, daemon=True).start()
 
     srv = WTSNServer((host, port), make_handler())

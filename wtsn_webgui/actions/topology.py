@@ -131,8 +131,10 @@ def _wmm_for(prio):
 
 
 def _dev_kind(dev):
-    """Classify a device row: 'cam', 'esp' (sensor board) or 'host'."""
+    """Classify a device row: 'stm32' (wired TSN endpoint), 'cam', 'esp' or 'host'."""
     kind = dev.get("kind")
+    if kind == 6 or str(dev.get("id", "")).startswith("stm32"):
+        return "stm32"
     if kind == 5 or re.search(r"cam", dev.get("id", ""), re.I):
         return "cam"
     if str(dev.get("id", "")).startswith("esp32"):
@@ -226,8 +228,12 @@ def _topology(con, body):
                   "topics": ["tsn/cmd/<id>/apply", "tsn/cmd/<id>/ping",
                              "tsn/cmd/<id>/ota"]})
 
-    # control plane: broker -> each device
+    # control plane: broker -> each WIRELESS device (ESP32). The STM32 TSN
+    # endpoint is WIRED (OPC UA) and does not use the MQTT broker, so it is
+    # excluded here and linked to the RPi/CNC directly below.
     for d in devices:
+        if _dev_kind(d) == "stm32":
+            continue
         did = d["id"]
         edges.append({"from": "broker", "to": did, "type": "mqtt",
                       "label": "commands apply / ping / OTA",
@@ -236,6 +242,14 @@ def _topology(con, body):
                       "label": "status / ack / sensors / ptp",
                       "topics": ["tsn/ack/%s" % did, "tsn/status",
                                  "tsn/sensors", "tsn/ptp"]})
+    # wired plane: RPi/CNC <-> each STM32 TSN endpoint over OPC UA
+    for d in devices:
+        if _dev_kind(d) != "stm32":
+            continue
+        did = d["id"]
+        edges.append({"from": "pc", "to": did, "type": "opcua",
+                      "label": "OPC UA opc.tcp:// — telemetry + commands",
+                      "topics": ["urn:wtsn:stm32 · ns=1"]})
 
     # FX C2C field exchange (server -> clients via broker)
     fx_nodes = [d["id"] for d in devices]

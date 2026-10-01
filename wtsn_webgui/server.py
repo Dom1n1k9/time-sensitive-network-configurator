@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from . import state
 from .actions import run_action
 from .db import connect, crc32_hex, fw_version_from_name, get_events, load_all
+from .opcua_link import read_endpoint
 
 WEB_HOST = os.environ.get("WTSN_HOST", "127.0.0.1")
 WEB_USER = os.environ.get("WTSN_WEB_USER") or None
@@ -134,6 +135,7 @@ def make_handler():
                 d = load_all()
                 d["mode"] = state.MODE["mode"]
                 d["host"] = socket.gethostname()
+                d["tsn_endpoint"] = read_endpoint()
                 with state.EVENT_LOCK:
                     d["events"] = list(state.EVENTS)[:300]
                 self._send(json.dumps(d).encode())

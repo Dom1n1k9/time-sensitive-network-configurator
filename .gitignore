@@ -19,3 +19,8 @@ esp32-cam/managed_components/
 esp32-agent/managed_components/
 esp32-agent/dependencies.lock
 webgui_*.log
+# rpi-tsn compiled outputs (built on the RPi via make, not source)
+rpi-tsn/cnc_opcua
+rpi-tsn/tsn_opcua_link
+rpi-tsn/test_opcua_client
+rpi-tsn/wtsn_opcua_cli

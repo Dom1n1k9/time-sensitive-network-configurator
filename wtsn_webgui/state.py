@@ -18,7 +18,19 @@ TABLES = ["devices", "device_tsn_features", "qos_configs", "vlan_groups",
           "settings", "domains", "config_versions", "recordings", "sonar_sweeps",
           "ai_decisions"]
 
-MODE = {"mode": "sim"}
+# The GUI is real-mode only. There is no simulation mode: telemetry comes from
+# real nodes (ESP32 over MQTT, the STM32 TSN endpoint over OPC UA). The "mode"
+# field is kept as "real" for API/back-compat.
+MODE = {"mode": "real"}
+
+# --- Wired STM32 TSN endpoint (OPC UA) bridge ---
+# The C poller (rpi-tsn/tsn_opcua_link) writes endpoint telemetry to a JSON
+# file; the GUI reads it (no Python OPC UA dependency). Commands shell out to
+# the one-shot rpi-tsn/wtsn_opcua_cli.
+TSN_OPCUA_OUT = os.environ.get("WTSN_OPCUA_OUT", "/tmp/wtsn_tsn_opcua.json")
+TSN_OPCUA_URL = os.environ.get("WTSN_OPCUA_URL", "opc.tcp://127.0.0.1:4840")
+TSN_OPCUA_CLI = os.environ.get("WTSN_OPCUA_CLI",
+                               os.path.join(BASE, "rpi-tsn", "wtsn_opcua_cli"))
 EVENTS = deque(maxlen=400)
 EVENT_LOCK = threading.Lock()
 LISTENER_STOP = threading.Event()

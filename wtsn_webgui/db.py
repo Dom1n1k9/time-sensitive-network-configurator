@@ -181,8 +181,8 @@ def ensure_schema(con):
 
 
 def connect():
-    con = sqlite3.connect(state.DB_SIM if state.MODE["mode"] == "sim" else state.DB_REAL,
-                          timeout=3)
+    # Real-mode only: always the real database (no simulation DB).
+    con = sqlite3.connect(state.DB_REAL, timeout=3)
     con.row_factory = sqlite3.Row
     try:
         con.execute("PRAGMA journal_mode=WAL")
