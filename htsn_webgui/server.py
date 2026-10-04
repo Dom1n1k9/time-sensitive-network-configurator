@@ -73,12 +73,17 @@ def _frame(payload):
 
 
 def ws_broadcaster():
-    """Push a refresh ping to every WebSocket client whenever state changes (capped 1/2s)."""
+    """Push a refresh ping to every WebSocket client whenever state changes (capped ~1/2s)."""
+    last = 0.0
     while not state.LISTENER_STOP.is_set():
         state.WS_NOTIFY.wait(2.0)
         state.WS_NOTIFY.clear()
         if not WS.socks:
             continue
+        gap = time.time() - last
+        if gap < 0.5:
+            time.sleep(0.5 - gap)
+        last = time.time()
         payload = json.dumps({"t": "refresh", "mode": state.MODE["mode"]}).encode()
         WS.broadcast(_frame(payload))
 
