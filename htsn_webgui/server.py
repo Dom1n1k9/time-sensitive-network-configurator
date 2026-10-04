@@ -101,6 +101,7 @@ def make_handler():
         def _send(self, b, content_type="application/json"):
             self.send_response(200)
             self.send_header("Content-Type", content_type)
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
             self.send_header("Content-Length", str(len(b)))
             self.end_headers()
             self.wfile.write(b)
