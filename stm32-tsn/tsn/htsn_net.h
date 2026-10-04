@@ -8,6 +8,7 @@
 #define HTSN_NET_H
 
 #include <stdint.h>
+#include "htsn_frame.h"
 
 /* Bring up the transport (socket on STM32_CMD_PORT, destination = CNC). */
 int  htsn_net_init(void);
@@ -24,5 +25,10 @@ void htsn_net_publish_telemetry(const char *kind, const char *payload);
  * (e.g. "servo", "sonar", "relay", "reboot") and `arg` its payload string. */
 typedef void (*htsn_cmd_cb)(const char *cmd, const char *arg, void *ud);
 void htsn_net_set_cmd_cb(htsn_cmd_cb cb, void *ud);
+
+/* Last TSN config received from the CNC. Returns 0 and fills `out` if a config
+ * has been applied, -1 if none yet. The endpoint stores the config on receipt
+ * and acknowledges it over the link (see eth_proto.c). */
+int  htsn_net_tsn_cfg(htsn_tsn_cfg_t *out);
 
 #endif /* HTSN_NET_H */

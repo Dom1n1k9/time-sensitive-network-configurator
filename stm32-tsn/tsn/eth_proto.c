@@ -124,6 +124,63 @@ static void       *g_cmd_ud = NULL;
 
 void htsn_net_set_cmd_cb(htsn_cmd_cb cb, void *ud) { g_cmd_cb = cb; g_cmd_ud = ud; }
 
+/* ---- TSN config (network-layer op): store + report applied state ----
+ * Handled here rather than via the verb callback: the payload is the binary
+ * htsn_tsn_cfg_t + GCL array, and the acknowledgement is a telemetry frame. */
+static uint8_t  g_tsn_payload[HTSN_FRAME_MAXPLEN]; /* cfg + gcl[] (verbatim) */
+static uint16_t g_tsn_payload_len = 0;
+static int      g_tsn_valid = 0;
+
+/* What this firmware actually enforces. 802.1Q VLAN/PCP tagging is a documented
+ * TODO; TAS/Qbv, 802.1Qbb preemption and stream reservation also need the switch.
+ * gPTP (slave to the RPi grandmaster) is the only TSN feature applied here. */
+static uint32_t tsn_features(void)
+{
+	return HTSN_TSN_F_PTP;
+}
+
+static void tsn_report_applied(void)
+{
+	uint8_t pl[HTSN_FRAME_MAXPLEN];
+	if (g_tsn_payload_len + 4 > HTSN_FRAME_MAXPLEN)
+		g_tsn_payload_len = HTSN_FRAME_MAXPLEN - 4;
+	memcpy(pl, g_tsn_payload, g_tsn_payload_len);
+	uint32_t f = tsn_features();
+	pl[g_tsn_payload_len + 0] = (uint8_t)(f & 0xFF);
+	pl[g_tsn_payload_len + 1] = (uint8_t)((f >> 8) & 0xFF);
+	pl[g_tsn_payload_len + 2] = (uint8_t)((f >> 16) & 0xFF);
+	pl[g_tsn_payload_len + 3] = (uint8_t)((f >> 24) & 0xFF);
+	send_frame(HTSN_KIND_TELEM_TSN_APPLIED, pl, (uint16_t)(g_tsn_payload_len + 4));
+}
+
+static void tsn_handle_cfg(const uint8_t *p, uint16_t len)
+{
+	if (len < (uint16_t)sizeof(htsn_tsn_cfg_t) || len > HTSN_FRAME_MAXPLEN - 4) {
+		LOGW("tsn cfg: bad len %u\n", (unsigned)len);
+		return;
+	}
+	memcpy(g_tsn_payload, p, len);
+	g_tsn_payload_len = len;
+	g_tsn_valid = 1;
+
+	htsn_tsn_cfg_t cfg;
+	memcpy(&cfg, p, sizeof(cfg));
+	/* Enforcement points for VLAN/PCP/TAS go here once the Zephyr net-if tagging
+	 * TODO is closed; for now the config is stored and acknowledged. */
+	LOGI("tsn cfg: vid=%u pcp=%u preempt=%u sync=%u role=%u stvid=%u stcp=%u cyc=%lld gcl=%u\n",
+	     cfg.vlan_id, cfg.priority, cfg.preemption, cfg.timesync_mode,
+	     cfg.stream_role, cfg.stream_vlan_id, cfg.stream_priority,
+	     (long long)cfg.tas_cycle_ns, cfg.gcl_count);
+	tsn_report_applied();
+}
+
+int htsn_net_tsn_cfg(htsn_tsn_cfg_t *out)
+{
+	if (!g_tsn_valid || !out) return -1;
+	memcpy(out, &g_tsn_payload, sizeof(*out));
+	return 0;
+}
+
 K_THREAD_STACK_DEFINE(cmd_stack, 4096);
 static struct k_thread cmd_thread;
 
@@ -141,6 +198,12 @@ static void cmd_task_fn(void *a, void *b, void *c)
 		size_t plen = 0;
 		if (htsn_frame_unpack(buf, (size_t)n, &type, &kind, pl, &plen) != 0) continue;
 		if (type != HTSN_TYPE_CMD) continue;
+
+		/* TSN config is a network-layer op handled here (not via the verb callback). */
+		if (kind == HTSN_KIND_CMD_TSN_CFG) {
+			tsn_handle_cfg(pl, (uint16_t)plen);
+			continue;
+		}
 
 		char cmd[16];
 		char arg[HTSN_FRAME_MAXPLEN + 1];

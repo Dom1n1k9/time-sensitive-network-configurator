@@ -45,6 +45,7 @@ enum {
     HTSN_KIND_CMD_BEEP    = 4,   /* payload: int16 LE ms                     */
     HTSN_KIND_CMD_HUD     = 5,   /* payload: JSON {"temp":..,"humidity":..}  */
     HTSN_KIND_CMD_REBOOT  = 6,   /* payload: none                            */
+    HTSN_KIND_CMD_TSN_CFG = 7,   /* payload: htsn_tsn_cfg_t + gcl[]          */
 };
 
 /* Telemetry kinds (endpoint -> CNC). */
@@ -54,7 +55,39 @@ enum {
     HTSN_KIND_TELEM_BUTTONS = 3,  /* payload: uint8 k1|k2<<1|k3<<2|k4<<3     */
     HTSN_KIND_TELEM_ACTUATOR= 4,  /* payload: JSON {on,hz,ms}                */
     HTSN_KIND_TELEM_PTP     = 5,  /* payload: JSON {offset_ns,state}         */
+    HTSN_KIND_TELEM_TSN_APPLIED=6,/* payload: htsn_tsn_cfg_t + gcl[] + int32 features */
 };
+
+/* ---- TSN config / applied-state binary layout (shared with the RPi peer) ----
+ * Fixed header, then gcl_count entries of {gate_state(1) + duration_ns(8 LE)}.
+ * The applied-state frame appends a 4-byte little-endian features bitmap after
+ * the GCL array. All multi-byte fields are little-endian. */
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  priority;        /* 802.1p PCP (0-7)          */
+    uint8_t  traffic_class;   /* traffic class (0-7)       */
+    uint16_t vlan_id;         /* 802.1Q vlan (0-4094)      */
+    uint8_t  preemption;      /* 802.1Qbb (0-2)            */
+    uint8_t  timesync_mode;   /* 0 none / 1 GM / 2 slave   */
+    uint8_t  stream_role;     /* 0 idle / 1 talker / 2 listener */
+    uint16_t stream_vlan_id;  /* stream vlan               */
+    uint8_t  stream_priority; /* stream data-frame PCP     */
+    uint8_t  reserved;
+    int64_t  tas_cycle_ns;    /* TAS cycle time            */
+    uint16_t gcl_count;       /* number of gate entries    */
+} htsn_tsn_cfg_t;
+#pragma pack(pop)
+
+#define HTSN_TSN_GCL_ENTRY  9
+#define HTSN_TSN_MAX_GCL    16
+
+/* Feature bitmap (endpoint reports what its HW actually enforces). */
+#define HTSN_TSN_F_VLAN       (1u << 0)
+#define HTSN_TSN_F_PCP        (1u << 1)
+#define HTSN_TSN_F_PREEMPT    (1u << 2)
+#define HTSN_TSN_F_STREAM     (1u << 3)
+#define HTSN_TSN_F_TAS        (1u << 4)
+#define HTSN_TSN_F_PTP        (1u << 5)
 
 uint16_t htsn_crc16(const uint8_t *data, size_t len);
 
