@@ -48,6 +48,15 @@ static const NodeDef NODES[] = {
     { "cmd_beep_ms",       HTSN_ID_CMD_BEEP_MS,     UA_TYPES_INT16,   0, 1 },
     { "cmd_sonar_trigger", HTSN_ID_CMD_SONAR_TRIG,  UA_TYPES_BOOLEAN, 0, 1 },
     { "cmd_reboot",        HTSN_ID_CMD_REBOOT,      UA_TYPES_BOOLEAN, 0, 1 },
+    { "tsn_app_vlan",      HTSN_ID_TSN_APP_VLAN,    UA_TYPES_INT16,   0, 0 },
+    { "tsn_app_prio",      HTSN_ID_TSN_APP_PRIO,    UA_TYPES_BYTE,    0, 0 },
+    { "tsn_app_preempt",   HTSN_ID_TSN_APP_PREEMPT, UA_TYPES_BYTE,    0, 0 },
+    { "tsn_app_timesync",  HTSN_ID_TSN_APP_TIMESYNC,UA_TYPES_BYTE,    0, 0 },
+    { "tsn_app_strole",    HTSN_ID_TSN_APP_STROLE,  UA_TYPES_BYTE,    0, 0 },
+    { "tsn_app_stvlan",    HTSN_ID_TSN_APP_STVLAN,  UA_TYPES_INT16,   0, 0 },
+    { "tsn_app_tascyc",    HTSN_ID_TSN_APP_TASCYC,  UA_TYPES_INT64,   0, 0 },
+    { "tsn_features",      HTSN_ID_TSN_FEATURES,    UA_TYPES_INT32,   0, 0 },
+    { "cmd_tsn_config",    HTSN_ID_CMD_TSN_CONFIG,  UA_TYPES_STRING,  0, 1 },
 };
 static const size_t NN = sizeof(NODES) / sizeof(NODES[0]);
 
@@ -86,6 +95,7 @@ static void emit_value(const NodeDef *nd, const UA_Variant *v) {
     case UA_TYPES_INT64:   printf("\"%s\":%lld", nd->name, (long long)*(const UA_Int64 *)v->data); break;
     case UA_TYPES_UINT16:  printf("\"%s\":%u", nd->name, (unsigned)*(const UA_UInt16 *)v->data); break;
     case UA_TYPES_BYTE:    printf("\"%s\":%u", nd->name, (unsigned)*(const UA_Byte *)v->data); break;
+    case UA_TYPES_STRING:  printf("\"%s\":\"%s\"", nd->name, v->data ? (const char *)v->data : ""); break;
     default:               printf("\"%s\":null", nd->name); break;
     }
 }
@@ -156,11 +166,43 @@ static int cmd_write(const char *name, const char *val) {
     return 1;
 }
 
+static int cmd_write_json(const char *name, const char *path) {
+    const NodeDef *nd = NULL;
+    for (size_t i = 0; i < NN; i++)
+        if (strcmp(NODES[i].name, name) == 0) { nd = &NODES[i]; break; }
+    if (!nd) { printf("err unknown node '%s'\n", name); return 1; }
+    if (nd->type != UA_TYPES_STRING) { printf("err node '%s' is not a string\n", name); return 1; }
+    FILE *f = fopen(path, "rb");
+    if (!f) { printf("err open %s\n", path); return 1; }
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    if (n < 0 || n > 65536) { printf("err bad size\n"); fclose(f); return 1; }
+    char *buf = malloc((size_t)n + 1);
+    if (!buf) { printf("err alloc\n"); fclose(f); return 1; }
+    size_t rd = fread(buf, 1, (size_t)n, f); fclose(f);
+    buf[rd] = '\0';
+    int rc = 1;
+    for (int attempt = 0; attempt < 4; attempt++) {
+        UA_Client *c = connect();
+        if (!c) { usleep(200000); continue; }
+        UA_String s; s.length = rd; s.data = (UA_Byte *)buf;
+        UA_StatusCode rv = UA_Client_writeValueAttribute_scalar(c,
+            UA_NODEID_NUMERIC(HTSN_OPCUA_NS, nd->id), &s, &UA_TYPES[UA_TYPES_STRING]);
+        UA_Client_disconnect(c); UA_Client_delete(c);
+        if (rv == UA_STATUSCODE_GOOD) { printf("ok\n"); rc = 0; break; }
+        usleep(200000);
+    }
+    free(buf);
+    if (rc) printf("err write (retries exhausted)\n");
+    return rc;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "read") == 0)
         return cmd_read();
     if (argc >= 4 && strcmp(argv[1], "write") == 0)
         return cmd_write(argv[2], argv[3]);
+    if (argc >= 4 && strcmp(argv[1], "write-json") == 0)
+        return cmd_write_json(argv[2], argv[3]);
     fprintf(stderr, "usage: htsn_opcua_cli read | htsn_opcua_cli write <name> <value>\n");
     return 2;
 }

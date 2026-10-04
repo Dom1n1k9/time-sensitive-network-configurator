@@ -59,6 +59,21 @@ static UA_StatusCode add_sweep(UA_UInt32 id, const char *name) {
         UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
 }
 
+static UA_StatusCode add_string(UA_UInt32 id, const char *name) {
+    UA_VariableAttributes attr;
+    UA_VariableAttributes_init(&attr);
+    attr.description = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
+    attr.displayName = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
+    attr.dataType = UA_TYPES[UA_TYPES_STRING].typeId;
+    attr.valueRank = -1;
+    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    const UA_String s = UA_STRING_NULL;
+    UA_Variant_setScalarCopy(&attr.value, &s, &UA_TYPES[UA_TYPES_STRING]);
+    return UA_Server_addVariableNode(server, UA_NODEID_NUMERIC(HTSN_OPCUA_NS, id), obj,
+        UA_NS0ID(HASCOMPONENT), UA_QUALIFIEDNAME(ns, (char *)name),
+        UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
+}
+
 static UA_StatusCode build_address_space(void) {
     ns = UA_Server_addNamespace(server, "urn:htsn:stm32");
 
@@ -93,6 +108,16 @@ static UA_StatusCode build_address_space(void) {
     add_scalar(HTSN_ID_PTP_LOCKED,    "ptp_locked",     UA_TYPES_BOOLEAN,  &b);
     add_scalar(HTSN_ID_LAST_SEEN,     "last_seen",      UA_TYPES_INT64,    &i64);
 
+    i16 = 0; u8 = 0;
+    add_scalar(HTSN_ID_TSN_APP_VLAN,    "tsn_app_vlan",    UA_TYPES_INT16, &i16);
+    add_scalar(HTSN_ID_TSN_APP_PRIO,    "tsn_app_prio",    UA_TYPES_BYTE,  &u8);
+    add_scalar(HTSN_ID_TSN_APP_PREEMPT, "tsn_app_preempt", UA_TYPES_BYTE,  &u8);
+    add_scalar(HTSN_ID_TSN_APP_TIMESYNC,"tsn_app_timesync",UA_TYPES_BYTE,  &u8);
+    add_scalar(HTSN_ID_TSN_APP_STROLE,  "tsn_app_strole",  UA_TYPES_BYTE,  &u8);
+    add_scalar(HTSN_ID_TSN_APP_STVLAN,  "tsn_app_stvlan",  UA_TYPES_INT16, &i16);
+    add_scalar(HTSN_ID_TSN_APP_TASCYC,  "tsn_app_tascyc",  UA_TYPES_INT64, &i64);
+    add_scalar(HTSN_ID_TSN_FEATURES,    "tsn_features",    UA_TYPES_INT32, &i32);
+
     i16 = 90;
     add_scalar(HTSN_ID_CMD_SERVO_ANGLE, "cmd_servo_angle",   UA_TYPES_INT16,   &i16);
     add_scalar(HTSN_ID_CMD_RELAY_ON,    "cmd_relay_on",      UA_TYPES_BOOLEAN, &b);
@@ -100,6 +125,7 @@ static UA_StatusCode build_address_space(void) {
     add_scalar(HTSN_ID_CMD_BEEP_MS,     "cmd_beep_ms",       UA_TYPES_INT16,   &i16);
     add_scalar(HTSN_ID_CMD_SONAR_TRIG,  "cmd_sonar_trigger", UA_TYPES_BOOLEAN, &b);
     add_scalar(HTSN_ID_CMD_REBOOT,      "cmd_reboot",        UA_TYPES_BOOLEAN, &b);
+    add_string(HTSN_ID_CMD_TSN_CONFIG,  "cmd_tsn_config");
     return UA_STATUSCODE_GOOD;
 }
 

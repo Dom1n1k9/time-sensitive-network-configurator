@@ -9,10 +9,13 @@ PFX     ?= /tmp/opencode/o62541-prefix
 CFLAGS  += -O2 -Wall -I. -I$(PFX)/include
 LDFLAGS += -L$(PFX)/lib -Wl,-rpath,$(PFX)/lib
 
-all: cnc_opcua test_opcua_client htsn_opcua_cli tsn_opcua_link
+all: cnc_opcua test_opcua_client htsn_opcua_cli tsn_opcua_link tsn_opcua_bridge
 
 cnc_opcua: cnc_opcua.c htsn_opcua_ids.h
 	$(CC) $(CFLAGS) -o $@ cnc_opcua.c $(LDFLAGS) -lopen62541
+
+tsn_opcua_bridge: tsn_opcua_bridge.c htsn_opcua_ids.h htsn_frame.h
+	$(CC) $(CFLAGS) -o $@ tsn_opcua_bridge.c $(LDFLAGS) -lopen62541
 
 test_opcua_client: test_opcua_client.c htsn_opcua_ids.h
 	$(CC) $(CFLAGS) -o $@ test_opcua_client.c $(LDFLAGS) -lopen62541

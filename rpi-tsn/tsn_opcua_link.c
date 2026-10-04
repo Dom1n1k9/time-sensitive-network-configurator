@@ -44,7 +44,15 @@ static const NodeDef NODES[] = {
     { "ptp_offset_ns",  HTSN_ID_PTP_OFFSET_NS,  UA_TYPES_INT64,   0 },
     { "ptp_state",      HTSN_ID_PTP_STATE,      UA_TYPES_BYTE,    0 },
     { "ptp_locked",     HTSN_ID_PTP_LOCKED,     UA_TYPES_BOOLEAN, 0 },
-    { "last_seen",      HTSN_ID_LAST_SEEN,      UA_TYPES_INT64,   0 },
+    { "last_seen",       HTSN_ID_LAST_SEEN,       UA_TYPES_INT64,   0 },
+    { "tsn_app_vlan",    HTSN_ID_TSN_APP_VLAN,    UA_TYPES_INT16,   0 },
+    { "tsn_app_prio",    HTSN_ID_TSN_APP_PRIO,    UA_TYPES_BYTE,    0 },
+    { "tsn_app_preempt", HTSN_ID_TSN_APP_PREEMPT, UA_TYPES_BYTE,    0 },
+    { "tsn_app_timesync",HTSN_ID_TSN_APP_TIMESYNC,UA_TYPES_BYTE,    0 },
+    { "tsn_app_strole",  HTSN_ID_TSN_APP_STROLE,  UA_TYPES_BYTE,    0 },
+    { "tsn_app_stvlan",  HTSN_ID_TSN_APP_STVLAN,  UA_TYPES_INT16,   0 },
+    { "tsn_app_tascyc",  HTSN_ID_TSN_APP_TASCYC,  UA_TYPES_INT64,   0 },
+    { "tsn_features",    HTSN_ID_TSN_FEATURES,    UA_TYPES_INT32,   0 },
 };
 static const size_t NN = sizeof(NODES) / sizeof(NODES[0]);
 
