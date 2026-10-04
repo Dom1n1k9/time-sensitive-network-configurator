@@ -12,6 +12,7 @@ The ESP32 (wireless) side uses MQTT and does not touch this module.
 import json
 import os
 import subprocess
+import tempfile
 import time
 
 from . import state
@@ -54,6 +55,38 @@ def send_cmd(name, value):
     out = out[-1] if out else ""
     ok = p.returncode == 0 and out.startswith("ok")
     add_event("tsn", ENDPOINT_ID, "cmd %s=%s %s" % (name, value, "OK" if ok else "FAIL"))
+    state.WS_NOTIFY.set()
+    return {"ok": ok, "msg": out or ("ok" if ok else "command failed")}
+
+
+def apply_tsn_config(flat_json):
+    """Apply a TSN config to the wired endpoint by writing the flat snapshot to
+    the cmd_tsn_config OPC UA node; the bridge forwards it as a TSN_CFG frame and
+    the endpoint acknowledges it (applied-state + features appear in read_endpoint).
+    `flat_json` is a JSON string in the on-wire layout the bridge expects."""
+    cli = state.TSN_OPCUA_CLI
+    if not os.path.isfile(cli) or not os.access(cli, os.X_OK):
+        return {"ok": False, "msg": "htsn_opcua_cli not found - build rpi-tsn/ on the RPi"}
+    fd, path = tempfile.mkstemp(prefix="htsn_tsn_cfg_", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(flat_json)
+        env = dict(os.environ)
+        env["HTSN_OPCUA_URL"] = state.TSN_OPCUA_URL
+        try:
+            p = subprocess.run([cli, "write-json", "cmd_tsn_config", path],
+                               capture_output=True, text=True, timeout=20, env=env)
+        except Exception as ex:
+            return {"ok": False, "msg": "apply failed: %s" % ex}
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    out = (p.stdout or "").strip().splitlines()
+    out = out[-1] if out else ""
+    ok = p.returncode == 0 and out.startswith("ok")
+    add_event("tsn", ENDPOINT_ID, "tsn config applied %s" % ("OK" if ok else "FAIL"))
     state.WS_NOTIFY.set()
     return {"ok": ok, "msg": out or ("ok" if ok else "command failed")}
 

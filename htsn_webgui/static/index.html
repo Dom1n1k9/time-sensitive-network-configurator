@@ -185,10 +185,28 @@ function tsnEndpoint(){
        "<div class='row'><label style='width:150px'>relay</label><label><input type='checkbox' id='tsn_relaychk'> on</label> <button class='ghost' onclick='tsnCmd(\"cmd_relay_on\",$(\"tsn_relaychk\").checked?1:0)'>Set</button></div>"+
        "<div class='row'><label style='width:150px'>beep (ms)</label><input id='tsn_beep' type='number' min=0 value=300 style='width:80px'> <button class='ghost' onclick='tsnCmd(\"cmd_beep_ms\",$(\"tsn_beep\").value)'>Beep</button></div>"+
        "<div class='row'><label style='width:150px'>sonar</label><button class='ghost' onclick='tsnCmd(\"cmd_sonar_trigger\",1)'>Trigger sweep</button></div>"+
-       "<div class='row'><label style='width:150px'>system</label><button class='ghost' style='color:var(--err)' onclick='if(confirm(\"Reboot the TSN endpoint?\"))tsnCmd(\"cmd_reboot\",1)'>Reboot</button></div>"+
-     "</div></div>";
-}
-function tsnCmd(node,value){api("tsn_cmd",{node:node,value:value})}
+        "<div class='row'><label style='width:150px'>system</label><button class='ghost' style='color:var(--err)' onclick='if(confirm(\"Reboot the TSN endpoint?\"))tsnCmd(\"cmd_reboot\",1)'>Reboot</button></div>"+
+      "</div></div>"+
+    "<div class='card' style='margin-top:16px'><h3>TSN Configuration <span class='muted'>&mdash; applied-state reported by the endpoint over OPC UA</span></h3>"+
+      "<div class='row'><button onclick='applyWiredTsn()'>Apply TSN config to endpoint</button></div>"+
+      "<table style='margin-top:12px'>"+
+        "<tr><th>802.1Q VLAN (applied)</th><td id='tsn_app_vlan'>&ndash;</td></tr>"+
+        "<tr><th>802.1p PCP (applied)</th><td id='tsn_app_prio'>&ndash;</td></tr>"+
+        "<tr><th>preemption (applied)</th><td id='tsn_app_preempt'>&ndash;</td></tr>"+
+        "<tr><th>timesync mode</th><td id='tsn_app_timesync'>&ndash;</td></tr>"+
+        "<tr><th>stream role</th><td id='tsn_app_strole'>&ndash;</td></tr>"+
+        "<tr><th>stream VLAN</th><td id='tsn_app_stvlan'>&ndash;</td></tr>"+
+        "<tr><th>TAS cycle (ns)</th><td id='tsn_app_tascyc'>&ndash;</td></tr>"+
+        "<tr><th>enforced features</th><td id='tsn_features'>&ndash;</td></tr>"+
+      "</table></div>";
+ }
+ function tsnCmd(node,value){api("tsn_cmd",{node:node,value:value})}
+ function applyWiredTsn(){api("apply_wired_tsn",{}).then(()=>setTimeout(load,1200))}
+ function tsnSyncMode(v){if(v==null)return"&ndash;";return{0:"none",1:"grandmaster",2:"slave"}[v]||v}
+ function tsnStreamRole(v){if(v==null)return"&ndash;";return{0:"idle",1:"talker",2:"listener"}[v]||v}
+ function tsnFeatures(v){if(v==null)return"&ndash;";const b=v>>>0;if(!b)return"none";
+   const nm=["VLAN","PCP","preempt","stream","TAS","PTP"],on=[];
+   for(let i=0;i<6;i++)if(b&(1<<i))on.push(nm[i]);return on.length?on.join(", "):"none"}
 function tsnRender(){
   const e=D.tsn_endpoint,set=(id,v)=>{const el=$(id);if(el)el.innerHTML=v};
   if(!e||!e.ok){set("tsn_ts","(waiting &mdash; OPC UA server warming up or offline)");return}
@@ -203,8 +221,17 @@ function tsnRender(){
   if(e.ptp_locked)ptp+=" (locked)";
   if(e.ptp_offset_ns)ptp+=" offset "+e.ptp_offset_ns+" ns";
   set("tsn_ptp",ptp);
-}
-function aiClipUrl(id,path){
+  const nrm=v=>v==null?"&ndash;":v;
+  set("tsn_app_vlan",nrm(e.tsn_app_vlan));
+  set("tsn_app_prio",nrm(e.tsn_app_prio));
+  set("tsn_app_preempt",nrm(e.tsn_app_preempt));
+  set("tsn_app_timesync",tsnSyncMode(e.tsn_app_timesync));
+  set("tsn_app_strole",tsnStreamRole(e.tsn_app_strole));
+  set("tsn_app_stvlan",nrm(e.tsn_app_stvlan));
+  set("tsn_app_tascyc",nrm(e.tsn_app_tascyc));
+  set("tsn_features",tsnFeatures(e.tsn_features));
+ }
+ function aiClipUrl(id,path){
   const f=String(path||"").replace(/^\/ai\//,"");
   return "/clip/"+encodeURIComponent(id)+"/"+encodeURIComponent(f);
 }

@@ -8,6 +8,7 @@ import time
 from .. import state
 from ..db import add_event, clamp, connect, sensor_history
 from .. import mqtt_link
+from .. import opcua_link
 
 
 def _set_mode(con, body):
@@ -91,6 +92,50 @@ def _build_snapshots(con, domain=None):
     return snapshots
 
 
+def _build_wired_tsn_flat(con, did):
+    """Flat on-wire TSN config for the wired endpoint, in the exact layout the
+    RPi bridge's push_tsn_config() expects. Derived from the same tables the
+    wireless snapshot uses, plus this device's stream role/vlan/priority. The
+    bridge packs it into an htsn_tsn_cfg_t frame for the STM32."""
+    flat = {"priority": 0, "traffic_class": 0, "vlan_id": 0, "preemption": 0,
+            "timesync_mode": 0, "tas_cycle_ns": 0, "gcl_gs": [], "gcl_dur": [],
+            "st_role": 0, "st_vlan": 0, "st_prio": 0}
+    q = con.execute("SELECT * FROM qos_configs WHERE device_id=?", (did,)).fetchone()
+    if q:
+        flat["priority"] = q["priority"]
+        flat["traffic_class"] = q["traffic_class"]
+        flat["preemption"] = q["preemption"]
+    grp = con.execute("SELECT vlan_id FROM vlan_groups WHERE id="
+                      "(SELECT group_id FROM vlan_members WHERE device_id=? LIMIT 1)",
+                      (did,)).fetchone()
+    if grp:
+        flat["vlan_id"] = grp["vlan_id"]
+    ts = con.execute("SELECT mode,grandmaster FROM timesync_status WHERE id='main'").fetchone()
+    if ts:
+        gm = ts["grandmaster"] or ""
+        if gm and gm != "PC":
+            flat["timesync_mode"] = 1 if did == gm else 2
+        else:
+            flat["timesync_mode"] = ts["mode"]
+    tas = con.execute("SELECT * FROM tas_schedules WHERE 1 LIMIT 1").fetchone()
+    if tas:
+        flat["tas_cycle_ns"] = tas["cycle_time_ns"]
+        gcl = con.execute("SELECT gate_state,duration_ns FROM gcl_entries "
+                          "WHERE schedule_id=? ORDER BY \"index\"", (tas["id"],)).fetchall()
+        for g in gcl:
+            flat["gcl_gs"].append(g["gate_state"])
+            flat["gcl_dur"].append(g["duration_ns"])
+    m = con.execute("SELECT m.role, s.vlan_id, s.data_frame_prio, s.priority "
+                    "FROM tsn_stream_members m JOIN tsn_streams s "
+                    "ON s.stream_id=m.stream_id WHERE m.device_id=? LIMIT 1",
+                    (did,)).fetchone()
+    if m:
+        flat["st_role"] = 1 if m["role"] == "talker" else 2
+        flat["st_vlan"] = m["vlan_id"]
+        flat["st_prio"] = m["data_frame_prio"] or m["priority"]
+    return flat
+
+
 def _exec_all_sim(con, domain=None):
     """Simulation execution: same snapshot, same ACK/retry flow — but the
     'agents' are timers, so every device answers tsn/ack after a realistic
@@ -145,7 +190,17 @@ def _exec_all(con, body):
     snapshots = _build_snapshots(con, domain)
     allowed = set(snapshots)
     n_pub = 0
+    wired_ok = wired_fail = 0
     for did in snapshots:
+        if did == opcua_link.ENDPOINT_ID:
+            # Wired endpoint has no MQTT path; apply via OPC UA (bridge -> TSN_CFG frame).
+            res = opcua_link.apply_tsn_config(json.dumps(_build_wired_tsn_flat(con, did)))
+            if res["ok"]:
+                wired_ok += 1
+            else:
+                wired_fail += 1
+            add_event("tsn", did, "apply (OPC UA) %s" % ("OK" if res["ok"] else res["msg"]))
+            continue
         broker.publish("tsn/cmd/%s/apply" % did, snapshots[did])
         broker.publish("tsn/cmd/%s/status" % did, "1")
         n_pub += 1
@@ -179,7 +234,8 @@ def _exec_all(con, body):
             acked = {did for did, (ok, at) in state.RECENT_ACKS.items()
                      if at >= start_ack and ok}
         pending = [r["id"] for r in con.execute("SELECT id FROM devices")
-                   if r["id"] in allowed and r["id"] not in acked]
+                   if r["id"] in allowed and r["id"] not in acked
+                   and r["id"] != opcua_link.ENDPOINT_ID]
         if not pending:
             break
         time.sleep(0.3)
@@ -190,6 +246,8 @@ def _exec_all(con, body):
             add_event("fxmqtt", "cnc", "retry tsn/cmd/%s/apply" % did)
     msg = "Sent /apply to %d device(s)%s via MQTT" % (
         n_pub, (" in domain " + domain) if domain else "")
+    if wired_ok or wired_fail:
+        msg += "; wired endpoint %d ok / %d fail" % (wired_ok, wired_fail)
     if retried:
         msg += "; %d retried (no ack)" % len(retried)
     return {"ok": True, "msg": msg}
@@ -527,9 +585,18 @@ def _clear_decisions(con, body):
     return {"ok": True, "msg": "cleared %d decisions" % n}
 
 
+def _apply_wired_tsn(con, body):
+    """Apply the current TSN config to the wired STM32 endpoint via OPC UA
+    (builds the flat snapshot, writes cmd_tsn_config; the endpoint ACKs it)."""
+    did = body.get("device_id") or opcua_link.ENDPOINT_ID
+    flat = _build_wired_tsn_flat(con, did)
+    return opcua_link.apply_tsn_config(json.dumps(flat))
+
+
 HANDLERS = {
     "set_mode": _set_mode,
     "exec_all": _exec_all,
+    "apply_wired_tsn": _apply_wired_tsn,
     "clear_events": _clear_events,
     "get_history": _get_history,
     "metrics": _metrics,

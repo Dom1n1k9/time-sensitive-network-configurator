@@ -93,6 +93,61 @@ class WebGuiActionTest(unittest.TestCase):
         self.assertEqual(q["priority"], 7)
         self.assertTrue(self.act("delete_qos", {"device_id": "d1"})["ok"])
 
+    def test_apply_wired_tsn(self):
+        from htsn_webgui import opcua_link
+        # Fake one-shot CLI that records the exact snapshot it is handed.
+        fake = os.path.join(self.tmp, "fake_cli.py")
+        with open(fake, "w", encoding="utf-8") as f:
+            f.write("#!/usr/bin/env python3\n"
+                    "import sys, os\n"
+                    "assert sys.argv[1] == 'write-json', sys.argv\n"
+                    "assert sys.argv[2] == 'cmd_tsn_config', sys.argv\n"
+                    "open(os.environ['FAKE_CLI_OUT'], 'w').write(open(sys.argv[3]).read())\n"
+                    "print('ok')\n")
+        os.chmod(fake, 0o755)
+        cap = os.path.join(self.tmp, "captured_tsn.json")
+        old_cli = state.TSN_OPCUA_CLI
+        state.TSN_OPCUA_CLI = fake
+        os.environ["FAKE_CLI_OUT"] = cap
+        did = opcua_link.ENDPOINT_ID
+        # Clean slate for the (global) TAS schedule so the builder picks ours.
+        con = connect()
+        con.execute("DELETE FROM gcl_entries"); con.execute("DELETE FROM tas_schedules")
+        con.commit(); con.close()
+        try:
+            self.act("save_devices", {"device": {"id": did, "name": "wired"}})
+            self.act("save_qos", {"device_id": did, "priority": 5,
+                                  "traffic_class": 2, "preemption": 1})
+            self.act("save_vlan", {"id": "wg", "name": "Wired", "vlan_id": 100})
+            self.act("save_member", {"group_id": "wg", "set_members": [did]})
+            self.act("save_tas", {"id": "ws", "name": "sched", "cycle_time_ns": 4000000,
+                                  "deploy_target": did,
+                                  "gcl": [{"gate_state": 1, "duration_ns": 4000000},
+                                          {"gate_state": 0, "duration_ns": 4000000}]})
+            self.act("save_stream", {"stream_id": "ws1", "talker": did,
+                                     "vlan_id": 100, "data_frame_prio": 6})
+            r = self.act("apply_wired_tsn", {})
+            self.assertTrue(r["ok"], r)
+            flat = json.load(open(cap, encoding="utf-8"))
+            self.assertEqual(flat["priority"], 5)
+            self.assertEqual(flat["traffic_class"], 2)
+            self.assertEqual(flat["preemption"], 1)
+            self.assertEqual(flat["vlan_id"], 100)
+            self.assertEqual(flat["tas_cycle_ns"], 4000000)
+            self.assertEqual(flat["gcl_gs"], [1, 0])
+            self.assertEqual(flat["gcl_dur"], [4000000, 4000000])
+            self.assertEqual(flat["st_role"], 1)    # talker
+            self.assertEqual(flat["st_vlan"], 100)
+            self.assertEqual(flat["st_prio"], 6)
+        finally:
+            state.TSN_OPCUA_CLI = old_cli
+            os.environ.pop("FAKE_CLI_OUT", None)
+            self.act("delete_tas", {"id": "ws"})
+            self.act("delete_stream", {"stream_id": "ws1"})
+            self.act("delete_vlan", {"id": "wg"})
+            self.act("delete_qos", {"device_id": did})
+            self.act("save_devices", {"delete": [did]})
+
     def test_vlan_and_members(self):
         self.act("save_devices", {"device": {"id": "d1"}})
         self.act("save_devices", {"device": {"id": "d2"}})
