@@ -64,16 +64,12 @@ mosquitto_sub -h 192.168.1.248 -p 1883 -u htsn -P <pass> -t 'tsn/#' -v
 # expect: tsn/discover {…}, then periodic tsn/status heartbeats
 ```
 
-## 4. Switch the GUI to real mode
+## 4. The GUI is real-mode only
 
-- GUI top-right mode switch → **Real** (or `POST /api/actions/set_mode
-  {"mode":"real"}`).
-- **The mode is in-memory only** — after any webgui restart it returns to
-  Simulation; flip it again.
-- Real mode uses a **separate database** (`htsn_gui.db`); the sim demo config
-  (VLAN/QoS/streams seeded in `htsn_sim.db`) does not carry over. For the
-  hardware demo, configure directly in real mode (a few QoS rows + a stream is
-  enough), or keep it minimal: device → deploy → ping → actor.
+There is no mode switch — the GUI always runs against real nodes (ESP32 over
+MQTT, the STM32 TSN endpoint over OPC UA). It persists to `htsn_gui.db`.
+Configure directly in the GUI (a few QoS rows + a stream is enough), or keep it
+minimal: device → deploy → ping → actor.
 
 ## 5. Verify the device end-to-end
 
@@ -172,11 +168,6 @@ that opens a small dialog to set line1/line2 over MQTT.
 - Or over MQTT: `tsn/cmd/<id>/factory` payload `1`.
 - Fallback: if a provisioned board cannot reach its saved WiFi, the
   provisioning AP comes back on its own — re-provision without reflashing.
-
-## 9. Back to simulation
-
-GUI mode → Simulation. The deterministic 7-device sim fleet resumes on
-`htsn_sim.db`; the real device's rows live in `htsn_gui.db` and are untouched.
 
 ## Troubleshooting
 

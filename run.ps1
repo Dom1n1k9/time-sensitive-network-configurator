@@ -43,7 +43,7 @@ function Start-Broker {
     $mosq = Get-Command mosquitto.exe -ErrorAction SilentlyContinue
     if (-not $mosq) {
         Log "mosquitto.exe not found on PATH - no external broker started."
-        Log "The web GUI still works in Simulation mode; for REAL mode start a broker manually."
+        Log "The web GUI (real-mode only) needs a broker on :1883 to show devices. Start mosquitto manually."
         return
     }
     $conf = Join-Path $env:TEMP "htsn-mosquitto.conf"

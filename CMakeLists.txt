@@ -109,25 +109,6 @@ if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/esp32-agent/components/
   add_test(NAME test_json_host COMMAND test_json_host)
 endif()
 
-# ---- TSN Node Simulator (independent feature; does not touch core) ----
-set(SIM_SOURCES
-  src/common/log.c
-  src/common/str_util.c
-  src/simulator/common/sim_str.c
-  src/simulator/core/sim_device.c
-  src/simulator/core/sim_simulator.c
-  src/simulator/profiles/sim_profile.c
-  src/simulator/services/sim_services.c
-  src/simulator/protocol/sim_protocol.c
-  src/simulator/app/sim_main.c
-)
-add_executable(tsn-node-simulator ${SIM_SOURCES})
-target_include_directories(tsn-node-simulator PRIVATE src)
-target_link_libraries(tsn-node-simulator PRIVATE Threads::Threads)
-
-# install simulator profiles into the build tree
-file(COPY profiles DESTINATION ${CMAKE_BINARY_DIR})
-
 # ---- TSN node firmware agent (runs on physical devices, executes configurator
 #      commands via MQTT; Linux adapter uses iproute2/tc, embedded
 #      adapters are compile-safe stubs for ESP-IDF/Zephyr/vendor SDK) ----
@@ -143,13 +124,13 @@ target_link_libraries(tsn-node-agent PRIVATE htsn-core SQLite::SQLite3
   ${MOSQUITTO_LIBRARIES} Threads::Threads)
 
 # ---- Packaging / install -------------------------------------------------
-# The project ships a C core (CLI + agent + simulator) and a Python web GUI.
+# The project ships a C core (CLI + agent) and a Python web GUI.
 # The LVGL C GUI was removed; webgui.py is the front-end. See docs/BUILD.md.
 
 set(HTSN_INSTALL_BINDIR bin)
 set(HTSN_INSTALL_DATADIR share/htsn-configurator)
 
-install(TARGETS htsn-cli tsn-node-simulator tsn-node-agent
+install(TARGETS htsn-cli tsn-node-agent
         RUNTIME DESTINATION ${HTSN_INSTALL_BINDIR})
 if(BUILD_PLUGINS)
   install(TARGETS plugin-mqtt-discovery

@@ -12,8 +12,8 @@
 > auditable.
 
 A production-oriented configuration and control plane for H-TSN. The **control-plane
-core is written in pure C (C11)** and ships as a CLI/headless service, a host firmware
-agent, and a generic node simulator. The **front-end is a Python web GUI**
+core is written in pure C (C11)** and ships as a CLI/headless service and a host
+firmware agent. The **front-end is a Python web GUI**
 (`webgui.py` / `htsn_webgui/`) with a single-file, dependency-light SPA. The **edge AI
 services** (`rpi-ai/`) and the **wired TSN CNC** (`rpi-tsn/`) run on the Raspberry Pi
 next to the GUI.
@@ -37,7 +37,6 @@ network over **FXMQTT** — OPC UA FX / C2C Field Exchange carried over MQTT.
     - [Wired TSN endpoint + RPi CNC](#wired-tsn-endpoint--rpi-cnc)
     - [Edge AI services](#edge-ai-services)
     - [Firmware agents](#firmware-agents)
-    - [Simulator](#simulator)
 5. [Raspberry Pi edge deployment](#raspberry-pi-edge-deployment)
 6. [AI on the edge](#ai-on-the-edge)
 7. [Firmware & OTA](#firmware--ota)
@@ -67,7 +66,7 @@ sudo apt install -y build-essential cmake libsqlite3-dev libmosquitto-dev \
   mosquitto python3 python3-pip
 python3 -m pip install paho-mqtt
 
-# build the C core (CLI + tests + simulator + host agent)
+# build the C core (CLI + tests + host agent)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -- -j$(nproc)
 
@@ -142,20 +141,20 @@ the **"HTSN Configurator"** icon.
   │   │  opc.tcp :4840) + poller     │    │ (PREEMPT_RT, 802.1AS)     │          │
   │   └───────────────┬──────────────┘    └───────────────┬───────────┘          │
   └───────────────────┼───────────────────────────────────┼──────────────────────┘
-                      │ MQTT (wireless)                   │ OPC UA + PTP (wired)
-       ┌──────────────┼───────────────────┐               │
-       ▼              ▼                   ▼               ▼
-  esp32-agent /   tsn-node-agent   tsn-node-simulator   STM32 TSN endpoint
-  esp32-cam       (host agent)     (virtual nodes,      (stm32-tsn/, Zephyr)
-  (ESP-IDF,        Linux/RPi       profiles)            PTP slave + OPC UA client,
-   zero-touch,                                          sonar/display/actuator
-   sensors, OTA A/B)
+                       │ MQTT (wireless)                   │ OPC UA + PTP (wired)
+        ┌──────────────┼───────────────────┐               │
+        ▼              ▼                   └───────────────▼
+   esp32-agent /     tsn-node-agent                   STM32 TSN endpoint
+   esp32-cam         (host agent, Linux/RPi)          (stm32-tsn/, Zephyr)
+   (ESP-IDF,                                          PTP slave + OPC UA client,
+    zero-touch,                                       sonar/display/actuator
+    sensors, OTA A/B)
 ```
 
 - **C core** (`src/`) — modular, dependency-injected managers connected through an
   event bus; all state persisted in **SQLite**; communicates only via **MQTT/FXMQTT**.
 - **Web GUI** (`htsn_webgui/`) — Python (mostly stdlib) HTTP + WebSocket front-end
-  with a **Simulation** and a **Real** mode.
+   (real-mode only — there is no simulation mode).
 - **Wired TSN CNC** (`rpi-tsn/`) — the **OPC UA server** (the wired data plane) and a
   poller that feeds the GUI JSON, plus the **ptpd grandmaster** config.
 - **Wired TSN endpoint** (`stm32-tsn/`) — a Zephyr STM32 node that is a **PTP slave**
@@ -165,8 +164,7 @@ the **"HTSN Configurator"** icon.
   GUI on the Pi, talks to the GUI through its action API.
 - **Firmware agents** (`esp32-agent/`, `esp32-cam/`) — ESP-IDF software for physical
   boards with zero-touch provisioning; a host agent (`tsn-node-agent`) for
-  Linux/Raspberry Pi and compile-safe stubs for STM32/NXP.
-- **Simulator** (`tsn-node-simulator`) — virtual nodes driven by `profiles/*.ini`.
+     Linux/Raspberry Pi and compile-safe stubs for STM32/NXP.
 
 > **Heterogeneous, by design.** The wired nodes do real TSN: **PTP** time-synchronization
 > and (on capable switches) **GCL/TAS** — the STM32 endpoint locks to the RPi grandmaster.
@@ -198,13 +196,12 @@ H-TSN keeps the control plane unified but splits the **data plane** by link type
 
 ### C core
 
-The control-plane engine, built as `htsn-core` (static lib) with three executables:
+The control-plane engine, built as `htsn-core` (static lib) with two executables:
 
 | Binary | Purpose |
 |--------|---------|
 | `htsn-cli` | headless/CLI controller (`--headless`, `--db`, `--mqtt-host`, `--mqtt-port`, `--plugin-dir`) |
 | `tsn-node-agent` | host firmware agent (Linux/RPi adapter) that executes controller commands |
-| `tsn-node-simulator` | generic virtual-node simulator from `profiles/*.ini` |
 
 See [docs/BUILD.md](docs/BUILD.md) for platform details.
 
@@ -236,13 +233,8 @@ python3 webgui.py [--host H] [--port P]
 #      HTSN_WEB_USER, HTSN_WEB_PASS, HTSN_LLM_URL, HTSN_TLS_CA, HTSN_TLS_CERT, HTSN_TLS_KEY
 ```
 
-**Modes.** *Simulation* fabricates a stable fleet of nodes (ESP32 sensor/relay boards,
-ESP32-CAM, STM32, Linux), sensors, FX field-exchange data and a frame flow — and
-**simulates the whole deploy loop**: *Execute settings on controller* publishes a
-per-device snapshot, every device ACKs after a realistic delay (with one retry pass
-for stragglers) and the Devices page shows each device's deploy status. *Real*
-connects to your MQTT broker and live devices (commands are only published in Real
-mode).
+**Real mode only.** The GUI connects to your MQTT broker (and the OPC UA wired plane)
+and live devices; commands are published to real nodes. There is no simulation mode.
 
 > **TLS in the GUI.** TLS itself is not bundled — put the GUI behind a reverse proxy
 > (nginx/caddy) for HTTPS; MQTT TLS is optional via the `HTSN_TLS_*` env vars above.
@@ -312,12 +304,7 @@ Rollback for any AI change: **Config Versions** page. See [AI on the edge](#ai-o
   event), provisioned with the same shared portal, OTA-capable (CRC-verified).
 
 See [esp32-agent/README.md](esp32-agent/README.md) for the full firmware protocol and
-wiring tables, and `docs/SIMULATOR.md` for the virtual nodes.
-
-### Simulator
-
-`tsn-node-simulator` — generic virtual TSN nodes from `profiles/*.ini`
-(ESP32 / RPi / STM32 / NXP / Linux). See [docs/SIMULATOR.md](docs/SIMULATOR.md).
+wiring tables.
 
 ---
 
@@ -354,8 +341,8 @@ Highlights:
 - **Auto-update** — every 30 min: `git pull` → C core rebuild → sync `rpi-ai/*.py`
   → restart only the services that changed. Failures keep the old code and log to
   `/home/htsn/htsn-ai/update.log`.
-- **Backup** — daily hot SQLite copies (sim + real DBs) plus key configs into
-  `/home/htsn/backups/<stamp>/`, 14-day retention.
+- **Backup** — daily hot SQLite DB copies plus key configs into
+   `/home/htsn/backups/<stamp>/`, 14-day retention.
 - **Reachable from anywhere** — Tailscale gives the Pi a stable name/IP
   (`http://rpi:8000`, `ssh htsn@rpi`) independent of which WiFi it sits on.
 - **Multi-WiFi** — NetworkManager profiles with priorities (site hotspot first,
@@ -407,10 +394,8 @@ The firmware manager lives **per device** on the Devices page:
   (`esp_https_ota`), then the device **re-reads the partition and verifies the CRC32**
   against the upload-time value: mismatch → the partition is marked invalid, the
   previous app stays active and the GUI never reboots into bad firmware. Match →
-  reboot; a bad new app is rolled back automatically by the bootloader on next boot.
-  The new version is reported via `tsn/discover` / `tsn/status` and shown per device.
-- **Simulation** — flashing is simulated end-to-end (download → CRC verify → report
-  new version), so the whole flow can be demonstrated without hardware.
+   reboot; a bad new app is rolled back automatically by the bootloader on next boot.
+   The new version is reported via `tsn/discover` / `tsn/status` and shown per device.
 
 The firmware version constant for agent builds lives in
 `shared/htsn_version/htsn_version.h` (`HTSN_FW_VERSION`).
@@ -570,7 +555,7 @@ proxy (nginx/caddy). On the Pi deployment all credentials are kept in
 ## Build & test
 
 ```bash
-# configure + build (C core: CLI, tests, agent, simulator)
+# configure + build (C core: CLI, tests, agent)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -- -j$(nproc)
 
@@ -583,9 +568,6 @@ cmake --build build -- -j$(nproc)
 
 # host firmware agent
 ./build/tsn-node-agent --id node-01 --platform linux --mqtt-host broker.local
-
-# generic simulator (all profiles)
-./build/tsn-node-simulator --all --mqtt-host localhost --mqtt-port 1883
 
 # wired TSN CNC (RPi; needs open62541 v1.5 with -DUA_ENABLE_SUBSCRIBERS=ON)
 cd rpi-tsn && make PFX=$HTSN_O62541_PFX
@@ -611,9 +593,8 @@ cpack -G TGZ          # or: cmake --build build --target package
 - **cppcheck** static analysis (blocking),
 - ESP-IDF build of both firmwares (`esp32-agent`, `esp32-cam`).
 
-See [docs/BUILD.md](docs/BUILD.md) for no-root (local install) and packaging details,
-[docs/EDGE.md](docs/EDGE.md) for the Raspberry Pi service deployment, and
-[docs/SIMULATOR.md](docs/SIMULATOR.md) for the simulator profiles and options.
+See [docs/BUILD.md](docs/BUILD.md) for no-root (local install) and packaging details
+and [docs/EDGE.md](docs/EDGE.md) for the Raspberry Pi service deployment.
 
 ---
 
@@ -634,9 +615,8 @@ src/                  C11 control-plane core
   domain/             per-cell TSN domains
   config_version/     config snapshots + diff/rollback
   telemetry|trace/    telemetry + live communication monitor
-  agent/              host firmware agent (Linux/RPi adapter)
-  simulator/          generic node simulator
-  plugin/             loadable protocol plugins (.so)
+   agent/              host firmware agent (Linux/RPi adapter)
+   plugin/             loadable protocol plugins (.so)
 esp32-agent/          ESP-IDF ESP32 firmware agent (reference, wireless/MQTT)
 esp32-cam/            ESP-IDF ESP32-CAM firmware (MJPEG stream node, clips)
 stm32-tsn/            Zephyr STM32 wired TSN endpoint (PTP slave + OPC UA client)
@@ -650,8 +630,7 @@ rpi-ai/               Raspberry Pi edge services
   backup.sh           daily hot DB + config backups
   systemd/            unit + timer files for the Pi deployment
 deploy/               enable_preempt_rt.sh (RPi PREEMPT_RT + PTP tuning)
-profiles/             device profile templates (.ini) for the simulator
-docs/                 ARCHITECTURE, BUILD, SIMULATOR, EDGE (Pi deployment)
+docs/                 ARCHITECTURE, BUILD, EDGE (Pi deployment)
 webgui.py             entry-point shim for the web GUI
 htsn_webgui/          Python web GUI package
 tests/                Python unit + HTTP smoke tests
@@ -693,12 +672,6 @@ CMake/pkg-config at them — see [docs/BUILD.md](docs/BUILD.md).
 
 ## FAQ / notes
 
-- **Simulation is a full closed loop** — *Execute settings on controller* simulates
-  per-device ACKs (with retry), the Devices page shows each device's deploy status,
-  streams move between ready/standby/failed, and FX data + sensors are generated
-  continuously, so every page is alive without hardware.
-- **Simulated sensors** drift realistically around stable base values, so the Sensors
-  page is alive instead of frozen; history sparklines come from the same feed.
 - **Monitor Pause** keeps buffering new frames so pressing Start resumes where you left
   off.
 - **The GUI restarts itself** — a watchdog re-checks the web GUI health every 4 s and

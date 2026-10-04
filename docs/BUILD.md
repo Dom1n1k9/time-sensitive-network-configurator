@@ -84,8 +84,8 @@ cmake --build build --target package   # uses CPack
 cpack -G TGZ                          # or ZIP on Windows
 ```
 
-Installs `htsn-cli`, `tsn-node-simulator`, `tsn-node-agent`, plugins, `webgui.py`,
-profiles and docs into `bin` / `share/htsn-configurator`.
+Installs `htsn-cli`, `tsn-node-agent`, plugins, `webgui.py` and docs into
+`bin` / `share/htsn-configurator`.
 
 ## TSN node firmware agent
 

@@ -8,8 +8,8 @@ The project is a two-part system:
    persistent state in **SQLite** and a single communication channel over **MQTT /
    FXMQTT**.
 2. **Python web GUI** (`htsn_webgui/`) — a stdlib-light HTTP + WebSocket front-end that
-   speaks the same MQTT topics and persists to the same SQLite schema (one DB for
-   *simulation*, one for *real* mode).
+   speaks the same MQTT topics and persists to the same SQLite schema (a single
+    real-mode DB; the test harness uses a separate DB).
 
 > **Scope note (wireless realism):** True deterministic TSN delivery is not achievable
 > over ordinary 802.11. This project therefore focuses on the *management plane*:
@@ -41,12 +41,12 @@ The project is a two-part system:
  │  └───────────────┬───────────────┘   └─────────────────────────────┘    │
  └──────────────────┼──────────────────────────────────────────────────────┘
                     │  MQTT
-      ┌─────────────┼───────────────────────────────┐
-      ▼             ▼                               ▼
-  tsn-node-agent  tsn-node-simulator           ESP32 agent / CAM
-  host (Linux/RPi) virtual nodes               (ESP-IDF firmware,
-  iproute2 + tc    profiles/*.ini              zero-touch provisioning,
-                                               gPTP, sensors, OTA A/B)
+       ┌────────────────────────────────────────────┐
+       ▼                                            ▼
+   tsn-node-agent                               ESP32 agent / CAM
+   host (Linux/RPi)                             (ESP-IDF firmware,
+   iproute2 + tc                                zero-touch provisioning,
+                                                gPTP, sensors, OTA A/B)
 ```
 
 ## Layers (C core)
@@ -71,10 +71,9 @@ The project is a two-part system:
 7. **Agent** (`src/agent`) — host firmware agent executing controller commands on a
    physical node (Linux/RPi adapter via `iproute2` + `tc`; ESP32/STM32/NXP embedded
    adapters ship as compile-safe stubs).
-8. **Simulator** (`src/simulator`) — generic TSN node simulator from `profiles/*.ini`.
-9. **Trace / telemetry** (`src/trace`, `src/telemetry`) — live communication monitor
-   persisted to SQLite (`trace_log`), plus telemetry helpers.
-10. **Plugins** (`src/plugin`) — dlopen-able protocol plugins (e.g. MQTT discovery).
+8. **Trace / telemetry** (`src/trace`, `src/telemetry`) — live communication monitor
+    persisted to SQLite (`trace_log`), plus telemetry helpers.
+9. **Plugins** (`src/plugin`) — dlopen-able protocol plugins (e.g. MQTT discovery).
 
 ## Radio Layer (`src/radio`)
 
@@ -150,20 +149,19 @@ Decomposed package (originally a single 1,700-line file) with clear separation:
 | `db.py` | SQLite schema, versioned migrations, event trace, loaders, history |
 | `mqtt_broker.py` | paho wrapper: synchronous, thread-safe broker surface (with optional TLS via `HTSN_TLS_*`) |
 | `mqtt_link.py` | real-mode broker cache + background listener loop (status/ack/discover/LWT/sensors) |
-| `sim.py` | simulation engine — stable virtual fleet, drifting sensors, FX data, stream-status transitions, and simulated per-device deploy ACKs (timers) |
+ | `sim.py` | test-harness data source (never used by the running product) — a stable virtual fleet, drifting sensors, FX data, stream-status transitions and simulated per-device deploy ACKs (timers), exercised by the test suite |
 | `actions/` | per-domain action handlers (devices, qos, vlan, tas, timesync, streams, fxmqtt, misc incl. versions/backup/`llm_chat`) behind a thin dispatcher |
 | `server.py` | HTTP server, JSON API, hand-rolled WebSocket, basic auth, firmware serving + upload (CRC32), `llm_chat` proxy to the bridge |
 | `static/index.html` | single-file SPA (plain JS, no framework/build step) |
 
-**Simulation model.** In *sim* mode no MQTT is used at all: `sim.py` owns a stable
-virtual fleet (ESP32 sensor/relay boards, ESP32-CAM, STM32, Linux) and, each tick,
-writes device rows (upsert, so per-device columns like `last_deploy_at`/`last_deploy_ok`
-survive), sensor samples, FX field-exchange rows (`fx_data`) and metrics. *Execute
-settings on controller* in sim mode reuses the exact same per-device snapshot builder as
-real mode, marks every device "deploy pending" and then fires a `threading.Timer` per
-device (150–600 ms) that lands a realistic ACK (DB + `RECENT_ACKS` + event + WebSocket);
-a short wait + one retry pass covers stragglers. This makes the whole deploy/ACK/
-retry/status flow exercisable end-to-end without hardware.
+**Test harness (no product simulation).** The running product is real-mode only —
+there is no simulation mode in a deployed instance. `sim.py` exists solely so the test
+suite can exercise the GUI end-to-end without hardware: in the tests it owns a stable
+virtual fleet (ESP32 sensor/relay boards, ESP32-CAM, STM32, Linux) and, each tick, writes
+device rows (upsert, so per-device columns like `last_deploy_at`/`last_deploy_ok`
+survive), sensor samples, FX field-exchange rows (`fx_data`) and metrics, and the
+per-device deploy-ACK timers fire realistic ACKs (DB + `RECENT_ACKS` + event +
+WebSocket). This keeps the whole deploy/ACK/retry/status flow testable.
 
 **Firmware & OTA.** `server.py` serves `build/fw/` over HTTP and an upload endpoint that
 validates the file type, computes the **CRC32**, derives a version from the filename and
@@ -176,7 +174,7 @@ before rebooting (see `shared/htsn_ota`).
 actions inline. The GUI holds no model weights — it is a thin client of the bridge.
 
 **Threading model.** The web GUI uses `ThreadingHTTPServer` (one thread per request) plus
-daemon threads for the simulator, the MQTT listener and the WebSocket broadcaster. The
+daemon threads for the MQTT listener and the WebSocket broadcaster. The
 shared `REAL_MQTT` client is guarded by a lock (`state.MQTT_LOCK`) and the MQTT listener
 reconnects only on real disconnects (not on idle timeouts). The C core runs a headless
 ops loop in the main thread with worker threads for discovery/MQTT; cross-thread

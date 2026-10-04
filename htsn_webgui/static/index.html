@@ -505,7 +505,7 @@ function recordings(){
   }).join("");
   return "<h2>Camera Recordings</h2>"+
    "<div class='muted' style='margin-bottom:10px'>What the ESP32-CAM recorded. The AI service detects objects (e.g. <code>person</code>) and annotates each clip; <b>Watch latest</b> always plays the newest recording as MP4 (works in every browser).</div>"+
-   (cards||"<div class='card' class='muted'>No camera added yet — add it on the Devices page (ESP32-CAM row with its IP), or switch to Real mode so the camera announces itself.</div>");
+   (cards||"<div class='card' class='muted'>No camera added yet — add it on the Devices page (ESP32-CAM row with its IP), or the camera announces itself once it comes online.</div>");
 }
 function versionsCard(){
   const devOpts="<option value=''>global (all devices)</option>"+D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("");
@@ -632,7 +632,7 @@ function fxmqtt(){
   "<div class='row'><label>broker</label><input id=fs_broker placeholder='host:port' value='"+esc(brk.value||"127.0.0.1:1883")+"'></div>"+
   "<button onclick=fsSave()>Save / Deploy</button></div>"+
   "<div class='card'><h3>Live FX data (C2C field exchange)</h3>"+
-  "<div class='muted' style='margin-bottom:8px'>Values exchanged on <code>tsn/fx/data</code> — "+(D.mode==="sim"?"simulated field-server samples from the devices":"from real participants via the broker")+". Updates every 2 s.</div>"+
+  "<div class='muted' style='margin-bottom:8px'>Values exchanged on <code>tsn/fx/data</code> — from real participants via the broker. Updates every 2 s.</div>"+
   "<div class='row'><input id=fx_msg placeholder='e.g. pressure=1013' style='width:200px'><select id=fx_src>"+D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("")+"<option value='cnc'>"+esc(D.host||"cnc")+" (configurator)</option></select><button class='ghost' onclick=fxSendNow()>Send test value</button></div>"+
   "<div id='fx_live'><div class='muted'>loading...</div></div></div>";
  setTimeout(fxLiveStart,50);
@@ -658,7 +658,7 @@ function fxSendNow(){
 }
 function fsMode(){const pc=$("fs_type").value==="pc";$("fs_node").disabled=pc;if(pc)$("fs_node").value=""}
 function fsSave(){const type=$("fs_type").value;api("set_server",{type:type,id:(type==="node"?$("fs_node").value:""),broker:$("fs_broker").value||"127.0.0.1:1883"}).then(load)}
-function monitor(){return "<h2>Network / Frame Monitor</h2><div class='card'><div class='row'><span>"+(D.mode==="sim"?"Live simulated flow (MQTT, FX over MQTT, raw frames)":"Real traffic — waiting for real nodes")+"</span><input id=mon_filter placeholder='filter...' style='width:160px;margin-left:10px' oninput='monFilter()'>"+"<span class='spacer'></span><button class='ghost' onclick='api(\"clear_events\",{}).then(load)'>Clear</button><button id=mon_toggle class='ghost' onclick='toggleMon()'>"+(MON_RUNNING?"Pause":"Start")+"</button><span id=mon_state class='muted'></span></div><div class='monrow'><span class='t'>time</span><span class='s'>source</span><span class='ip'>src IP</span><span class='s'>destination</span><span class='ip'>dst IP</span><span class='pro'>protocol</span><span>message</span></div><div id=mon></div></div>"}
+function monitor(){return "<h2>Network / Frame Monitor</h2><div class='card'><div class='row'><span>"+"Real traffic — waiting for real nodes"+"</span><input id=mon_filter placeholder='filter...' style='width:160px;margin-left:10px' oninput='monFilter()'>"+"<span class='spacer'></span><button class='ghost' onclick='api(\"clear_events\",{}).then(load)'>Clear</button><button id=mon_toggle class='ghost' onclick='toggleMon()'>"+(MON_RUNNING?"Pause":"Start")+"</button><span id=mon_state class='muted'></span></div><div class='monrow'><span class='t'>time</span><span class='s'>source</span><span class='ip'>src IP</span><span class='s'>destination</span><span class='ip'>dst IP</span><span class='pro'>protocol</span><span>message</span></div><div id=mon></div></div>"}
 function toggleMon(){MON_RUNNING=!MON_RUNNING;const b=$("mon_toggle");if(b){b.textContent=MON_RUNNING?"Pause":"Start"}const s=$("mon_state");if(s){s.textContent=MON_RUNNING?"":"PAUSED — new frames are kept and shown on Start"};refreshMon()}
 function monFilter(){refreshMon()}
 function refreshMon(){if($("mon")){const keep=$("mon").innerHTML;const going=MON_RUNNING||cur!=="monitor";const src=D.events||[];if(!going){$("mon").innerHTML=keep;if($("mon_state")&&$("mon_state").textContent.indexOf("beeen")<0)$("mon_state").textContent="PAUSED — new frames are kept and shown on Start";return}
@@ -765,8 +765,8 @@ function sensors(){
   const devs=Object.keys(byDev);
   setTimeout(()=>devs.forEach(dev=>{const box=document.querySelector("[data-big='"+CSS.escape(dev)+"']");if(box)loadBigSensorCharts(dev) }),0);
   setTimeout(updateMaps,0);
-   return "<h2>Sensors ("+(D.mode==="real"?"real":"simulated")+")</h2>"+
-   (r || "<div class='card'>"+(D.mode==="real"?"Connect real sensors — none identified yet.":"Waiting for simulation sensors...")+"</div>")}
+   return "<h2>Sensors (real)</h2>"+
+   (r || "<div class='card'>Connect real sensors — none identified yet.</div>")}
 function updateMaps(){
   document.querySelectorAll("[data-map]").forEach(el=>{
     const kind=el.getAttribute("data-map"),dev=el.getAttribute("data-mapdev");
@@ -1228,7 +1228,7 @@ function loadBigSensorCharts(dev){
     "<div class='gcllegend' style='margin-top:4px'>"+leg+"</div>"}
 function metrics(){
   return "<h2>TSN Metrics</h2>"+
-   "<div class='muted' style='margin-bottom:10px'>Control-plane E2E latency (RTT per <b>Ping</b>, stored in <code>latency_log</code>) and gPTP clock offset from <code>timesync_reports</code>. In Simulation, synthetic samples are generated so you can see how the page behaves; in Real mode they come from real device Ping/acks and gPTP reports.</div>"+
+   "<div class='muted' style='margin-bottom:10px'>Control-plane E2E latency (RTT per <b>Ping</b>, stored in <code>latency_log</code>) and gPTP clock offset from <code>timesync_reports</code>. Values come from real device Ping/acks and gPTP reports.</div>"+
    "<div class='card'><div class='row'><span class='muted'>Aggregate window</span>"+
    "<select id=mt_win onchange='mtLoad()'><option value=300>last 5 min</option><option value=900>last 15 min</option><option value=3600 selected>last 1 h</option><option value=7200>last 2 h</option></select>"+
    "<span class='muted'>Summary window</span>"+

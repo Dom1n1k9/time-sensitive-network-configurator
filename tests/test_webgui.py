@@ -36,6 +36,7 @@ class WebGuiActionTest(unittest.TestCase):
     def setUp(self):
         state.EVENTS.clear()
         state.RECENT_ACKS.clear()
+        state.MODE["mode"] = "sim"  # per-test reset: keep set_mode() from leaking across tests
 
     def act(self, name, data=None):
         return run_action(name, data or {})
