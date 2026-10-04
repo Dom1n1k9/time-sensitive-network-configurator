@@ -270,6 +270,18 @@ start_tsn_cnc() {
             disown
             log "TSN OPC UA poller -> ${HTSN_OPCUA_OUT:-/tmp/htsn_tsn_opcua.json} (log /tmp/htsn_tsn_poller.log)"
         fi
+        # Bridge: the STM32 endpoint speaks the deterministic UDP protocol, not
+        # OPC UA. It writes endpoint telemetry (from UDP :4001) into the OPC UA
+        # nodes and forwards command-node changes (incl. TSN config) back to the
+        # endpoint (UDP :4000). It retries the OPC UA connect, so start it right
+        # after the server (no need to wait for warmup).
+        local bridge="$PROJ_DIR/rpi-tsn/tsn_opcua_bridge"
+        if [ -x "$bridge" ]; then
+            pkill -x tsn_opcua_bridge 2>/dev/null || true
+            "$bridge" < /dev/null > /tmp/htsn_tsn_bridge.log 2>&1 &
+            disown
+            log "TSN UDP<->OPC UA bridge on :4001 (log /tmp/htsn_tsn_bridge.log)"
+        fi
     fi
 }
 

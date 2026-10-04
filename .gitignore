@@ -22,5 +22,6 @@ webgui_*.log
 # rpi-tsn compiled outputs (built on the RPi via make, not source)
 rpi-tsn/cnc_opcua
 rpi-tsn/tsn_opcua_link
+rpi-tsn/tsn_opcua_bridge
 rpi-tsn/test_opcua_client
 rpi-tsn/htsn_opcua_cli
