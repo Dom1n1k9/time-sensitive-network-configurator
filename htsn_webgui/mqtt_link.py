@@ -185,10 +185,17 @@ def parse_listener_msg(con, topic, payload):
             except Exception:
                 log.exception("ptp report persist failed")
             return
-        elif "/sensors" in topic and did:
-            s_list = j.get("sensors", [])
+        elif "/sensors" in topic:
+            parts = topic.split("/")
+            if not did and len(parts) >= 3:
+                did = parts[2]
+            s_list = j.get("sensors") or ([j] if j.get("sensor_id") else [])
+            if not (did and s_list):
+                con.commit()
+                add_event(topic.split("/")[0], did or "broker", topic + " <- " + payload)
+                return
             brief = ", ".join("%s=%s%s" % (s.get("sensor_id", "?"), s.get("value"), s.get("unit", ""))
-                             for s in s_list if s.get("sensor_id"))
+                              for s in s_list if s.get("sensor_id"))
             if not brief:
                 brief = payload
             add_event("sensor", did, "sensors: " + brief)
