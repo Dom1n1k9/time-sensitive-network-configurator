@@ -1,0 +1,94 @@
+"""Entry point: python -m htsn_webgui (or the webgui.py shim at the repo root)."""
+import os
+import signal
+import sys
+import threading
+
+from . import mqtt_link, state
+from .mqtt_link import mqtt_listener_loop
+from .opcua_link import endpoint_listener_loop
+from .server import WEB_HOST, HTSNServer, make_handler, ws_broadcaster
+
+
+def main(argv=None):
+    host = WEB_HOST
+    port = state.PORT
+    mqtt_host = None
+    mqtt_port = None
+    args = list(sys.argv[1:] if argv is None else argv)
+    i = 0
+    while i < len(args):
+        if args[i] in ("-h", "--help"):
+            print("Usage: python3 webgui.py [--host H] [--port P] "
+                  "[--mqtt-host H] [--mqtt-port P] [--help]")
+            print("  --host H      bind address (default %s, use 0.0.0.0 to expose)" % WEB_HOST)
+            print("  --port P      port (default %d)" % port)
+            print("  --mqtt-host H MQTT broker host used by the listener (default HTSN_BROKER or 127.0.0.1)")
+            print("  --mqtt-port P MQTT broker port (default 1883)")
+            print("Env: HTSN_HOST, HTSN_PORT, HTSN_DB, HTSN_BROKER, HTSN_USER,")
+            print("     HTSN_PASS, HTSN_WEB_USER, HTSN_WEB_PASS")
+            return 0
+        elif args[i] == "--host" and i + 1 < len(args):
+            host = args[i + 1]
+            i += 2
+        elif args[i] == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+            i += 2
+        elif args[i] == "--mqtt-host" and i + 1 < len(args):
+            mqtt_host = args[i + 1]
+            i += 2
+        elif args[i] == "--mqtt-port" and i + 1 < len(args):
+            mqtt_port = int(args[i + 1])
+            i += 2
+        else:
+            i += 1
+
+    if mqtt_host:
+        # --mqtt-host given (optionally --mqtt-port); default port 1883.
+        os.environ["HTSN_BROKER"] = "%s:%d" % (mqtt_host, mqtt_port if mqtt_port is not None else 1883)
+
+    state.LISTENER_STOP.clear()
+    threading.Thread(target=mqtt_listener_loop, daemon=True).start()
+    threading.Thread(target=endpoint_listener_loop, daemon=True).start()
+    threading.Thread(target=ws_broadcaster, daemon=True).start()
+
+    srv = HTSNServer((host, port), make_handler())
+
+    def _shutdown(sig, frame):
+        # Must NOT call srv.shutdown() here: it blocks until serve_forever()
+        # returns, but serve_forever() runs on this same thread, so a direct
+        # call would deadlock until systemd SIGKILLs us. A side thread sets
+        # the shutdown flag; serve_forever() notices it and returns.
+        state.LISTENER_STOP.set()
+        threading.Thread(target=srv.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+
+    scheme = "http"  # TLS is not bundled; run behind a reverse proxy for TLS.
+    addr = "127.0.0.1" if host in ("127.0.0.1", "localhost") else host
+    print("HTSN web GUI: %s://%s:%d  (db=%s)" % (scheme, addr, port, state.DB_REAL), flush=True)
+    if host in ("127.0.0.1", "localhost"):
+        try:
+            import webbrowser
+            threading.Thread(target=webbrowser.open,
+                           args=("http://127.0.0.1:%d/" % port,),
+                           daemon=True).start()
+        except Exception:
+            pass
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        state.LISTENER_STOP.set()
+        with state.MQTT_LOCK:
+            if mqtt_link.REAL_MQTT:
+                try:
+                    mqtt_link.REAL_MQTT.close()
+                except Exception:
+                    pass
+                mqtt_link.REAL_MQTT = None
+        srv.server_close()
+        print("HTSN web GUI stopped", flush=True)
+    return 0

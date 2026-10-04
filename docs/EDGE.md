@@ -1,18 +1,18 @@
 # Raspberry Pi Edge Deployment
 
-How the WTSN Configurator is deployed as a self-running **edge node** on a
+How the HTSN Configurator is deployed as a self-running **edge node** on a
 Raspberry Pi (reference: RPi 5, 4 GB, Raspberry Pi OS 64-bit / Debian). Everything —
 broker, CNC core, web GUI, edge AI, local LLM, auto-update and backup — runs on the
 Pi; the ESP32 nodes are pure wireless clients.
 
 ```
-RPi edge node (user: wtsn)
-├── /home/wtsn/wtsn-configurator     git checkout (repo; auto-updated)
-├── /home/wtsn/wtsn-configurator/build/   C core binaries + wtsn_sim.db / wtsn_gui.db + fw/
-├── /home/wtsn/wtsn-ai               edge AI scripts (synced from rpi-ai/) + policy.json + logs
-├── /home/wtsn/wtsn.db               wtsn-cli headless controller DB
-├── /home/wtsn/backups/<stamp>/      daily backups (14-day retention)
-└── /etc/wtsn/env                    ALL secrets (root-only, 0600)
+RPi edge node (user: htsn)
+├── /home/htsn/htsn-configurator     git checkout (repo; auto-updated)
+├── /home/htsn/htsn-configurator/build/   C core binaries + htsn_sim.db / htsn_gui.db + fw/
+├── /home/htsn/htsn-ai               edge AI scripts (synced from rpi-ai/) + policy.json + logs
+├── /home/htsn/htsn.db               htsn-cli headless controller DB
+├── /home/htsn/backups/<stamp>/      daily backups (14-day retention)
+└── /etc/htsn/env                    ALL secrets (root-only, 0600)
 ```
 
 ## What runs (systemd)
@@ -20,18 +20,18 @@ RPi edge node (user: wtsn)
 | Unit | Kind | Purpose |
 |------|------|---------|
 | `mosquitto` | service | MQTT broker with username/password auth (`/etc/mosquitto/`) |
-| `wtsn-cli` | service | C11 CNC core, headless (`--db /home/wtsn/wtsn.db`) |
-| `wtsn-webgui` | service | Web GUI on `0.0.0.0:8000` (Basic auth) |
-| `wtsn-ai` | service | Vision: YOLOv4-tiny on the ESP32-CAM stream (`rpi-ai/vision_service.py`) |
-| `wtsn-policy` | service | Autonomous TSN rules R1–R3 (`rpi-ai/policy_engine.py`) |
-| `wtsn-llm` | service | LLM bridge :8081 → Ollama → allowlisted GUI actions (`rpi-ai/llm_bridge.py`) |
+| `htsn-cli` | service | C11 CNC core, headless (`--db /home/htsn/htsn.db`) |
+| `htsn-webgui` | service | Web GUI on `0.0.0.0:8000` (Basic auth) |
+| `htsn-ai` | service | Vision: YOLOv4-tiny on the ESP32-CAM stream (`rpi-ai/vision_service.py`) |
+| `htsn-policy` | service | Autonomous TSN rules R1–R3 (`rpi-ai/policy_engine.py`) |
+| `htsn-llm` | service | LLM bridge :8081 → Ollama → allowlisted GUI actions (`rpi-ai/llm_bridge.py`) |
 | `ollama` | service | Local LLM runtime (default model `qwen2.5:1.5b`, CPU) |
-| `wtsn-update` | service + **timer** (30 min) | `git pull` → C core rebuild → sync `rpi-ai/*.py` → restart changed services |
-| `wtsn-backup` | service + **timer** (daily) | hot SQLite copies + key configs (incl. `/etc/wtsn/env`, mosquitto `passwd`) → `/home/wtsn/backups/`; runs as **root** so the root-owned credential files are included, result dir is chowned back to `wtsn` |
+| `htsn-update` | service + **timer** (30 min) | `git pull` → C core rebuild → sync `rpi-ai/*.py` → restart changed services |
+| `htsn-backup` | service + **timer** (daily) | hot SQLite copies + key configs (incl. `/etc/htsn/env`, mosquitto `passwd`) → `/home/htsn/backups/`; runs as **root** so the root-owned credential files are included, result dir is chowned back to `htsn` |
 | `tailscaled` | service | stable remote address (optional but recommended) |
 
 The unit files live in [`rpi-ai/systemd/`](../rpi-ai/systemd/). They contain **no
-secrets** — every service reads `EnvironmentFile=/etc/wtsn/env`.
+secrets** — every service reads `EnvironmentFile=/etc/htsn/env`.
 
 ## Setup
 
@@ -45,37 +45,37 @@ sudo python3 -m pip install paho-mqtt opencv-python-headless numpy
 ```
 
 Create the service user (no password login; the GUI/MQTT passwords live in
-`/etc/wtsn/env`, not in the OS):
+`/etc/htsn/env`, not in the OS):
 
 ```bash
-sudo useradd -m -s /bin/bash wtsn
-sudo mkdir -p /etc/wtsn && sudo touch /etc/wtsn/env && sudo chmod 600 /etc/wtsn/env
-sudo chown root:root /etc/wtsn/env
+sudo useradd -m -s /bin/bash htsn
+sudo mkdir -p /etc/htsn && sudo touch /etc/htsn/env && sudo chmod 600 /etc/htsn/env
+sudo chown root:root /etc/htsn/env
 ```
 
 ### 2. Repository + first build
 
 ```bash
-sudo -u wtsn git clone https://github.com/<you>/wtsn-configurator /home/wtsn/wtsn-configurator
-sudo -u wtsn bash -c 'cd /home/wtsn/wtsn-configurator \
+sudo -u htsn git clone https://github.com/<you>/htsn-configurator /home/htsn/htsn-configurator
+sudo -u htsn bash -c 'cd /home/htsn/htsn-configurator \
   && cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
   && cmake --build build -j4'
 ```
 
-### 3. Secrets — `/etc/wtsn/env`
+### 3. Secrets — `/etc/htsn/env`
 
 ```bash
-sudo tee /etc/wtsn/env > /dev/null <<'EOF'
+sudo tee /etc/htsn/env > /dev/null <<'EOF'
 # Web GUI (HTTP Basic auth)
-WTSN_WEB_USER=<gui-user>
-WTSN_WEB_PASS=<gui-password>
+HTSN_WEB_USER=<gui-user>
+HTSN_WEB_PASS=<gui-password>
 # MQTT broker auth (same credentials on the agents via NVS)
-WTSN_USER=<mqtt-user>
-WTSN_PASS=<mqtt-password>
+HTSN_USER=<mqtt-user>
+HTSN_PASS=<mqtt-password>
 # Auto-update: GitHub token (fine-grained, contents:read on this repo only)
-WTSN_GH_TOKEN=<token>
+HTSN_GH_TOKEN=<token>
 # Local LLM
-WTSN_OLLAMA_MODEL=qwen2.5:1.5b
+HTSN_OLLAMA_MODEL=qwen2.5:1.5b
 EOF
 ```
 
@@ -83,7 +83,7 @@ EOF
 
 ### 4. MQTT broker with auth
 
-`/etc/mosquitto/conf.d/wtsn.conf` (file present → `password_file` required by
+`/etc/mosquitto/conf.d/htsn.conf` (file present → `password_file` required by
 mosquitto; create it with `mosquitto_passwd`):
 
 ```bash
@@ -99,27 +99,27 @@ password_file /etc/mosquitto/passwd
 ### 5. Install the units
 
 ```bash
-for u in wtsn-cli wtsn-webgui wtsn-ai wtsn-policy wtsn-llm \
-         wtsn-update.service wtsn-update.timer wtsn-backup.service wtsn-backup.timer; do
+for u in htsn-cli htsn-webgui htsn-ai htsn-policy htsn-llm \
+         htsn-update.service htsn-update.timer htsn-backup.service htsn-backup.timer; do
   sudo cp rpi-ai/systemd/$u /etc/systemd/system/
 done
 sudo systemctl daemon-reload
-sudo systemctl enable --now mosquitto wtsn-cli wtsn-webgui wtsn-ai wtsn-policy wtsn-llm
-sudo systemctl enable --now wtsn-update.timer wtsn-backup.timer
+sudo systemctl enable --now mosquitto htsn-cli htsn-webgui htsn-ai htsn-policy htsn-llm
+sudo systemctl enable --now htsn-update.timer htsn-backup.timer
 ```
 
 The edge AI scripts are placed by the auto-update (`update.sh` copies
 `rpi-ai/{vision_service.py,policy_engine.py,llm_bridge.py,update.sh,backup.sh}` into
-`/home/wtsn/wtsn-ai/`); for a first manual run:
+`/home/htsn/htsn-ai/`); for a first manual run:
 
 ```bash
-mkdir -p /home/wtsn/wtsn-ai && cd /home/wtsn/wtsn-configurator
+mkdir -p /home/htsn/htsn-ai && cd /home/htsn/htsn-configurator
 cp rpi-ai/vision_service.py rpi-ai/policy_engine.py rpi-ai/llm_bridge.py \
-   rpi-ai/update.sh rpi-ai/backup.sh /home/wtsn/wtsn-ai/
-sudo chown -R wtsn:wtsn /home/wtsn/wtsn-ai
+   rpi-ai/update.sh rpi-ai/backup.sh /home/htsn/htsn-ai/
+sudo chown -R htsn:htsn /home/htsn/htsn-ai
 ```
 
-The policy engine reads optional thresholds from `/home/wtsn/wtsn-ai/policy.json`
+The policy engine reads optional thresholds from `/home/htsn/htsn-ai/policy.json`
 (all keys optional — defaults are sane):
 
 ```json
@@ -133,10 +133,10 @@ The policy engine reads optional thresholds from `/home/wtsn/wtsn-ai/policy.json
 ```bash
 sudo apt install -y ollama        # or curl -fsSL https://ollama.com/install.sh | sh
 sudo systemctl enable --now ollama
-sudo -u wtsn ollama pull qwen2.5:1.5b
+sudo -u htsn ollama pull qwen2.5:1.5b
 ```
 
-The LLM bridge (`wtsn-llm`) listens on `127.0.0.1:8081` and Ollama on
+The LLM bridge (`htsn-llm`) listens on `127.0.0.1:8081` and Ollama on
 `127.0.0.1:11434` — both loopback-only, never exposed.
 
 ### 7. Multi-WiFi failover (NetworkManager)
@@ -145,11 +145,11 @@ The Pi should try the site network first and fall back to others. One
 `nmconnection` per network, ordered by `connection.priority` (higher wins):
 
 ```bash
-sudo nmcli connection add type wifi con-name wtsn-<net1> ifname wlan0 \
+sudo nmcli connection add type wifi con-name htsn-<net1> ifname wlan0 \
   ssid "<SSID-1>" wifi-sec.key-mgmt wpa-psk \
   802-11-wireless-security.psk '<pass1>' \
   connection.autoconnect yes connection.autoconnect-priority 100
-sudo nmcli connection add type wifi con-name wtsn-<net2> ifname wlan0 \
+sudo nmcli connection add type wifi con-name htsn-<net2> ifname wlan0 \
   ssid "<SSID-2>" wifi-sec.key-mgmt wpa-psk \
   802-11-wireless-security.psk '<pass2>' \
   connection.autoconnect yes connection.autoconnect-priority 50
@@ -169,39 +169,39 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --hostname rpi
 ```
 
-Then from any of your devices: GUI at `http://rpi:8000`, SSH as `ssh wtsn@rpi`.
+Then from any of your devices: GUI at `http://rpi:8000`, SSH as `ssh htsn@rpi`.
 
 ## Operations
 
 ```bash
 # service state
-systemctl status wtsn-webgui wtsn-cli wtsn-ai wtsn-policy wtsn-llm
+systemctl status htsn-webgui htsn-cli htsn-ai htsn-policy htsn-llm
 # auto-update log (pull/build/restart outcomes)
-tail -f /home/wtsn/wtsn-ai/update.log
+tail -f /home/htsn/htsn-ai/update.log
 # run an update by hand
-sudo -u wtsn /home/wtsn/wtsn-ai/update.sh
+sudo -u htsn /home/htsn/htsn-ai/update.sh
 # timers
-systemctl list-timers | grep wtsn
+systemctl list-timers | grep htsn
 # latest backups
-ls -t /home/wtsn/backups | head
+ls -t /home/htsn/backups | head
 # journal per service
-journalctl -u wtsn-webgui -n 50 --no-pager
+journalctl -u htsn-webgui -n 50 --no-pager
 ```
 
 - **Auto-update** runs every 30 min: `git pull --ff-only` → `cmake --build` →
   sync the five `rpi-ai/*.py|sh` scripts → `systemctl restart` the five services.
   It only acts when HEAD actually changed; a failed pull keeps the old code.
-- **Backup** runs daily: hot copies of the SQLite DBs (`build/wtsn_sim.db`,
-  `build/wtsn_gui.db`, `/home/wtsn/wtsn.db`) plus key config files, into
-  `/home/wtsn/backups/<YYYYmmdd-HHMMSS>/`, 14-day retention.
-- **Restoring a backup** = stop `wtsn-webgui`/`wtsn-cli`, copy the DB files back
+- **Backup** runs daily: hot copies of the SQLite DBs (`build/htsn_sim.db`,
+  `build/htsn_gui.db`, `/home/htsn/htsn.db`) plus key config files, into
+  `/home/htsn/backups/<YYYYmmdd-HHMMSS>/`, 14-day retention.
+- **Restoring a backup** = stop `htsn-webgui`/`htsn-cli`, copy the DB files back
   into place, restart. The schema migrates forward on startup (`ensure_schema`).
 
 ## Security notes
 
-- **`/etc/wtsn/env`** is the single secret store (0600 root:root); systemd units,
+- **`/etc/htsn/env`** is the single secret store (0600 root:root); systemd units,
   the repo and the backups never contain credentials.
-- The web GUI is exposed with **HTTP Basic auth** (`WTSN_WEB_USER`/`WTSN_WEB_PASS`);
+- The web GUI is exposed with **HTTP Basic auth** (`HTSN_WEB_USER`/`HTSN_WEB_PASS`);
   for HTTPS, put a reverse proxy (nginx/caddy/Tailscale funnel) in front.
 - The MQTT broker requires **username/password** (agents carry the same credentials
   in NVS: `muser`/`mpass`).

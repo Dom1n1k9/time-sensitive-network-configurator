@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# WTSN edge auto-update: git pull -> rebuild C core -> sync python services
+# HTSN edge auto-update: git pull -> rebuild C core -> sync python services
 # -> restart only when something actually changed.
-# Runs unattended from wtsn-update.timer. Needs WTSN_GH_TOKEN (in
-# /etc/wtsn/env) for the pull; without it the pull is skipped and the
+# Runs unattended from htsn-update.timer. Needs HTSN_GH_TOKEN (in
+# /etc/htsn/env) for the pull; without it the pull is skipped and the
 # build/sync still runs.
 set -u
-REPO=/home/wtsn/wtsn-configurator
-AI=/home/wtsn/wtsn-ai
+REPO=/home/htsn/htsn-configurator
+AI=/home/htsn/htsn-ai
 LOG="$AI/update.log"
 TS() { date +'%F %T'; }
 say() { echo "[$(TS)] $*" | tee -a "$LOG"; }
@@ -17,9 +17,9 @@ cd "$REPO" || { say "ERROR: $REPO missing"; exit 1; }
 CHANGED=0
 OLD_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
 
-TOKEN="${WTSN_GH_TOKEN:-}"
+TOKEN="${HTSN_GH_TOKEN:-}"
 if [ -n "$TOKEN" ]; then
-    PULL_GIT=(-c credential.helper='!f() { echo username=x-access-token; echo password="$WTSN_GH_TOKEN"; }; f')
+    PULL_GIT=(-c credential.helper='!f() { echo username=x-access-token; echo password="$HTSN_GH_TOKEN"; }; f')
 else
     PULL_GIT=()
 fi
@@ -47,7 +47,7 @@ if [ "$CHANGED" = "1" ]; then
     done
     say "synced rpi-ai/*.py -> $AI"
     FAIL=0
-    for svc in wtsn-cli wtsn-webgui wtsn-ai wtsn-policy wtsn-llm; do
+    for svc in htsn-cli htsn-webgui htsn-ai htsn-policy htsn-llm; do
         sudo systemctl restart "$svc" || FAIL=1
     done
     [ "$FAIL" = "0" ] && say "services restarted" || say "ERROR: some service restarts failed"

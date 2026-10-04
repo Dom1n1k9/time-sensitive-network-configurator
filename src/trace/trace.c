@@ -13,103 +13,103 @@
 
 #define TRACE_MODEL "trace"
 
-struct wtsn_trace {
-    wtsn_event_bus *bus;
-    wtsn_model model;
-    wtsn_trace_entry entries[WTSN_TRACE_MAX];
+struct htsn_trace {
+    htsn_event_bus *bus;
+    htsn_model model;
+    htsn_trace_entry entries[HTSN_TRACE_MAX];
     int count;
     int head;
-    wtsn_db *db;
+    htsn_db *db;
     size_t keep;
 };
 
-static void stamp(wtsn_trace_entry *e) {
+static void stamp(htsn_trace_entry *e) {
     time_t now = time(NULL);
     struct tm *tm = localtime(&now);
     if (!tm) { e->timestamp[0] = '\0'; return; }
     strftime(e->timestamp, sizeof(e->timestamp), "%H:%M:%S", tm);
 }
 
-wtsn_trace *wtsn_trace_create(wtsn_event_bus *bus) {
-    wtsn_trace *t = wtsn_trace_create_persistent(bus, NULL, 0);
+htsn_trace *htsn_trace_create(htsn_event_bus *bus) {
+    htsn_trace *t = htsn_trace_create_persistent(bus, NULL, 0);
     return t;
 }
 
-wtsn_trace *wtsn_trace_create_persistent(wtsn_event_bus *bus, wtsn_db *db, size_t keep) {
-    wtsn_trace *t = calloc(1, sizeof(wtsn_trace));
+htsn_trace *htsn_trace_create_persistent(htsn_event_bus *bus, htsn_db *db, size_t keep) {
+    htsn_trace *t = calloc(1, sizeof(htsn_trace));
     if (!t) return NULL;
     t->bus = bus;
     t->db = db;
     t->keep = keep;
-    wtsn_model_init(&t->model, TRACE_MODEL, bus);
+    htsn_model_init(&t->model, TRACE_MODEL, bus);
     return t;
 }
 
-void wtsn_trace_destroy(wtsn_trace *t) {
+void htsn_trace_destroy(htsn_trace *t) {
     free(t);
 }
 
-static void push(wtsn_trace *t, wtsn_trace_type type, const char *source, const char *line) {
-    wtsn_trace_entry *e = &t->entries[t->head];
+static void push(htsn_trace *t, htsn_trace_type type, const char *source, const char *line) {
+    htsn_trace_entry *e = &t->entries[t->head];
     memset(e, 0, sizeof(*e));
     memset(e->timestamp, 0, sizeof(e->timestamp));
     stamp(e);
     e->type = type;
-    wtsn_strlcpy(e->source, source ? source : "-", sizeof(e->source));
-    wtsn_strlcpy(e->line, line ? line : "", sizeof(e->line));
+    htsn_strlcpy(e->source, source ? source : "-", sizeof(e->source));
+    htsn_strlcpy(e->line, line ? line : "", sizeof(e->line));
     if (t->db) {
-        wtsn_db_trace_log_insert(t->db, e);
-        if (t->keep > 0) wtsn_db_trace_prune(t->db, (int)t->keep);
+        htsn_db_trace_log_insert(t->db, e);
+        if (t->keep > 0) htsn_db_trace_prune(t->db, (int)t->keep);
     }
-    t->head = (t->head + 1) % WTSN_TRACE_MAX;
-    if (t->count < WTSN_TRACE_MAX) t->count++;
-    wtsn_model_notify_data(&t->model, "entry", e);
+    t->head = (t->head + 1) % HTSN_TRACE_MAX;
+    if (t->count < HTSN_TRACE_MAX) t->count++;
+    htsn_model_notify_data(&t->model, "entry", e);
 }
 
-wtsn_error wtsn_trace_add_comm(wtsn_trace *t, const char *source, const char *msg) {
-    if (!t || !msg) return WTSN_ERR_INVALID_ARG;
-    push(t, WTSN_TRACE_COMM, source, msg);
-    return WTSN_OK;
+htsn_error htsn_trace_add_comm(htsn_trace *t, const char *source, const char *msg) {
+    if (!t || !msg) return HTSN_ERR_INVALID_ARG;
+    push(t, HTSN_TRACE_COMM, source, msg);
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_trace_add_frame(wtsn_trace *t, const char *source, const unsigned char *bytes, size_t len) {
-    if (!t || (!bytes && len > 0)) return WTSN_ERR_INVALID_ARG;
-    char line[WTSN_TRACE_LINE];
+htsn_error htsn_trace_add_frame(htsn_trace *t, const char *source, const unsigned char *bytes, size_t len) {
+    if (!t || (!bytes && len > 0)) return HTSN_ERR_INVALID_ARG;
+    char line[HTSN_TRACE_LINE];
     size_t off = 0;
     for (size_t i = 0; i < len && off + 4 < sizeof(line); i++) {
         off += (size_t)snprintf(line + off, sizeof(line) - off, "%02X ", bytes[i]);
     }
     if (off == 0) { line[0] = '\0'; }
     else { line[off] = '\0'; }
-    push(t, WTSN_TRACE_FRAME, source, line);
-    return WTSN_OK;
+    push(t, HTSN_TRACE_FRAME, source, line);
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_trace_add_config(wtsn_trace *t, const char *source, const char *what) {
-    if (!t || !what) return WTSN_ERR_INVALID_ARG;
-    push(t, WTSN_TRACE_CONFIG, source, what);
-    return WTSN_OK;
+htsn_error htsn_trace_add_config(htsn_trace *t, const char *source, const char *what) {
+    if (!t || !what) return HTSN_ERR_INVALID_ARG;
+    push(t, HTSN_TRACE_CONFIG, source, what);
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_trace_add_multicast(wtsn_trace *t, const char *source, const char *group, const char *msg) {
-    if (!t || !msg) return WTSN_ERR_INVALID_ARG;
-    char line[WTSN_TRACE_LINE];
+htsn_error htsn_trace_add_multicast(htsn_trace *t, const char *source, const char *group, const char *msg) {
+    if (!t || !msg) return HTSN_ERR_INVALID_ARG;
+    char line[HTSN_TRACE_LINE];
     snprintf(line, sizeof(line), "FX mcast -> %s: %s", group ? group : "?", msg);
-    push(t, WTSN_TRACE_MULTICAST, source, line);
-    return WTSN_OK;
+    push(t, HTSN_TRACE_MULTICAST, source, line);
+    return HTSN_OK;
 }
 
-wtsn_trace_entry *wtsn_trace_entry_at(wtsn_trace *t, int index) {
+htsn_trace_entry *htsn_trace_entry_at(htsn_trace *t, int index) {
     if (!t || index < 0 || index >= t->count) return NULL;
-    int idx = (t->head - 1 - index + WTSN_TRACE_MAX) % WTSN_TRACE_MAX;
+    int idx = (t->head - 1 - index + HTSN_TRACE_MAX) % HTSN_TRACE_MAX;
     return &t->entries[idx];
 }
 
-int wtsn_trace_count(wtsn_trace *t) {
+int htsn_trace_count(htsn_trace *t) {
     return t ? t->count : 0;
 }
 
-void wtsn_trace_clear(wtsn_trace *t) {
+void htsn_trace_clear(htsn_trace *t) {
     if (!t) return;
     t->count = 0;
     t->head = 0;

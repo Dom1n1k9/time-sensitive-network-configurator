@@ -1,8 +1,8 @@
 /* App-level board helpers (Zephyr port). The heavy peripheral init — clocks,
  * UART console, I2C, Ethernet — comes from the Zephyr device model + the DT
  * overlay. This file owns the high-resolution DWT clock + reset + heartbeat. */
-#ifndef WTSN_BOARD_H
-#define WTSN_BOARD_H
+#ifndef HTSN_BOARD_H
+#define HTSN_BOARD_H
 
 #include <stdint.h>
 
@@ -13,4 +13,4 @@ void board_dwt_init(void);
 void board_heartbeat_init(void);
 void board_heartbeat_toggle(void);
 
-#endif /* WTSN_BOARD_H */
+#endif /* HTSN_BOARD_H */

@@ -1,5 +1,5 @@
-#ifndef WTSN_TAS_MANAGER_H
-#define WTSN_TAS_MANAGER_H
+#ifndef HTSN_TAS_MANAGER_H
+#define HTSN_TAS_MANAGER_H
 
 #include "common/common.h"
 #include "db/db.h"
@@ -7,16 +7,16 @@
 #include "mvc/event_bus.h"
 #include "tas/tas.h"
 
-#define WTSN_TAS_MANAGER_MODEL "tas"
+#define HTSN_TAS_MANAGER_MODEL "tas"
 
-typedef struct wtsn_tas_manager wtsn_tas_manager;
+typedef struct htsn_tas_manager htsn_tas_manager;
 
-wtsn_tas_manager *wtsn_tas_manager_create(wtsn_db *db, wtsn_event_bus *bus);
-void wtsn_tas_manager_destroy(wtsn_tas_manager *m);
+htsn_tas_manager *htsn_tas_manager_create(htsn_db *db, htsn_event_bus *bus);
+void htsn_tas_manager_destroy(htsn_tas_manager *m);
 
-wtsn_error wtsn_tas_manager_save(wtsn_tas_manager *m, const wtsn_tas_schedule_model *s);
-wtsn_error wtsn_tas_manager_load(wtsn_tas_manager *m, const char *id, wtsn_tas_schedule_model *out);
-wtsn_error wtsn_tas_manager_delete(wtsn_tas_manager *m, const char *id);
-wtsn_error wtsn_tas_manager_deploy(wtsn_tas_manager *m, const char *id);
+htsn_error htsn_tas_manager_save(htsn_tas_manager *m, const htsn_tas_schedule_model *s);
+htsn_error htsn_tas_manager_load(htsn_tas_manager *m, const char *id, htsn_tas_schedule_model *out);
+htsn_error htsn_tas_manager_delete(htsn_tas_manager *m, const char *id);
+htsn_error htsn_tas_manager_deploy(htsn_tas_manager *m, const char *id);
 
 #endif

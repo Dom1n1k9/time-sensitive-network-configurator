@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=HTSN Configurator
+Comment=Start HTSN Configurator (run.sh)
+Exec=bash -lc "cd /home/dominik/Documents/htsn-configurator && bash run.sh; read -p 'Press Enter to close...'"
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;

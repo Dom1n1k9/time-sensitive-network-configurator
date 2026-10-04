@@ -8,9 +8,9 @@
 #include <string.h>
 
 int main(int argc, char **argv) {
-    wtsn_app_config cfg;
+    htsn_app_config cfg;
     memset(&cfg, 0, sizeof(cfg));
-    snprintf(cfg.db_path, sizeof(cfg.db_path), "wtsn.db");
+    snprintf(cfg.db_path, sizeof(cfg.db_path), "htsn.db");
     snprintf(cfg.mqtt_host, sizeof(cfg.mqtt_host), "localhost");
     cfg.mqtt_port = 1883;
     cfg.headless = true;
@@ -35,23 +35,23 @@ int main(int argc, char **argv) {
 
     /* Env fallback keeps the password out of the command line / unit file. */
     if (cfg.mqtt_user[0] == 0) {
-        const char *e = getenv("WTSN_USER");
+        const char *e = getenv("HTSN_USER");
         if (e) snprintf(cfg.mqtt_user, sizeof(cfg.mqtt_user), "%s", e);
     }
     if (cfg.mqtt_pass[0] == 0) {
-        const char *e = getenv("WTSN_PASS");
+        const char *e = getenv("HTSN_PASS");
         if (e) snprintf(cfg.mqtt_pass, sizeof(cfg.mqtt_pass), "%s", e);
     }
 
-    wtsn_app app;
-    if (wtsn_app_init(&app, &cfg) != WTSN_OK) {
+    htsn_app app;
+    if (htsn_app_init(&app, &cfg) != HTSN_OK) {
         fprintf(stderr, "application init failed\n");
         return EXIT_FAILURE;
     }
-    wtsn_log(WTSN_LOG_INFO, "wtsn-configurator %d devices restored",
-             (int)wtsn_device_manager_count(app.devices));
+    htsn_log(HTSN_LOG_INFO, "htsn-configurator %d devices restored",
+             (int)htsn_device_manager_count(app.devices));
 
-    int rc = (wtsn_app_run(&app) == WTSN_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
-    wtsn_app_shutdown(&app);
+    int rc = (htsn_app_run(&app) == HTSN_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
+    htsn_app_shutdown(&app);
     return rc;
 }

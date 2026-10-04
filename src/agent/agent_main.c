@@ -19,19 +19,19 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--mqtt-port") == 0 && i + 1 < argc) mqtt_port = atoi(argv[++i]);
     }
 
-    wtsn_log_init(WTSN_LOG_INFO, NULL);
+    htsn_log_init(HTSN_LOG_INFO, NULL);
 
-    wtsn_agent *a = wtsn_agent_create(device_id, platform, mqtt_host, mqtt_port);
+    htsn_agent *a = htsn_agent_create(device_id, platform, mqtt_host, mqtt_port);
     if (!a) {
         fprintf(stderr, "agent create failed\n");
         return EXIT_FAILURE;
     }
-    wtsn_error e = wtsn_agent_start(a);
-    if (e != WTSN_OK && e != WTSN_ERR_NOT_IMPLEMENTED) {
-        wtsn_log(WTSN_LOG_ERROR, "agent start failed: %s", wtsn_error_str(e));
+    htsn_error e = htsn_agent_start(a);
+    if (e != HTSN_OK && e != HTSN_ERR_NOT_IMPLEMENTED) {
+        htsn_log(HTSN_LOG_ERROR, "agent start failed: %s", htsn_error_str(e));
     }
 
     for (;;) sleep(1);
-    wtsn_agent_destroy(a);
+    htsn_agent_destroy(a);
     return 0;
 }

@@ -1,4 +1,4 @@
-# Name:   wtsn-esp32-agent (OTA A/B)
+# Name:   htsn-esp32-agent (OTA A/B)
 # Flash:  4MB
 # Two OTA app partitions + otadata for rollback. A bad update reboots back
 # into the previous partition automatically. App partitions are 64KB-aligned.

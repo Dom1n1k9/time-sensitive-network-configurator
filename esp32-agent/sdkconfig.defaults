@@ -14,7 +14,7 @@ CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
 CONFIG_LWIP_DHCP_GET_HOSTNAME=y
 
 # Route .local hostnames from getaddrinfo()/netconn through the mDNS resolver
-# (espressif/mdns). Without this hook, resolving "wtsn-broker.local" fails.
+# (espressif/mdns). Without this hook, resolving "htsn-broker.local" fails.
 CONFIG_LWIP_HOOK_NETCONN_EXT_RESOLVE_DEFAULT=y
 
 # MQTT (ESP-IDF built-in)

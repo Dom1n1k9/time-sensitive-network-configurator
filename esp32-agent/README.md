@@ -1,6 +1,6 @@
-# ESP32 WTSN Agent (ESP-IDF)
+# ESP32 HTSN Agent (ESP-IDF)
 
-Firmware agent for a physical **ESP32** node used by the WTSN Configurator. It
+Firmware agent for a physical **ESP32** node used by the HTSN Configurator. It
 connects to the MQTT broker, subscribes to command topics, applies TSN
 QoS / VLAN / time-sync / TAS / preemption settings, participates in FX over MQTT,
 and reports status.
@@ -18,10 +18,10 @@ and reports status.
 ## First-time configuration (provisioning portal)
 
 On first boot (no WiFi credentials in NVS) the agent enters **provisioning mode**:
-it starts a SoftAP named **`WTSN-Setup`** and serves a small configuration
+it starts a SoftAP named **`HTSN-Setup`** and serves a small configuration
 portal.
 
-1. Power on the ESP32 — it broadcasts `WTSN-Setup`.
+1. Power on the ESP32 — it broadcasts `HTSN-Setup`.
 2. Connect your phone/PC to that SoftAP.
 3. Open **http://192.168.4.1/** in a browser.
 4. Enter WiFi SSID / password, the MQTT broker `host:port`, and the broker
@@ -36,21 +36,21 @@ To re-provision later, use the `wifi` MQTT command from the web GUI
 > **Security note:** the portal is plain HTTP on an open SoftAP, so the WiFi
 > password is sent in cleartext while provisioning. The SoftAP is only up for
 > the few minutes of provisioning, after which it is gone. To WPA2-protect the
-> setup AP, store a password in NVS (namespace `wtsn`, key `ap_pass`, min 8
+> setup AP, store a password in NVS (namespace `htsn`, key `ap_pass`, min 8
 > chars); the compile-time fallback is `PROV_AP_PASS_DEFAULT` in
-> `shared/wtsn_prov/wtsn_prov.c`. See the main README, *Security*.
+> `shared/htsn_prov/htsn_prov.c`. See the main README, *Security*.
 
 ## Out-of-band configuration via NVS
 
 You can also pre-seed settings in NVS (`idf.py menuconfig` not wired to these;
 write them via a small NVS utility or the portal above):
 
-- WiFi SSID / pass — stored in NVS under `wtsn` namespace
-- MQTT host: default `wtsn-broker.local:1883` (see `wtsn_cfg.c`), override via
+- WiFi SSID / pass — stored in NVS under `htsn` namespace
+- MQTT host: default `htsn-broker.local:1883` (see `htsn_cfg.c`), override via
   portal or the `wifi` command
 - Device id: auto-detected (`esp32-01` sensor board / `esp32-02` relay board),
-  override with `WTSN_DEVICE_ID` or a NVS `device_id` key, or in the portal
-- Optional broker auth/TLS (namespace `wtsn`): `muser`, `mpass`, `mtls` (1=on),
+  override with `HTSN_DEVICE_ID` or a NVS `device_id` key, or in the portal
+- Optional broker auth/TLS (namespace `htsn`): `muser`, `mpass`, `mtls` (1=on),
   `mtls_ca` (PEM), `minsec` (1 = skip verify, dev only)
 
 ## Build & flash
@@ -75,9 +75,9 @@ idf.py build -p /dev/ttyUSB0 flash monitor
    `tsn/status`; the webgui subscribes to these so devices show online.
 
 The webgui embeds a paho-based MQTT client (see the `MqttBroker` class in
-`wtsn_webgui/mqtt_broker.py`). Set the broker with env `WTSN_BROKER=host:port` or
-via the FXMQTT / Settings pages. Broker auth via `WTSN_USER`/`WTSN_PASS` and TLS via
-`WTSN_TLS_*` env vars; the agent-side equivalents are the NVS `muser`/`mpass`/`mtls*`
+`htsn_webgui/mqtt_broker.py`). Set the broker with env `HTSN_BROKER=host:port` or
+via the FXMQTT / Settings pages. Broker auth via `HTSN_USER`/`HTSN_PASS` and TLS via
+`HTSN_TLS_*` env vars; the agent-side equivalents are the NVS `muser`/`mpass`/`mtls*`
 keys (see above).
 
 **Note:** in simulation mode nothing is published — it stays a pure in-browser/DB
@@ -124,7 +124,7 @@ GUI firmware manager at upload time):
 
 - The image is downloaded to the **inactive A/B partition** (`esp_https_ota`).
 - Before rebooting, the agent **re-reads the target partition and verifies its CRC32**
-  against the expected value (`shared/wtsn_ota`, `wtsn_ota_start_checked()`).
+  against the expected value (`shared/htsn_ota`, `htsn_ota_start_checked()`).
 - **Mismatch** → the new partition is marked invalid, the previous app stays active,
   no reboot. **Match** → reboot; if the new app still fails to validate on boot, the
   bootloader rolls back automatically.
@@ -135,7 +135,7 @@ On-board / wired sensors: **BME280** (bit-bang I2C: temp/press/hum), **TEMT6000*
 **HC-S501 PIR** motion, **ultrasonic sonar** distance — published on `tsn/sensors`
 (1 s cadence) with per-sensor history.
 
-**WiFiVision** (`wtsn_wifimotion`) is a device-free coarse motion detector that uses the
+**WiFiVision** (`htsn_wifimotion`) is a device-free coarse motion detector that uses the
 ordinary WiFi link — no extra camera or PIR hardware:
 
 - **RSSI noise** — the short-term spread of RX RSSI across data packets grows markedly
@@ -153,8 +153,8 @@ existing FX / relay-actor / policy path.
 - **Real 802.1Qbv TAS, 802.1Qbu preemption, HW PTP (802.1AS)** require a
   TSN-capable MAC/PHY (e.g. some ESP32-S3 + external PHY, or an external TSN
   switch). This agent stores/applies the settings and reports them; if your board has
-  HW support wire it into `wtsn_tsn.c`.
+  HW support wire it into `htsn_tsn.c`.
 - **QoS** maps to WMM on Wi-Fi; the 802.1Q PCP bits are set on application
-  frames (see `wtsn_tsn.c`).
+  frames (see `htsn_tsn.c`).
 - **Time sync** uses best-effort; real 802.1AS needs external support (e.g.
   IEEE 802.1AS-stack / gPTP on an MCU with PTP PHY).

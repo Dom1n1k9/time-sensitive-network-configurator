@@ -1,4 +1,4 @@
-# wtsn-tsn endpoint (STM32 Nucleo-F767ZI) — Zephyr build.
+# htsn-tsn endpoint (STM32 Nucleo-F767ZI) — Zephyr build.
 #
 # Replaces the previous STM32CubeIDE / FreeRTOS / lwIP CMake build (see git
 # history). Build + flash with west (a Zephyr SDK is required; see README
@@ -13,7 +13,7 @@
 cmake_minimum_required(VERSION 3.20.0)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(wtsn_tsn C ASM)
+project(htsn_tsn C ASM)
 
 target_sources(app PRIVATE
   src/main.c
@@ -21,9 +21,9 @@ target_sources(app PRIVATE
   Board/pwm.c
   tsn/ptp.c
   tsn/eth_proto.c
-  actuators/wtsn_sonar.c
-  actuators/wtsn_display.c
-  actuators/wtsn_actuator.c)
+  actuators/htsn_sonar.c
+  actuators/htsn_display.c
+  actuators/htsn_actuator.c)
 
 target_include_directories(app PRIVATE
   inc

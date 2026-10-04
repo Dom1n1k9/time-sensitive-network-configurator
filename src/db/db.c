@@ -76,41 +76,41 @@ static const char *SCHEMA =
     "  name TEXT, device_id TEXT, created_at INTEGER, payload TEXT"
     ");";
 
-static wtsn_error run_migration(wtsn_db *db, const char *sql) {
+static htsn_error run_migration(htsn_db *db, const char *sql) {
     char *err = NULL;
     int rc = sqlite3_exec(db->handle, sql, NULL, NULL, &err);
     if (rc != SQLITE_OK && err != NULL) {
         if (strstr(err, "duplicate column name") == NULL) {
-            wtsn_log(WTSN_LOG_WARN, "migration step skipped: %s", err);
+            htsn_log(HTSN_LOG_WARN, "migration step skipped: %s", err);
         }
         sqlite3_free(err);
     }
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_db_open(wtsn_db *db, const char *path) {
-    if (!db || !path) return WTSN_ERR_INVALID_ARG;
+htsn_error htsn_db_open(htsn_db *db, const char *path) {
+    if (!db || !path) return HTSN_ERR_INVALID_ARG;
     memset(db, 0, sizeof(*db));
     int rc = sqlite3_open(path, &db->handle);
     if (rc != SQLITE_OK) {
-        wtsn_log(WTSN_LOG_ERROR, "sqlite open failed: %s", sqlite3_errmsg(db->handle));
-        return WTSN_ERR_DB;
+        htsn_log(HTSN_LOG_ERROR, "sqlite open failed: %s", sqlite3_errmsg(db->handle));
+        return HTSN_ERR_DB;
     }
     /* Enforce the FOREIGN KEY clauses declared in the schema. SQLite keeps this
      * off by default, so without it orphans accumulate. Must be set per
      * connection (it is not persisted). */
     sqlite3_exec(db->handle, "PRAGMA foreign_keys=ON;", NULL, NULL, NULL);
-    wtsn_strlcpy(db->path, path, sizeof(db->path));
-    return wtsn_db_migrate(db);
+    htsn_strlcpy(db->path, path, sizeof(db->path));
+    return htsn_db_migrate(db);
 }
 
-wtsn_error wtsn_db_migrate(wtsn_db *db) {
+htsn_error htsn_db_migrate(htsn_db *db) {
     char *err = NULL;
     int rc = sqlite3_exec(db->handle, SCHEMA, NULL, NULL, &err);
     if (rc != SQLITE_OK) {
-        wtsn_log(WTSN_LOG_ERROR, "migrate failed: %s", err ? err : "unknown");
+        htsn_log(HTSN_LOG_ERROR, "migrate failed: %s", err ? err : "unknown");
         sqlite3_free(err);
-        return WTSN_ERR_DB;
+        return HTSN_ERR_DB;
     }
     /* Versioned migrations: user_version tracks the schema level so a future
      * migration only needs one more step here instead of string-matching
@@ -140,10 +140,10 @@ wtsn_error wtsn_db_migrate(wtsn_db *db) {
         snprintf(sql, sizeof(sql), "PRAGMA user_version=%d;", ver);
         sqlite3_exec(db->handle, sql, NULL, NULL, NULL);
     }
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-void wtsn_db_close(wtsn_db *db) {
+void htsn_db_close(htsn_db *db) {
     if (db && db->handle) {
         sqlite3_close(db->handle);
         db->handle = NULL;

@@ -1,5 +1,5 @@
-#ifndef WTSN_MVC_H
-#define WTSN_MVC_H
+#ifndef HTSN_MVC_H
+#define HTSN_MVC_H
 
 #include "common/common.h"
 #include "mvc/event_bus.h"

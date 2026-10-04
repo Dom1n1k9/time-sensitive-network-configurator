@@ -12,54 +12,54 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct wtsn_qos_manager {
-    wtsn_db *db;
-    wtsn_event_bus *bus;
-    wtsn_model model;
+struct htsn_qos_manager {
+    htsn_db *db;
+    htsn_event_bus *bus;
+    htsn_model model;
 };
 
-wtsn_qos_manager *wtsn_qos_manager_create(wtsn_db *db, wtsn_event_bus *bus) {
+htsn_qos_manager *htsn_qos_manager_create(htsn_db *db, htsn_event_bus *bus) {
     if (!db || !bus) return NULL;
-    wtsn_qos_manager *m = calloc(1, sizeof(wtsn_qos_manager));
+    htsn_qos_manager *m = calloc(1, sizeof(htsn_qos_manager));
     if (!m) return NULL;
     m->db = db;
     m->bus = bus;
-    wtsn_model_init(&m->model, WTSN_QOS_MANAGER_MODEL, bus);
+    htsn_model_init(&m->model, HTSN_QOS_MANAGER_MODEL, bus);
     return m;
 }
 
-void wtsn_qos_manager_destroy(wtsn_qos_manager *m) {
+void htsn_qos_manager_destroy(htsn_qos_manager *m) {
     free(m);
 }
 
-wtsn_error wtsn_qos_manager_configure(wtsn_qos_manager *m, const char *device_id,
-                                      const wtsn_qos_config_model *cfg) {
-    if (!m || !device_id || !cfg) return WTSN_ERR_INVALID_ARG;
-    wtsn_error e = wtsn_qos_validate(cfg);
-    if (e != WTSN_OK) return e;
+htsn_error htsn_qos_manager_configure(htsn_qos_manager *m, const char *device_id,
+                                      const htsn_qos_config_model *cfg) {
+    if (!m || !device_id || !cfg) return HTSN_ERR_INVALID_ARG;
+    htsn_error e = htsn_qos_validate(cfg);
+    if (e != HTSN_OK) return e;
 
-    wtsn_qos_config q;
+    htsn_qos_config q;
     memset(&q, 0, sizeof(q));
-    wtsn_strlcpy(q.device_id, device_id, sizeof(q.device_id));
+    htsn_strlcpy(q.device_id, device_id, sizeof(q.device_id));
     q.priority = cfg->priority;
     q.traffic_class = (int)cfg->traffic_class;
     q.bandwidth_kbps = cfg->bandwidth_kbps;
     q.latency_ms = cfg->latency_ms;
     q.preemption = (int)cfg->preemption;
-    wtsn_db_qos_save(m->db, &q);
+    htsn_db_qos_save(m->db, &q);
 
-    wtsn_model_notify(&m->model, "changed");
-    return WTSN_OK;
+    htsn_model_notify(&m->model, "changed");
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_qos_manager_load_for_device(wtsn_qos_manager *m, const char *device_id, wtsn_qos_config *out) {
-    if (!m || !device_id || !out) return WTSN_ERR_INVALID_ARG;
-    return wtsn_db_qos_load(m->db, device_id, out);
+htsn_error htsn_qos_manager_load_for_device(htsn_qos_manager *m, const char *device_id, htsn_qos_config *out) {
+    if (!m || !device_id || !out) return HTSN_ERR_INVALID_ARG;
+    return htsn_db_qos_load(m->db, device_id, out);
 }
 
-wtsn_error wtsn_qos_manager_remove(wtsn_qos_manager *m, const char *device_id) {
-    if (!m || !device_id) return WTSN_ERR_INVALID_ARG;
-    wtsn_db_qos_delete(m->db, device_id);
-    wtsn_model_notify(&m->model, "changed");
-    return WTSN_OK;
+htsn_error htsn_qos_manager_remove(htsn_qos_manager *m, const char *device_id) {
+    if (!m || !device_id) return HTSN_ERR_INVALID_ARG;
+    htsn_db_qos_delete(m->db, device_id);
+    htsn_model_notify(&m->model, "changed");
+    return HTSN_OK;
 }

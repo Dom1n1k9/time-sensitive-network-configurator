@@ -11,8 +11,8 @@ endif()
 
 add_executable(test_json
     test_json.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../components/wtsn_agent/wtsn_json.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../components/htsn_agent/htsn_json.c
 )
-target_include_directories(test_json PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../components/wtsn_agent)
+target_include_directories(test_json PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../components/htsn_agent)
 enable_testing()
 add_test(NAME test_json COMMAND test_json)

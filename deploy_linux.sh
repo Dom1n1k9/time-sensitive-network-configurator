@@ -18,7 +18,7 @@ CYCLE_NS=4000000
 QBV="on"
 VLAN=""
 
-log() { echo -e "\033[1;36m[wtsn-linux]\033[0m $*"; }
+log() { echo -e "\033[1;36m[htsn-linux]\033[0m $*"; }
 
 usage() { grep '^#' "$0" | sed 's/^# //'; exit 0; }
 [ $# -eq 0 ] && usage

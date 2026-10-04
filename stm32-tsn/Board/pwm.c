@@ -20,7 +20,7 @@
 #define SERVO_TIM_CLK   216000000UL   /* TIM1, on APB2 */
 #define BUZZER_TIM_CLK  108000000UL   /* TIM3, on APB1 (2x APB1 when presc > 1) */
 
-void wtsn_pwm_init(void)
+void htsn_pwm_init(void)
 {
 	/* Enable the timers + the GPIO ports they mux. */
 	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;                 /* TIM1 (APB2) */
@@ -58,14 +58,14 @@ void wtsn_pwm_init(void)
 	TIM3->CR1  |= 0x1u;                                         /* CEN        */
 }
 
-void wtsn_pwm_servo_us(uint16_t us)
+void htsn_pwm_servo_us(uint16_t us)
 {
 	if (us < 1000) us = 1000;
 	if (us > 2000) us = 2000;
 	TIM1->CCR1 = us;    /* tick == 1 us, so CCR1 == duty in microseconds */
 }
 
-void wtsn_pwm_buzzer_duty(uint8_t pct)
+void htsn_pwm_buzzer_duty(uint8_t pct)
 {
 	if (pct > 100) pct = 100;
 	TIM3->CCR4 = ((uint32_t)TIM3->ARR + 1u) * (uint32_t)pct / 100u;

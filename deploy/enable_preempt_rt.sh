@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # enable_preempt_rt.sh — provision a PREEMPT_RT kernel + PTP tuning on the RPi/CNC.
 #
-# Why: the RPi is the PTP v2 grandmaster (ptpd). A PREEMPT_RT kernel gives it
-# single-digit-us scheduler latency so the SYNC/FOLLOW_UP + HW/SW timestamps the
-# STM32 endpoint locks to have tight, stable jitter.
+# Why: the RPi is the PTP v2 grandmaster (ptpd, GM IP 192.168.1.10; the STM32
+# endpoint stm32-tsn/ is 192.168.1.20). A PREEMPT_RT kernel gives it tight,
+# stable scheduler latency so the SYNC/FOLLOW_UP + timestamps the endpoint locks
+# to have low jitter.
+#
+# Works on Raspberry Pi OS AND plain Debian on the Pi (this project's Pi runs
+# Debian 13). The RPi RT kernel is the 'rpi-*-rt' image (e.g.
+# linux-image-<ver>+rpt-rpi-v8-rt) — NOT the 'rpi-rt-kernel' package, which only
+# exists in the Raspberry Pi OS repo. There is no 'rpi-2712-rt'; the 64-bit RT
+# image is the 'rpi-v8-rt' flavor (boots the Pi 5).
 #
 # Usage (run ON the RPi, as root):
 #     sudo bash deploy/enable_preempt_rt.sh
 #
-# From the dev box, once the RPi is reachable (export the RPi user + password
-# first — do NOT hard-code the password in the repo):
-#     export WTSN_RPI_USER=wtsn WTSN_RPI_PASS='<rpi user password>'
-#     RPI_IP=<rpi ip>
-#     sshpass -p "$WTSN_RPI_PASS" scp -o StrictHostKeyChecking=no deploy/enable_preempt_rt.sh "$WTSN_RPI_USER@$RPI_IP:/tmp/"
-#     sshpass -p "$WTSN_RPI_PASS" ssh -o StrictHostKeyChecking=no "$WTSN_RPI_USER@$RPI_IP" \
-#         "echo $WTSN_RPI_PASS | sudo -S bash /tmp/enable_preempt_rt.sh"
-#
-# Idempotent + safe: it only ADDS the RT kernel (the stock kernel stays for
-# rollback), then reboots. It never removes the current kernel.
+# Idempotent + safe: it only ADDS the RT kernel (stock kernel stays for rollback)
+# and points /boot/firmware/config.txt at it (a .bak-rt backup is kept). It never
+# removes the current kernel and does NOT auto-reboot — reboot when ready.
 set -euo pipefail
 
 log()  { printf '\033[1;32m[rt]\033[0m %s\n' "$*"; }
@@ -25,97 +25,118 @@ warn() { printf '\033[1;33m[rt]\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m[rt]\033[0m %s\n' "$*" >&2; }
 
 # ---- 0. root ----
-if [[ $EUID -ne 0 ]]; then
-    err "run as root (sudo bash $0)"; exit 1
-fi
+if [[ $EUID -ne 0 ]]; then err "run as root (sudo bash $0)"; exit 1; fi
 
 # ---- 1. is this a Raspberry Pi? ----
-if ! grep -qiE 'raspberry' /etc/os-release 2>/dev/null; then
-    err "does not look like a Raspberry Pi OS host (no 'raspberry' in /etc/os-release)."
-    err "Refusing to continue."; exit 1
+# Detect via the device-tree model (works on RPi OS AND plain Debian), with the
+# os-release check as a fallback.
+MODEL="$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || true)"
+[[ -z "$MODEL" ]] && MODEL="$(cat /sys/firmware/devicetree/base/model 2>/dev/null | tr -d '\0' || true)"
+if ! printf '%s' "$MODEL" | grep -qi 'raspberry' && ! grep -qi 'raspberry' /etc/os-release 2>/dev/null; then
+    err "does not look like a Raspberry Pi (model='${MODEL:-?}', no 'raspberry' in os-release)."
+    err "Refusing to continue."
+    exit 1
 fi
-ARCH="$(uname -m)"
-log "Raspberry Pi OS, arch=$ARCH"
+log "Raspberry Pi: '${MODEL:-unknown}' ($(uname -m))"
 
 # ---- 2. current kernel ----
-log "current kernel: $(uname -r)"
-if uname -v | grep -qi 'preempt_rt\|preempt-rt'; then
-    log "already running a PREEMPT_RT kernel. Applying tuning + done (no reinstall)."
+CURR="$(uname -r)"
+log "current kernel: $CURR"
+SKIP_INSTALL=""
+if uname -v | grep -qiE 'preempt[-_ ]?rt'; then
+    log "already running a PREEMPT_RT kernel; skipping install (tuning + boot only)."
     SKIP_INSTALL=1
 fi
 
-# ---- 3. install the RT kernel (adds alongside the stock kernel) ----
-if [[ -z "${SKIP_INSTALL:-}" ]]; then
-    if dpkg -s rpi-rt-kernel >/dev/null 2>&1; then
-        log "rpi-rt-kernel already installed."
-    else
-        log "installing rpi-rt-kernel (PREEMPT_RT kernel + modules)..."
-        # Refresh indexes once; ignore failure (offline still works if cached).
-        apt-get update -y || warn "apt-get update failed (offline?); trying install anyway"
-        if ! apt-get install -y rpi-rt-kernel; then
-            err "could not install 'rpi-rt-kernel'."
-            err "  - check the host is Raspberry Pi OS (64-bit Bookworm/Bookworm or 32-bullseye)"
-            err "  - ensure the Raspberry Pi apt repo is enabled: 'raspi' component"
-            err "The stock kernel is untouched. See rollback at the end of this script."
-            exit 1
-        fi
+# ---- 3. find + install the RPi RT kernel image ----
+RT_PKG=""
+RT_HDR=""
+if [[ -z "$SKIP_INSTALL" ]]; then
+    apt-get update -y || warn "apt-get update failed (offline?); trying install anyway"
+    VER="${CURR%%+*}"   # e.g. 6.18.50 from 6.18.50+rpt-rpi-2712
+    # Prefer an RT image matching the current base version; else the newest one.
+    RT_PKG="$(apt-cache search --names-only 'linux-image' 2>/dev/null | awk '{print $1}' \
+              | grep -E "^linux-image-${VER}\+rpt-rpi-[^ ]*-rt$" | head -1 || true)"
+    if [[ -z "$RT_PKG" ]]; then
+        warn "no RT image for base version $VER; using newest available rpi-*-rt"
+        RT_PKG="$(apt-cache search --names-only 'linux-image' 2>/dev/null | awk '{print $1}' \
+                  | grep -E '^linux-image-[0-9].*\+rpt-rpi-[^ ]*-rt$' | sort -V | tail -1 || true)"
     fi
+    if [[ -z "$RT_PKG" ]]; then
+        err "could not find an RPi RT kernel image (linux-image-*+rpt-rpi-*-rt)."
+        err "  check the RPi apt repo is enabled (/etc/apt/sources.list.d/)."
+        exit 1
+    fi
+    RT_HDR="${RT_PKG/linux-image/linux-headers}"
+    log "installing RT kernel: $RT_PKG (+ $RT_HDR)"
+    if ! DEBIAN_FRONTEND=noninteractive apt-get install -y "$RT_PKG" "$RT_HDR"; then
+        err "could not install '$RT_PKG'."
+        exit 1
+    fi
+else
+    # Already on RT: locate the installed RT image (for the rollback note below).
+    RT_PKG="$(dpkg-query -W -f='${Package}\n' 'linux-image-*rpi-*rt' 2>/dev/null | head -1 || true)"
 fi
 
 # ---- 4. PTP tuning (safe / idempotent) ----
 log "applying PTP tuning (CPU governor + net sysctls)..."
-
-# CPU governor -> performance (if cpufreq is present; guard the busybox-less paths).
 if [[ -d /sys/devices/system/cpu/cpu0/cpufreq ]]; then
     for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
         echo performance > "$g" 2>/dev/null || true
     done
     log "  cpu governor -> performance"
 else
-    warn "  no cpufreq sysfs found; skipping governor"
+    warn "  no cpufreq sysfs; skipping governor"
 fi
-
-# A small, conservative net tuning set for low-latency UDP/PTP on the wired NIC.
-cat > /etc/sysctl.d/99-wtsn-tpo.conf <<'SYSCTL'
-# wtsn PTP (ptpd grandmaster) — modest, safe network tuning
+cat > /etc/sysctl.d/99-htsn-tpo.conf <<'SYSCTL'
+# htsn PTP (ptpd grandmaster) - modest, safe network tuning
 net.core.netdev_max_backlog = 16384
 net.core.somaxconn = 8192
 net.ipv4.udp_rmem_min = 8192
 net.ipv4.udp_wmem_min = 8192
-# (Optional, manual) to further isolate ptpd, add to /boot/config.txt (firmware boot)
-# and reboot:   isolcpus=3   default_halt_task=0
 SYSCTL
 sysctl --system >/dev/null 2>&1 || true
-log "  /etc/sysctl.d/99-wtsn-tpo.conf applied"
+log "  /etc/sysctl.d/99-htsn-tpo.conf applied"
 
-# ---- 5. make sure the RT kernel is the default on next boot ----
-# The rpi-rt-kernel package's boot hook normally selects the RT kernel
-# automatically. If this RPi uses a firmware boot with an explicit 'kernel=',
-# confirm what will boot and report it (do not force a wrong value).
-if [[ -f /boot/config.txt || -f /boot/firmware/config.txt ]]; then
-    CFG=$([[ -f /boot/firmware/config.txt ]] && echo /boot/firmware/config.txt || echo /boot/config.txt)
-    if grep -qE '^\s*kernel=' "$CFG"; then
-        warn "  /boot/config.txt sets an explicit 'kernel=' — verify it points to the RT kernel."
-        grep -E '^\s*kernel=' "$CFG"
+# ---- 5. make the RT kernel the default on next boot (RPi firmware boot) ----
+# The RPi firmware reads /boot/firmware/config.txt (or /boot/config.txt) and loads
+# the kernel named by 'kernel='. The RT image lands as /boot/firmware/*_rt.img.
+CFG=""
+[[ -f /boot/firmware/config.txt ]] && CFG=/boot/firmware/config.txt
+[[ -z "$CFG" && -f /boot/config.txt ]] && CFG=/boot/config.txt
+if [[ -n "$CFG" ]]; then
+    RT_IMG="$(ls /boot/firmware/*_rt.img /boot/*_rt.img 2>/dev/null | head -1 | xargs -r basename || true)"
+    if [[ -n "$RT_IMG" ]]; then
+        cp -n "$CFG" "${CFG}.bak-rt" 2>/dev/null || true      # keep the first backup
+        if grep -qE '^[[:space:]]*kernel=' "$CFG"; then
+            sed -i -E "s|^[[:space:]]*kernel=.*|kernel=${RT_IMG}|" "$CFG"
+        else
+            printf '\nkernel=%s\n' "$RT_IMG" >> "$CFG"
+        fi
+        log "  $CFG -> kernel=$RT_IMG   (backup: ${CFG}.bak-rt)"
+    else
+        warn "  no *_rt.img found in /boot; set 'kernel=' in $CFG manually."
     fi
+else
+    warn "  no RPi config.txt found (GRUB boot?); select the -rt kernel in GRUB."
 fi
 
-# ---- 6. verify + rollback + reboot ----
+# ---- 6. verify + rollback + next steps ----
 cat <<EOF
 
 ------------------------------------------------------------------------
- Done. Next steps:
-   1. Reboot to load the RT kernel:        sudo reboot
-   2. After reboot, verify (expect 'PREEMPT_RT' in the version string):
-          uname -v
-          grep -i PREEMPT_RT /boot/config-\$(uname -r) | head
-   3. Re-run 'sudo ptpd ...' (or 'sudo systemctl restart ptpd') and check the
-      endpoint locks: on this box 'watch cat /tmp/wtsn_tsn_opcua.json | jq .ptp'
+  Done. Next steps:
+    1. Reboot to load the RT kernel:            sudo reboot
+    2. Verify (expect 'PREEMPT_RT' in the version + CONFIG_PREEMPT_RT=y):
+           uname -v
+           grep -E '^CONFIG_PREEMPT_RT=' /boot/config-\$(uname -r)
+    3. Grandmaster: ptpd on the wired NIC (run.sh start_tsn_cnc handles it),
+       GM IP 192.168.1.10, endpoint 192.168.1.20.
+  Rollback (stock kernel is untouched):
+           # restore the original config, then reboot:
+           cp ${CFG:-/boot/firmware/config.txt}.bak-rt ${CFG:-/boot/firmware/config.txt}
+           # remove the RT image entirely, if desired:
+           apt-get remove -y ${RT_PKG:-linux-image-*rpi-*-rt}
 ------------------------------------------------------------------------
- Rollback (if the RT kernel misbehaves) — stock kernel is untouched:
-   # firmware boot: edit /boot/config.txt, remove/point 'kernel=' back to stock
-   #   e.g. kernel=kernel8.img  (or kernel8-64.img), then reboot.
-   # remove the package entirely if desired:  apt-get remove -y rpi-rt-kernel
 EOF
-
 log "NOT auto-rebooting (so you can inspect); reboot when ready."

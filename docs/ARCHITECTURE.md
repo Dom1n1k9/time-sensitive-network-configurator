@@ -1,4 +1,4 @@
-# Wireless TSN Configurator — Architecture
+# Heterogeneous TSN Configurator — Architecture
 
 ## Overview
 
@@ -7,20 +7,20 @@ The project is a two-part system:
 1. **C11 control-plane core** (`src/`) — a modular, manager-based engine with all
    persistent state in **SQLite** and a single communication channel over **MQTT /
    FXMQTT**.
-2. **Python web GUI** (`wtsn_webgui/`) — a stdlib-light HTTP + WebSocket front-end that
+2. **Python web GUI** (`htsn_webgui/`) — a stdlib-light HTTP + WebSocket front-end that
    speaks the same MQTT topics and persists to the same SQLite schema (one DB for
    *simulation*, one for *real* mode).
 
 > **Scope note (wireless realism):** True deterministic TSN delivery is not achievable
 > over ordinary 802.11. This project therefore focuses on the *management plane*:
 > configuring QoS, VLAN, TAS, gPTP and streams on wireless nodes and monitoring them
-> over MQTT. The `wtsn_radio` layer maps those wired TSN concepts onto WMM/802.11e radio
+> over MQTT. The `htsn_radio` layer maps those wired TSN concepts onto WMM/802.11e radio
 > queues and flags features (e.g. 802.1Qbu preemption) that have no radio meaning.
 
 ```
  ┌───────────────────────────── RPi edge node ─────────────────────────────┐
  │  ┌──────────────────────────────────────────────────────────────────┐   │
- │  │              Web GUI (Python wtsn_webgui, :8000)                 │   │
+ │  │              Web GUI (Python htsn_webgui, :8000)                 │   │
  │  │ Devices | Monitor | Metrics | Sensors | AI | Architecture |      │   │
  │  │ FXMQTT | Timesync | QoS | VLAN | TAS | Preemption | Streams      │   │
  │  │ sim (virtual fleet + ACKs + FX data)   real (MQTT link)  actions │   │
@@ -51,9 +51,9 @@ The project is a two-part system:
 
 ## Layers (C core)
 
-1. **Common** (`src/common`) — logging, string utilities, error handling (`wtsn_strlcpy`,
+1. **Common** (`src/common`) — logging, string utilities, error handling (`htsn_strlcpy`,
    bounds-safe copying used throughout).
-2. **Model / MVC** (`src/mvc`) — `wtsn_model` + `wtsn_event_bus`. The original GUI
+2. **Model / MVC** (`src/mvc`) — `htsn_model` + `htsn_event_bus`. The original GUI
    controller/view skeleton was removed with the old GUI; the model/event-bus part is
    what managers use to notify the UI and dispatch events.
 3. **Database** (`src/db`) — SQLite schema (16 tables), CRUD repositories, **versioned
@@ -118,10 +118,10 @@ stores each snapshot's payload (up to 64 KB) in `config_versions`.
 ## Plugin Architecture
 
 Plugins expose `discover`, `read`, `write`, `probe` functions described by the
-`wtsn_plugin_api.h` interface. Discoverers are plugins; the discovery framework loads
+`htsn_plugin_api.h` interface. Discoverers are plugins; the discovery framework loads
 them at startup and enumerates discovered nodes.
 
-## FXMQTT Layer (`src/fxmqtt` + `wtsn_webgui`)
+## FXMQTT Layer (`src/fxmqtt` + `htsn_webgui`)
 
 The single communication channel. OPC UA FX / C2C Field Exchange is carried entirely
 over MQTT:
@@ -140,7 +140,7 @@ over MQTT:
 ESP32/STM32/NXP ship as compile-safe embedded adapters. The ESP32 reference
 implementation lives in `esp32-agent/` (see its README).
 
-## Web GUI (`wtsn_webgui`)
+## Web GUI (`htsn_webgui`)
 
 Decomposed package (originally a single 1,700-line file) with clear separation:
 
@@ -148,7 +148,7 @@ Decomposed package (originally a single 1,700-line file) with clear separation:
 |--------|----------------|
 | `state.py` | shared mutable state + locks (events, acks, mode, DB paths, MQTT client lock) |
 | `db.py` | SQLite schema, versioned migrations, event trace, loaders, history |
-| `mqtt_broker.py` | paho wrapper: synchronous, thread-safe broker surface (with optional TLS via `WTSN_TLS_*`) |
+| `mqtt_broker.py` | paho wrapper: synchronous, thread-safe broker surface (with optional TLS via `HTSN_TLS_*`) |
 | `mqtt_link.py` | real-mode broker cache + background listener loop (status/ack/discover/LWT/sensors) |
 | `sim.py` | simulation engine — stable virtual fleet, drifting sensors, FX data, stream-status transitions, and simulated per-device deploy ACKs (timers) |
 | `actions/` | per-domain action handlers (devices, qos, vlan, tas, timesync, streams, fxmqtt, misc incl. versions/backup/`llm_chat`) behind a thin dispatcher |
@@ -169,10 +169,10 @@ retry/status flow exercisable end-to-end without hardware.
 validates the file type, computes the **CRC32**, derives a version from the filename and
 records it in the `firmware` table (with device kind). The OTA action publishes
 `{"url","size","crc32"}` on `tsn/cmd/<id>/ota`; the ESP32 verifies the CRC device-side
-before rebooting (see `shared/wtsn_ota`).
+before rebooting (see `shared/htsn_ota`).
 
 **LLM proxy.** The `llm_chat` action forwards the chat to the local LLM bridge
-(`WTSN_LLM_URL`, default `127.0.0.1:8081`) and renders the (allowlist-validated) executed
+(`HTSN_LLM_URL`, default `127.0.0.1:8081`) and renders the (allowlist-validated) executed
 actions inline. The GUI holds no model weights — it is a thin client of the bridge.
 
 **Threading model.** The web GUI uses `ThreadingHTTPServer` (one thread per request) plus
@@ -191,9 +191,9 @@ state as a human operator would), and they tag each change with a provenance.
 
 | Service | Entry point | Loopback HTTP | Behaviour |
 |---------|-------------|---------------|-----------|
-| `wtsn-ai` | `vision_service.py` | — | Pulls the ESP32-CAM MJPEG stream, runs **YOLOv4-tiny** (OpenCV DNN, 80 COCO classes). On a target (default `person`): publishes a motion event on `tsn/sensors/event` (the CAM firmware records its own microSD clip), publishes `ai_detect`/`ai_person` counters as sensors, keeps a rolling thumbnail + short clip |
-| `wtsn-policy` | `policy_engine.py` | — | Polls DB/MQTT state and applies cooldowned rules through the GUI API: **R1** person+PIR → raise QoS + open TAS gate; **R2** grandmaster gPTP offset too high → switch grandmaster to the best-offset node; **R3** E2E latency too high → reserve an 802.1Qcc stream. Config: `policy.json` |
-| `wtsn-llm` | `llm_bridge.py` | `127.0.0.1:8081` | Front-end for **Ollama** (default `qwen2.5:1.5b`). Chat → strict-JSON proposal → **allowlist + clamp + known-device validation** → GUI action API with `source="llm"` → result back to chat. The model can only propose from a fixed list (`save_qos`, `save_vlan`, `save_stream`, `deploy_stream`, `ping_device`, `exec_all`, …) |
+| `htsn-ai` | `vision_service.py` | — | Pulls the ESP32-CAM MJPEG stream, runs **YOLOv4-tiny** (OpenCV DNN, 80 COCO classes). On a target (default `person`): publishes a motion event on `tsn/sensors/event` (the CAM firmware records its own microSD clip), publishes `ai_detect`/`ai_person` counters as sensors, keeps a rolling thumbnail + short clip |
+| `htsn-policy` | `policy_engine.py` | — | Polls DB/MQTT state and applies cooldowned rules through the GUI API: **R1** person+PIR → raise QoS + open TAS gate; **R2** grandmaster gPTP offset too high → switch grandmaster to the best-offset node; **R3** E2E latency too high → reserve an 802.1Qcc stream. Config: `policy.json` |
+| `htsn-llm` | `llm_bridge.py` | `127.0.0.1:8081` | Front-end for **Ollama** (default `qwen2.5:1.5b`). Chat → strict-JSON proposal → **allowlist + clamp + known-device validation** → GUI action API with `source="llm"` → result back to chat. The model can only propose from a fixed list (`save_qos`, `save_vlan`, `save_stream`, `deploy_stream`, `ping_device`, `exec_all`, …) |
 
 **Provenance & audit.** Every configuration change carries a `source` (`user`, `ai`,
 `llm`). The **AI Decisions** table records time, source, device, action, params and

@@ -148,7 +148,7 @@ sim_error sim_mqtt_publish_fx_multicast(sim_mqtt *m, const char *node_id, const 
      * the MQTT broker with the FX / C2C topics; here the spread is modelled
      * and logged per node so the configurator's monitoring can capture it.
      */
-    const char *topic = WTSN_FXMQTT_TOPIC_FIELD;
+    const char *topic = HTSN_FXMQTT_TOPIC_FIELD;
     if (m->mcast_cb) m->mcast_cb(node_id, topic, dataset, m->mcast_ud);
     sim_log(SIM_LOG_INFO, "FX mqtt -> topic %s node %s dataset %s",
             topic, node_id, dataset);

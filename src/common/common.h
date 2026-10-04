@@ -1,42 +1,42 @@
-#ifndef WTSN_COMMON_H
-#define WTSN_COMMON_H
+#ifndef HTSN_COMMON_H
+#define HTSN_COMMON_H
 
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-#define WTSN_MAX_STR 256
-#define WTSN_MAX_DEVICES 512
-#define WTSN_MAX_TOPICS 128
+#define HTSN_MAX_STR 256
+#define HTSN_MAX_DEVICES 512
+#define HTSN_MAX_TOPICS 128
 
 typedef enum {
-    WTSN_OK = 0,
-    WTSN_ERR_INVALID_ARG,
-    WTSN_ERR_NO_MEMORY,
-    WTSN_ERR_NOT_FOUND,
-    WTSN_ERR_ALREADY_EXISTS,
-    WTSN_ERR_DB,
-    WTSN_ERR_IO,
-    WTSN_ERR_NET,
-    WTSN_ERR_NOT_IMPLEMENTED,
-    WTSN_ERR_BUSY,
-    WTSN_ERR_NOT_READY,
-    WTSN_ERR_LAST
-} wtsn_error;
+    HTSN_OK = 0,
+    HTSN_ERR_INVALID_ARG,
+    HTSN_ERR_NO_MEMORY,
+    HTSN_ERR_NOT_FOUND,
+    HTSN_ERR_ALREADY_EXISTS,
+    HTSN_ERR_DB,
+    HTSN_ERR_IO,
+    HTSN_ERR_NET,
+    HTSN_ERR_NOT_IMPLEMENTED,
+    HTSN_ERR_BUSY,
+    HTSN_ERR_NOT_READY,
+    HTSN_ERR_LAST
+} htsn_error;
 
-static inline const char *wtsn_error_str(wtsn_error e) {
+static inline const char *htsn_error_str(htsn_error e) {
     switch (e) {
-    case WTSN_OK: return "ok";
-    case WTSN_ERR_INVALID_ARG: return "invalid argument";
-    case WTSN_ERR_NO_MEMORY: return "out of memory";
-    case WTSN_ERR_NOT_FOUND: return "not found";
-    case WTSN_ERR_ALREADY_EXISTS: return "already exists";
-    case WTSN_ERR_DB: return "database error";
-    case WTSN_ERR_IO: return "i/o error";
-    case WTSN_ERR_NET: return "network error";
-    case WTSN_ERR_NOT_IMPLEMENTED: return "not implemented";
-    case WTSN_ERR_BUSY: return "busy";
-    case WTSN_ERR_NOT_READY: return "not ready";
+    case HTSN_OK: return "ok";
+    case HTSN_ERR_INVALID_ARG: return "invalid argument";
+    case HTSN_ERR_NO_MEMORY: return "out of memory";
+    case HTSN_ERR_NOT_FOUND: return "not found";
+    case HTSN_ERR_ALREADY_EXISTS: return "already exists";
+    case HTSN_ERR_DB: return "database error";
+    case HTSN_ERR_IO: return "i/o error";
+    case HTSN_ERR_NET: return "network error";
+    case HTSN_ERR_NOT_IMPLEMENTED: return "not implemented";
+    case HTSN_ERR_BUSY: return "busy";
+    case HTSN_ERR_NOT_READY: return "not ready";
     default: return "unknown error";
     }
 }

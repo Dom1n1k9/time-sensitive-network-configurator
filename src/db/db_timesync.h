@@ -1,10 +1,10 @@
-#ifndef WTSN_DB_TIMESYNC_H
-#define WTSN_DB_TIMESYNC_H
+#ifndef HTSN_DB_TIMESYNC_H
+#define HTSN_DB_TIMESYNC_H
 
 #include "db/db.h"
 #include "timesync/timesync.h"
 
-wtsn_error wtsn_db_timesync_save(wtsn_db *db, const wtsn_timesync_status *s);
-wtsn_error wtsn_db_timesync_load(wtsn_db *db, wtsn_timesync_status *out);
+htsn_error htsn_db_timesync_save(htsn_db *db, const htsn_timesync_status *s);
+htsn_error htsn_db_timesync_load(htsn_db *db, htsn_timesync_status *out);
 
 #endif

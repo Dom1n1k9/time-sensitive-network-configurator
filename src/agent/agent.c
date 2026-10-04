@@ -13,8 +13,8 @@
 static const char *token_at(const char *payload, int index) {
     static char storage[128];
     static char *parts[8];
-    char copy[WTSN_MAX_STR];
-    wtsn_strlcpy(copy, payload ? payload : "", sizeof(copy));
+    char copy[HTSN_MAX_STR];
+    htsn_strlcpy(copy, payload ? payload : "", sizeof(copy));
     /* split on ':' and return index-th token */
     int nparts = 0;
     char *save = NULL;
@@ -74,19 +74,19 @@ static void json_get_str(const char *json, const char *key, char *out, size_t sz
     out[n] = '\0';
 }
 
-static void send_ack(wtsn_agent *a, bool ok) {
+static void send_ack(htsn_agent *a, bool ok) {
     if (!a->mqtt) return;
     char topic[64];
     snprintf(topic, sizeof(topic), "tsn/ack/%s", a->device_id);
     char payload[96];
     snprintf(payload, sizeof(payload), "{\"id\":\"%s\",\"ok\":%s}",
              a->device_id, ok ? "true" : "false");
-    wtsn_mqtt_client_publish(a->mqtt, topic, payload);
+    htsn_mqtt_client_publish(a->mqtt, topic, payload);
 }
 
 /* Apply a full JSON snapshot (same schema as the ESP32 agent), so the
    host agent (Linux/RPi) speaks the same protocol as the embedded one. */
-static wtsn_error apply_snapshot(wtsn_agent *a, const char *payload) {
+static htsn_error apply_snapshot(htsn_agent *a, const char *payload) {
     int p, t, bw, lat, pr, vid, tsmode;
     int have = 0;
     if (json_get_int(payload, "priority", &p)) { have = 1; }
@@ -109,12 +109,12 @@ static wtsn_error apply_snapshot(wtsn_agent *a, const char *payload) {
     const char *cv = json_val(payload, "tas_cycle_ns");
     if (cv && *cv != '"') cycle = atoll(cv);
     a->ops.apply_tas(a->state, cycle, NULL, 0);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
 /* Route inbound MQTT topic tsn/cmd/<id>/<command> to the right handler. */
 static void on_message(const char *topic, const char *payload, size_t len, void *ud) {
-    wtsn_agent *a = (wtsn_agent *)ud;
+    htsn_agent *a = (htsn_agent *)ud;
     if (!a) return;
     (void)len;
     if (strstr(topic, "/apply")) {
@@ -124,21 +124,21 @@ static void on_message(const char *topic, const char *payload, size_t len, void 
     }
     const char *cmd = strrchr(topic, '/');
     cmd = cmd ? cmd + 1 : topic;
-    wtsn_error e = wtsn_agent_handle_command(a, cmd, payload);
-    wtsn_log(WTSN_LOG_INFO, "agent cmd %s -> %s", cmd, wtsn_error_str(e));
-    send_ack(a, e == WTSN_OK);
+    htsn_error e = htsn_agent_handle_command(a, cmd, payload);
+    htsn_log(HTSN_LOG_INFO, "agent cmd %s -> %s", cmd, htsn_error_str(e));
+    send_ack(a, e == HTSN_OK);
 }
 
-wtsn_agent *wtsn_agent_create(const char *device_id, const char *platform_str,
+htsn_agent *htsn_agent_create(const char *device_id, const char *platform_str,
                               const char *mqtt_host, int mqtt_port) {
     if (!device_id || !platform_str) return NULL;
-    wtsn_agent *a = calloc(1, sizeof(wtsn_agent));
+    htsn_agent *a = calloc(1, sizeof(htsn_agent));
     if (!a) return NULL;
-    wtsn_strlcpy(a->device_id, device_id, sizeof(a->device_id));
-    wtsn_strlcpy(a->platform_str, platform_str, sizeof(a->platform_str));
+    htsn_strlcpy(a->device_id, device_id, sizeof(a->device_id));
+    htsn_strlcpy(a->platform_str, platform_str, sizeof(a->platform_str));
     a->platform = agt_platform_from_string(platform_str);
     a->mqtt_port = mqtt_port;
-    wtsn_strlcpy(a->mqtt_host, mqtt_host ? mqtt_host : "localhost", sizeof(a->mqtt_host));
+    htsn_strlcpy(a->mqtt_host, mqtt_host ? mqtt_host : "localhost", sizeof(a->mqtt_host));
 
     /* pick provider */
     if (a->platform == AGENT_PLATFORM_LINUX || a->platform == AGENT_PLATFORM_RASPBERRY_PI) {
@@ -153,35 +153,35 @@ wtsn_agent *wtsn_agent_create(const char *device_id, const char *platform_str,
     return a;
 }
 
-void wtsn_agent_destroy(wtsn_agent *a) {
+void htsn_agent_destroy(htsn_agent *a) {
     if (!a) return;
     if (a->ops.destroy) a->ops.destroy(a->state);
-    if (a->mqtt) wtsn_mqtt_client_destroy(a->mqtt);
+    if (a->mqtt) htsn_mqtt_client_destroy(a->mqtt);
     free(a);
 }
 
-wtsn_error wtsn_agent_start(wtsn_agent *a) {
-    if (!a) return WTSN_ERR_INVALID_ARG;
+htsn_error htsn_agent_start(htsn_agent *a) {
+    if (!a) return HTSN_ERR_INVALID_ARG;
     if (a->ops.init) a->ops.init(a->state);
     if (strlen(a->mqtt_host) > 0) {
-        a->mqtt = wtsn_mqtt_client_create(NULL);
-        wtsn_mqtt_client_connect(a->mqtt, a->mqtt_host, a->mqtt_port,
+        a->mqtt = htsn_mqtt_client_create(NULL);
+        htsn_mqtt_client_connect(a->mqtt, a->mqtt_host, a->mqtt_port,
                                  a->device_id, NULL, NULL);
-        wtsn_mqtt_client_subscribe(a->mqtt, "tsn/cmd/#");
-        wtsn_mqtt_client_subscribe(a->mqtt, "tsn/fx/#");
-        wtsn_mqtt_client_set_message_cb(a->mqtt, on_message, a);
-        wtsn_mqtt_client_loop_start(a->mqtt);
+        htsn_mqtt_client_subscribe(a->mqtt, "tsn/cmd/#");
+        htsn_mqtt_client_subscribe(a->mqtt, "tsn/fx/#");
+        htsn_mqtt_client_set_message_cb(a->mqtt, on_message, a);
+        htsn_mqtt_client_loop_start(a->mqtt);
         /* announce so the webgui discovers this node */
         char buff[64];
         snprintf(buff, sizeof(buff), "{\"id\":\"%s\"}", a->device_id);
-        wtsn_mqtt_client_publish(a->mqtt, "tsn/discover", buff);
+        htsn_mqtt_client_publish(a->mqtt, "tsn/discover", buff);
     }
-    wtsn_log(WTSN_LOG_INFO, "agent %s started (platform=%s)", a->device_id, a->platform_str);
-    return WTSN_OK;
+    htsn_log(HTSN_LOG_INFO, "agent %s started (platform=%s)", a->device_id, a->platform_str);
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_agent_handle_command(wtsn_agent *a, const char *command, const char *payload) {
-    if (!a || !command) return WTSN_ERR_INVALID_ARG;
+htsn_error htsn_agent_handle_command(htsn_agent *a, const char *command, const char *payload) {
+    if (!a || !command) return HTSN_ERR_INVALID_ARG;
 
     if (strcmp(command, "qos") == 0) {
         int p = atoi(token_at(payload, 0));
@@ -205,31 +205,31 @@ wtsn_error wtsn_agent_handle_command(wtsn_agent *a, const char *command, const c
            schema as /apply. */
         return apply_snapshot(a, payload);
     } else if (strcmp(command, "status") == 0) {
-        if (a->mqtt) wtsn_mqtt_client_publish(a->mqtt, "tsn/status", a->device_id);
-        return WTSN_OK;
+        if (a->mqtt) htsn_mqtt_client_publish(a->mqtt, "tsn/status", a->device_id);
+        return HTSN_OK;
     } else if (strcmp(command, "fx") == 0) {
         /* FX over MQTT: publish a dataset into the C2C field flow */
         const char *group = token_at(payload, 0);
         if (!group[0]) group = "239.255.0.1";
         const char *dataset = token_at(payload, 1);
-        if (!dataset[0]) dataset = "wtsnData";
+        if (!dataset[0]) dataset = "htsnData";
         if (a->platform == AGENT_PLATFORM_LINUX ||
             a->platform == AGENT_PLATFORM_RASPBERRY_PI) {
             return agt_linux_send_fx_multicast(a->state, group,
                 (const unsigned char *)dataset, strlen(dataset));
         }
-        wtsn_log(WTSN_LOG_INFO, "[%s] fx multicast to group %s dataset %s",
+        htsn_log(HTSN_LOG_INFO, "[%s] fx multicast to group %s dataset %s",
                  a->platform_str, group, dataset);
-        return WTSN_OK;
+        return HTSN_OK;
     }
-    return WTSN_ERR_NOT_FOUND;
+    return HTSN_ERR_NOT_FOUND;
 }
 
-int wtsn_agent_run_loop(wtsn_agent *a) {
+int htsn_agent_run_loop(htsn_agent *a) {
     (void)a;
     /* main loop; in this build the caller drives MQTT callbacks. */
     for (;;) {
-        if (a && a->mqtt) wtsn_mqtt_client_loop_start(a->mqtt);
+        if (a && a->mqtt) htsn_mqtt_client_loop_start(a->mqtt);
         return 0;
     }
     return 0;

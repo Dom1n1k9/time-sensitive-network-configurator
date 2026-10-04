@@ -21,21 +21,21 @@
 
 #define MAX_PLUGINS 16
 
-struct wtsn_plugin_manager {
-    wtsn_plugin *plugins[MAX_PLUGINS];
+struct htsn_plugin_manager {
+    htsn_plugin *plugins[MAX_PLUGINS];
     size_t count;
 };
 
-wtsn_plugin_manager *wtsn_plugin_manager_create(void) {
-    return calloc(1, sizeof(wtsn_plugin_manager));
+htsn_plugin_manager *htsn_plugin_manager_create(void) {
+    return calloc(1, sizeof(htsn_plugin_manager));
 }
 
-void wtsn_plugin_manager_destroy(wtsn_plugin_manager *m) {
+void htsn_plugin_manager_destroy(htsn_plugin_manager *m) {
     if (!m) return;
     for (size_t i = 0; i < m->count; i++) {
-        wtsn_plugin *p = m->plugins[i];
+        htsn_plugin *p = m->plugins[i];
         if (!p) continue;
-        if (p->shutdown && p->shutdown(p) == WTSN_OK) {
+        if (p->shutdown && p->shutdown(p) == HTSN_OK) {
         }
         if (p->handle) DL_CLOSE((DL_HANDLE)p->handle);
         free(p);
@@ -43,37 +43,37 @@ void wtsn_plugin_manager_destroy(wtsn_plugin_manager *m) {
     free(m);
 }
 
-wtsn_error wtsn_plugin_manager_load(wtsn_plugin_manager *m, const char *path) {
-    if (!m || !path || m->count >= MAX_PLUGINS) return WTSN_ERR_INVALID_ARG;
+htsn_error htsn_plugin_manager_load(htsn_plugin_manager *m, const char *path) {
+    if (!m || !path || m->count >= MAX_PLUGINS) return HTSN_ERR_INVALID_ARG;
 
     DL_HANDLE h = DL_OPEN(path);
     if (!h) {
-        wtsn_log(WTSN_LOG_WARN, "plugin load failed: %s", path);
-        return WTSN_ERR_IO;
+        htsn_log(HTSN_LOG_WARN, "plugin load failed: %s", path);
+        return HTSN_ERR_IO;
     }
 
-    wtsn_plugin_create_fn create = (wtsn_plugin_create_fn)DL_SYM(h, "wtsn_plugin_create");
+    htsn_plugin_create_fn create = (htsn_plugin_create_fn)DL_SYM(h, "htsn_plugin_create");
     if (!create) {
         DL_CLOSE(h);
-        return WTSN_ERR_IO;
+        return HTSN_ERR_IO;
     }
 
-    wtsn_plugin *p = create();
+    htsn_plugin *p = create();
     if (!p) {
         DL_CLOSE(h);
-        return WTSN_ERR_NO_MEMORY;
+        return HTSN_ERR_NO_MEMORY;
     }
     p->handle = (void *)h;
     m->plugins[m->count++] = p;
-    wtsn_log(WTSN_LOG_INFO, "loaded plugin: %s", p->name);
-    return WTSN_OK;
+    htsn_log(HTSN_LOG_INFO, "loaded plugin: %s", p->name);
+    return HTSN_OK;
 }
 
-size_t wtsn_plugin_manager_count(wtsn_plugin_manager *m) {
+size_t htsn_plugin_manager_count(htsn_plugin_manager *m) {
     return m ? m->count : 0;
 }
 
-wtsn_plugin *wtsn_plugin_manager_get(wtsn_plugin_manager *m, size_t index) {
+htsn_plugin *htsn_plugin_manager_get(htsn_plugin_manager *m, size_t index) {
     if (!m || index >= m->count) return NULL;
     return m->plugins[index];
 }

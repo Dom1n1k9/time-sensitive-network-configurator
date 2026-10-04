@@ -1,0 +1,13 @@
+[Unit]
+Description=HTSN daily backup (DB + configs)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/home/htsn/htsn-ai
+ExecStart=/home/htsn/htsn-ai/backup.sh
+TimeoutStartSec=10min
+
+[Install]
+WantedBy=multi-user.target

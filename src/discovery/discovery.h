@@ -1,35 +1,35 @@
-#ifndef WTSN_DISCOVERY_H
-#define WTSN_DISCOVERY_H
+#ifndef HTSN_DISCOVERY_H
+#define HTSN_DISCOVERY_H
 
 #include "common/common.h"
 #include "device/device.h"
 
 typedef enum {
-    WTSN_DISCOVERY_MQTT = 0,
-    WTSN_DISCOVERY_PLUGIN,
-    WTSN_DISCOVERY_MANUAL
-} wtsn_discovery_source;
+    HTSN_DISCOVERY_MQTT = 0,
+    HTSN_DISCOVERY_PLUGIN,
+    HTSN_DISCOVERY_MANUAL
+} htsn_discovery_source;
 
-typedef struct wtsn_discoverer wtsn_discoverer;
+typedef struct htsn_discoverer htsn_discoverer;
 
-typedef wtsn_error (*wtsn_discovery_run_fn)(wtsn_discoverer *d, wtsn_device *out, int max, int *count);
-typedef void (*wtsn_discovery_destroy_fn)(wtsn_discoverer *d);
+typedef htsn_error (*htsn_discovery_run_fn)(htsn_discoverer *d, htsn_device *out, int max, int *count);
+typedef void (*htsn_discovery_destroy_fn)(htsn_discoverer *d);
 
-struct wtsn_discoverer {
-    wtsn_discovery_source source;
-    char name[WTSN_MAX_STR];
+struct htsn_discoverer {
+    htsn_discovery_source source;
+    char name[HTSN_MAX_STR];
     void *data;
-    wtsn_discovery_run_fn run;
-    wtsn_discovery_destroy_fn destroy;
-    void (*on_device)(wtsn_device *dev, void *ud);
+    htsn_discovery_run_fn run;
+    htsn_discovery_destroy_fn destroy;
+    void (*on_device)(htsn_device *dev, void *ud);
     void *userdata;
 };
 
-typedef wtsn_discoverer *(*wtsn_discovery_create_fn)(wtsn_discovery_source src);
+typedef htsn_discoverer *(*htsn_discovery_create_fn)(htsn_discovery_source src);
 
-wtsn_discoverer *wtsn_discovery_create(wtsn_discovery_source src, const char *name,
-                                       wtsn_discovery_run_fn run,
-                                       wtsn_discovery_destroy_fn destroy, void *data);
-void wtsn_discovery_destroy(wtsn_discoverer *d);
+htsn_discoverer *htsn_discovery_create(htsn_discovery_source src, const char *name,
+                                       htsn_discovery_run_fn run,
+                                       htsn_discovery_destroy_fn destroy, void *data);
+void htsn_discovery_destroy(htsn_discoverer *d);
 
 #endif

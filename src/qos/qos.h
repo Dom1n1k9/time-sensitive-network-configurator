@@ -1,41 +1,41 @@
-#ifndef WTSN_QOS_H
-#define WTSN_QOS_H
+#ifndef HTSN_QOS_H
+#define HTSN_QOS_H
 
 #include "common/common.h"
 
 typedef enum {
-    WTSN_QOS_TC_BEST_EFFORT = 0,
-    WTSN_QOS_TC_AUDIO_VIDEO,
-    WTSN_QOS_TC_CONTROLLED,
-    WTSN_QOS_TC_CRITICAL
-} wtsn_qos_traffic_class;
+    HTSN_QOS_TC_BEST_EFFORT = 0,
+    HTSN_QOS_TC_AUDIO_VIDEO,
+    HTSN_QOS_TC_CONTROLLED,
+    HTSN_QOS_TC_CRITICAL
+} htsn_qos_traffic_class;
 
 typedef enum {
-    WTSN_QOS_LATENCY_PRIORITY = 0,
-    WTSN_QOS_LATENCY_SOFT_REAL_TIME,
-    WTSN_QOS_LATENCY_HARD_REAL_TIME
-} wtsn_qos_latency_class;
+    HTSN_QOS_LATENCY_PRIORITY = 0,
+    HTSN_QOS_LATENCY_SOFT_REAL_TIME,
+    HTSN_QOS_LATENCY_HARD_REAL_TIME
+} htsn_qos_latency_class;
 
 /* IEEE 802.1Qbu Frame Preemption: express frames preempt preemptable classes */
 typedef enum {
-    WTSN_PREEMPT_OFF = 0,
-    WTSN_PREEMPT_EXPRESS_QUEUE,
-    WTSN_PREEMPT_ON
-} wtsn_frame_preemption;
+    HTSN_PREEMPT_OFF = 0,
+    HTSN_PREEMPT_EXPRESS_QUEUE,
+    HTSN_PREEMPT_ON
+} htsn_frame_preemption;
 
 typedef struct {
-    char device_id[WTSN_MAX_STR];
+    char device_id[HTSN_MAX_STR];
     int priority;
-    wtsn_qos_traffic_class traffic_class;
+    htsn_qos_traffic_class traffic_class;
     int bandwidth_kbps;
     int latency_ms;
-    wtsn_qos_latency_class latency_class;
-    wtsn_frame_preemption preemption;
-} wtsn_qos_config_model;
+    htsn_qos_latency_class latency_class;
+    htsn_frame_preemption preemption;
+} htsn_qos_config_model;
 
-wtsn_error wtsn_qos_validate(const wtsn_qos_config_model *cfg);
-const char *wtsn_qos_tc_str(wtsn_qos_traffic_class tc);
-const char *wtsn_qos_latency_str(wtsn_qos_latency_class lc);
-const char *wtsn_preemption_str(wtsn_frame_preemption p);
+htsn_error htsn_qos_validate(const htsn_qos_config_model *cfg);
+const char *htsn_qos_tc_str(htsn_qos_traffic_class tc);
+const char *htsn_qos_latency_str(htsn_qos_latency_class lc);
+const char *htsn_preemption_str(htsn_frame_preemption p);
 
 #endif

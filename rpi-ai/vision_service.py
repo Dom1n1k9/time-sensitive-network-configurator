@@ -1,4 +1,4 @@
-"""WTSN AI Vision service (runs on the Raspberry Pi edge node).
+"""HTSN AI Vision service (runs on the Raspberry Pi edge node).
 
 Pulls MJPEG streams from the ESP32-CAM nodes, runs YOLOv4-tiny object
 detection (person + 80 COCO classes) and, when a target is detected:
@@ -8,7 +8,7 @@ detection (person + 80 COCO classes) and, when a target is detected:
     (ai_detect / ai_person) so the web GUI Sensors page shows them,
   * keeps a rolling "last detection" thumbnail + short MJPEG clip locally.
 
-Config file (JSON), default /home/wtsn/wtsn-ai/config.json:
+Config file (JSON), default /home/htsn/htsn-ai/config.json:
   {
     "broker": "localhost:1883",
     "interval_s": 5,
@@ -18,7 +18,7 @@ Config file (JSON), default /home/wtsn/wtsn-ai/config.json:
       {"id": "esp32-cam", "url": "http://192.168.0.50/stream"}
     ]
   }
-Override with env WTSN_AI_CONFIG.
+Override with env HTSN_AI_CONFIG.
 """
 import json
 import os
@@ -38,8 +38,8 @@ except ImportError:
 
 import paho.mqtt.client as paho
 
-MODEL_DIR = os.path.join(os.path.expanduser("~"), "wtsn-ai", "models")
-CLIP_DIR = os.path.join(os.path.expanduser("~"), "wtsn-ai", "clips")
+MODEL_DIR = os.path.join(os.path.expanduser("~"), "htsn-ai", "models")
+CLIP_DIR = os.path.join(os.path.expanduser("~"), "htsn-ai", "clips")
 YOLO_CFG = "https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-tiny.cfg"
 YOLO_W = "https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov4-tiny.weights"
 COCO_NAMES = "https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names"
@@ -49,7 +49,7 @@ log_lock = threading.Lock()
 
 def log(msg):
     with log_lock:
-        print("[wtsn-ai] %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
+        print("[htsn-ai] %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
 
 
 def ensure_models():
@@ -143,7 +143,7 @@ def mjpeg_frames(url, timeout=8):
     """Yield decoded BGR frames from a multipart MJPEG HTTP stream."""
     import urllib.request
 
-    req = urllib.request.Request(url, headers={"User-Agent": "wtsn-ai/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "htsn-ai/1.0"})
     resp = urllib.request.urlopen(req, timeout=timeout)
     ctype = resp.headers.get("Content-Type", "")
     boundary = b"--123456789000000000000987654321"
@@ -276,7 +276,7 @@ class Camera:
         path_mj = os.path.join(cdir, "clip_%d.mjpeg" % ts)
         n = int(conf.get("clip_frames", 20))
         delay = float(conf.get("clip_delay", 0.05))
-        boundary = b"----wtsnclip"
+        boundary = b"----htsnclip"
         frames_jpg = []
         last_draw = None
         width = height = 0
@@ -409,8 +409,8 @@ class Camera:
 
 
 def load_config():
-    path = os.environ.get("WTSN_AI_CONFIG",
-                          os.path.join(os.path.expanduser("~"), "wtsn-ai", "config.json"))
+    path = os.environ.get("HTSN_AI_CONFIG",
+                          os.path.join(os.path.expanduser("~"), "htsn-ai", "config.json"))
     conf = {"broker": "localhost:1883", "interval_s": 5, "conf": 0.45,
             "detect": ["person"], "cameras": []}
     if os.path.isfile(path):
@@ -429,14 +429,14 @@ def main():
     conf = load_config()
     if not conf.get("cameras"):
         log("no cameras configured - add entries to "
-            "/home/wtsn/wtsn-ai/config.json (cameras: [{id, url}])")
+            "/home/htsn/htsn-ai/config.json (cameras: [{id, url}])")
     os.makedirs(CLIP_DIR, exist_ok=True)
     broker = conf.get("broker", "localhost:1883")
     host, _, port = broker.partition(":")
-    cli = paho.Client(paho.CallbackAPIVersion.VERSION2, "wtsn-ai-%d" % os.getpid())
+    cli = paho.Client(paho.CallbackAPIVersion.VERSION2, "htsn-ai-%d" % os.getpid())
     mqtt_cli = cli
-    u = os.environ.get("WTSN_USER", "")
-    p = os.environ.get("WTSN_PASS", "")
+    u = os.environ.get("HTSN_USER", "")
+    p = os.environ.get("HTSN_PASS", "")
     if u:
         cli.username_pw_set(u, p)
     cli.connect(host, int(port or 1883), 60)

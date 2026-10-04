@@ -1,5 +1,5 @@
 # ============================================================
-#  WTSN Configurator - Windows launcher
+#  HTSN Configurator - Windows launcher
 #  MQTT broker (optional) + web GUI + browser
 #  Mirrors run.sh for Linux.
 #
@@ -15,9 +15,9 @@ $ErrorActionPreference = "Stop"
 $projDir  = $PSScriptRoot
 $guiPort  = 8000
 $mqttPort = 1883
-$guiLog   = Join-Path $env:TEMP "wtsn_webgui.log"
+$guiLog   = Join-Path $env:TEMP "htsn_webgui.log"
 
-function Log($msg) { Write-Host "[wtsn] $msg" -ForegroundColor Cyan }
+function Log($msg) { Write-Host "[htsn] $msg" -ForegroundColor Cyan }
 
 # ---------------- LAN IP (first non-loopback, non-link-local) ----------------
 function Get-LanIp {
@@ -46,7 +46,7 @@ function Start-Broker {
         Log "The web GUI still works in Simulation mode; for REAL mode start a broker manually."
         return
     }
-    $conf = Join-Path $env:TEMP "wtsn-mosquitto.conf"
+    $conf = Join-Path $env:TEMP "htsn-mosquitto.conf"
     Set-Content -Path $conf -Value "listener 1883 0.0.0.0`nallow_anonymous true`n" -Encoding ASCII
     Start-Process -FilePath $mosq.Source -ArgumentList @("-c", $conf) -WindowStyle Hidden
     Start-Sleep -Seconds 2
@@ -56,14 +56,14 @@ function Start-Broker {
     } else {
         Log "WARNING: broker did not start listening on $mqttPort"
     }
-    # Advertise wtsn-broker.local -> this PC's LAN IP so ESP32 nodes that were
+    # Advertise htsn-broker.local -> this PC's LAN IP so ESP32 nodes that were
     # provisioned with the default broker name resolve it even on networks where
     # the PC's IP changes (home routers, mDNS via Bonjour/dns-sd on Windows).
     $dnsSd = Get-Command dns-sd.exe -ErrorAction SilentlyContinue
     if ($dnsSd) {
-        Start-Process -FilePath $dnsSd.Source -ArgumentList @("-N", "wtsn-broker.local", "$lanIp") -WindowStyle Hidden -ErrorAction SilentlyContinue
+        Start-Process -FilePath $dnsSd.Source -ArgumentList @("-N", "htsn-broker.local", "$lanIp") -WindowStyle Hidden -ErrorAction SilentlyContinue
     } else {
-        Log "dns-sd.exe not found - ESP32 nodes provisioned with 'wtsn-broker.local' must have mDNS resolver on the LAN, or use the PC's IP ($lanIp) as broker in the setup portal."
+        Log "dns-sd.exe not found - ESP32 nodes provisioned with 'htsn-broker.local' must have mDNS resolver on the LAN, or use the PC's IP ($lanIp) as broker in the setup portal."
     }
 }
 
@@ -77,11 +77,11 @@ function Stop-OldGui {
 
 function Start-Gui {
     Stop-OldGui
-    $env:WTSN_BROKER = "$lanIp:$mqttPort"
+    $env:HTSN_BROKER = "$lanIp:$mqttPort"
     Start-Process -FilePath "python" -WorkingDirectory $projDir `
         -ArgumentList "webgui.py" `
         -RedirectStandardOutput $guiLog `
-        -RedirectStandardError (Join-Path $env:TEMP "wtsn_webgui.err.log") `
+        -RedirectStandardError (Join-Path $env:TEMP "htsn_webgui.err.log") `
         -WindowStyle Hidden
 }
 
@@ -100,7 +100,7 @@ function Wait-Gui {
 
 # ---------------- 3) GUI health monitor (self-healing, mirrors run.sh) ----------------
 function Start-GuiMonitor {
-    $monitorScript = Join-Path $env:TEMP "wtsn_gui_monitor.ps1"
+    $monitorScript = Join-Path $env:TEMP "htsn_gui_monitor.ps1"
     $header = @(
         "`$proj = '$projDir'",
         "`$log  = '$guiLog'",
@@ -119,12 +119,12 @@ while ($true) {
     if ($alive) { $stale = 0; continue }
     $stale++
     if ($stale -ge 2) {
-        Write-Host "$(Get-Date -Format 'HH:mm:ss') [wtsn] RESTARTING GUI"
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') [htsn] RESTARTING GUI"
         Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction SilentlyContinue |
             Where-Object { $_.CommandLine -like "*webgui.py*" } |
             ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
         Start-Sleep -Seconds 1
-        $env:WTSN_BROKER = "$lanIp:$mqttPort"
+        $env:HTSN_BROKER = "$lanIp:$mqttPort"
         Start-Process -FilePath "python" -WorkingDirectory $proj -ArgumentList "webgui.py" `
             -RedirectStandardOutput $log `
             -RedirectStandardError "$log.err" -WindowStyle Hidden
@@ -153,7 +153,7 @@ Start-GuiMonitor
 if (-not $Headless) {
     Start-Process "http://127.0.0.1:$guiPort"
     Log "Done. Broker=$lanIp:$mqttPort  GUI=http://127.0.0.1:$guiPort"
-    Log "New board? Connect to WiFi 'WTSN-Setup' and open http://192.168.4.1/ to provision."
+    Log "New board? Connect to WiFi 'HTSN-Setup' and open http://192.168.4.1/ to provision."
 } else {
     Log "headless: services only (broker + GUI + monitor)."
 }

@@ -30,12 +30,12 @@ cmake --build build -- -j$(nproc)
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -- -j$(nproc)
-./build/wtsn-tests     # C tests
-./build/wtsn-cli --headless   # C CLI core
+./build/htsn-tests     # C tests
+./build/htsn-cli --headless   # C CLI core
 python3 webgui.py      # Python web GUI front-end (from repo root)
 ```
 
-The default database path for `wtsn-cli` is `wtsn.db` (override with `--db <path>`).
+The default database path for `htsn-cli` is `htsn.db` (override with `--db <path>`).
 
 ## Options
 
@@ -46,7 +46,7 @@ The default database path for `wtsn-cli` is `wtsn.db` (override with `--db <path
 
 ## Web GUI deployment
 
-`webgui.py` is a thin shim over the `wtsn_webgui/` package (stdlib-only aside from
+`webgui.py` is a thin shim over the `htsn_webgui/` package (stdlib-only aside from
 `paho-mqtt`):
 
 ```bash
@@ -57,24 +57,24 @@ Environment variables (also usable via the GUI):
 
 | Env | Purpose |
 |-----|---------|
-| `WTSN_HOST`, `WTSN_PORT` | bind address/port (default `127.0.0.1:8000`) |
-| `WTSN_DB` | real-mode SQLite path (default `build/wtsn_gui.db`) |
-| `WTSN_BROKER` | MQTT broker address `host:port` (default `127.0.0.1:1883`) |
-| `WTSN_USER` / `WTSN_PASS` | MQTT broker auth |
-| `WTSN_TLS_CA`, `WTSN_TLS_CERT`, `WTSN_TLS_KEY` | MQTT TLS (CA bundle + optional client cert) |
-| `WTSN_TLS_INSECURE` | `1`/`true` to skip broker certificate verification (dev only) |
-| `WTSN_WEB_USER` / `WTSN_WEB_PASS` | optional HTTP Basic auth for the web UI |
+| `HTSN_HOST`, `HTSN_PORT` | bind address/port (default `127.0.0.1:8000`) |
+| `HTSN_DB` | real-mode SQLite path (default `build/htsn_gui.db`) |
+| `HTSN_BROKER` | MQTT broker address `host:port` (default `127.0.0.1:1883`) |
+| `HTSN_USER` / `HTSN_PASS` | MQTT broker auth |
+| `HTSN_TLS_CA`, `HTSN_TLS_CERT`, `HTSN_TLS_KEY` | MQTT TLS (CA bundle + optional client cert) |
+| `HTSN_TLS_INSECURE` | `1`/`true` to skip broker certificate verification (dev only) |
+| `HTSN_WEB_USER` / `HTSN_WEB_PASS` | optional HTTP Basic auth for the web UI |
 
 Security notes:
 
 - Default bind is `127.0.0.1` (loopback only). Use `--host 0.0.0.0` to expose, but then
-  set HTTP Basic auth via `WTSN_WEB_USER`/`WTSN_WEB_PASS`.
+  set HTTP Basic auth via `HTSN_WEB_USER`/`HTSN_WEB_PASS`.
 - There is no built-in TLS in the HTTP server — put it behind a reverse proxy
   (nginx/caddy) for HTTPS.
 - Real-mode MQTT commands are only published when the GUI is switched to **Real** mode.
 
 For the full **Raspberry Pi service deployment** (systemd units in
-`rpi-ai/systemd/`, `/etc/wtsn/env` secret store, Ollama, auto-update timer, daily
+`rpi-ai/systemd/`, `/etc/htsn/env` secret store, Ollama, auto-update timer, daily
 backup, Tailscale, multi-WiFi), see [EDGE.md](EDGE.md).
 
 ## Packaging
@@ -84,8 +84,8 @@ cmake --build build --target package   # uses CPack
 cpack -G TGZ                          # or ZIP on Windows
 ```
 
-Installs `wtsn-cli`, `tsn-node-simulator`, `tsn-node-agent`, plugins, `webgui.py`,
-profiles and docs into `bin` / `share/wtsn-configurator`.
+Installs `htsn-cli`, `tsn-node-simulator`, `tsn-node-agent`, plugins, `webgui.py`,
+profiles and docs into `bin` / `share/htsn-configurator`.
 
 ## TSN node firmware agent
 
@@ -113,11 +113,11 @@ cmake --build build
 (cd build && ctest --output-on-failure)
 
 # or just the main suite
-./build/wtsn-tests
+./build/htsn-tests
 
 # Python web GUI tests + lint
 python3 -m unittest discover -s tests
-python3 -m ruff check webgui.py wtsn_webgui tests
+python3 -m ruff check webgui.py htsn_webgui tests
 ```
 
 ### Sanitizers & static analysis
@@ -145,5 +145,5 @@ These two are enforced by CI (`.github/workflows/ci.yml`) — the baseline must 
 - Code is C11, built with `-Wall -Wextra`.
 - New protocol integrations go in `src/<protocol>` and register via the plugin manager /
   event bus.
-- The `wtsn_webgui/actions/` package splits handlers per TSN domain; add a new action by
+- The `htsn_webgui/actions/` package splits handlers per TSN domain; add a new action by
   placing it in the relevant `HANDLERS` dict.

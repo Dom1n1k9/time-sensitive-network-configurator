@@ -12,27 +12,27 @@
 #include "string.h"
 #include "stdio.h"
 
-#include "wtsn_cfg.h"
-#include "wtsn_mqtt.h"
-#include "wtsn_tsn.h"
-#include "wtsn_ptp.h"
-#include "wtsn_json.h"
-#include "wtsn_prov.h"
-#include "wtsn_sensor.h"
-#include "wtsn_display.h"
-#include "wtsn_sonar.h"
-#include "wtsn_version.h"
-#include "wtsn_ota.h"
+#include "htsn_cfg.h"
+#include "htsn_mqtt.h"
+#include "htsn_tsn.h"
+#include "htsn_ptp.h"
+#include "htsn_json.h"
+#include "htsn_prov.h"
+#include "htsn_sensor.h"
+#include "htsn_display.h"
+#include "htsn_sonar.h"
+#include "htsn_version.h"
+#include "htsn_ota.h"
 
 #include "nvs.h"
 #include "sntp.h"
 #include "mdns.h"
 #include <time.h>
 
-static const char *TAG = "wtsn_main";
+static const char *TAG = "htsn_main";
 static char g_device_id[32] = "esp32-01";
 static char g_ip[16] = "0.0.0.0";
-static wtsn_mqtt *g_mqtt = NULL;
+static htsn_mqtt *g_mqtt = NULL;
 static void ensure_device_id(void);
 static void identify_start(void);
 static void factory_reset(void);
@@ -64,14 +64,14 @@ static void send_ack(bool ok, const char *reason) {
     snprintf(buf + n, sizeof(buf) - (size_t)n, "}");
     char topic[40];
     snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-    wtsn_mqtt_publish(g_mqtt, topic, buf);
+    htsn_mqtt_publish(g_mqtt, topic, buf);
 }
 
 static void crate_set_wifi(const char *payload) {
     char ssid[64] = {0};
     char pass[64] = {0};
-    wtsn_json_get_str(payload, "ssid", ssid, sizeof(ssid));
-    bool have_pass = wtsn_json_get_str(payload, "pass", pass, sizeof(pass));
+    htsn_json_get_str(payload, "ssid", ssid, sizeof(ssid));
+    bool have_pass = htsn_json_get_str(payload, "pass", pass, sizeof(pass));
     if (ssid[0]) {
         if (!have_pass) {
             /* No new password supplied -> keep whatever is already saved in NVS
@@ -79,11 +79,11 @@ static void crate_set_wifi(const char *payload) {
              * re-point on tsn/cmd/<id>/wifi can simply omit "pass" to change only
              * the SSID without re-sending the secret over plaintext MQTT). */
             char old_pass[96] = {0};
-            if (wtsn_cfg_get_wifi_pass(old_pass, sizeof(old_pass)) && old_pass[0]) {
-                wtsn_strlcpy(pass, old_pass, sizeof(pass));
+            if (htsn_cfg_get_wifi_pass(old_pass, sizeof(old_pass)) && old_pass[0]) {
+                htsn_strlcpy(pass, old_pass, sizeof(pass));
             }
         }
-        wtsn_cfg_set_wifi(ssid, pass);
+        htsn_cfg_set_wifi(ssid, pass);
         ESP_LOGI(TAG, "set_wifi: %s (restart to connect)", ssid);
         /* Restart will apply the new credentials from NVS on boot. */
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -96,9 +96,9 @@ static void on_connected(const char *client_id, void *ud) {
     char buf[192];
     snprintf(buf, sizeof(buf),
              "{\"id\":\"%s\",\"fw\":\"%s\",\"ip\":\"%s\",\"kind\":\"esp32\",\"rssi\":%d}",
-             g_device_id, WTSN_FW_VERSION, g_ip, current_rssi());
-    wtsn_mqtt_publish(g_mqtt, "tsn/discover", buf);
-    ESP_LOGI(TAG, "published discover for %s (fw %s)", g_device_id, WTSN_FW_VERSION);
+             g_device_id, HTSN_FW_VERSION, g_ip, current_rssi());
+    htsn_mqtt_publish(g_mqtt, "tsn/discover", buf);
+    ESP_LOGI(TAG, "published discover for %s (fw %s)", g_device_id, HTSN_FW_VERSION);
 }
 
 static void apply_snapshot(const char *payload) {
@@ -106,28 +106,28 @@ static void apply_snapshot(const char *payload) {
         send_ack(false, "bad_json");
         return;
     }
-    wtsn_config_snapshot cfg;
+    htsn_config_snapshot cfg;
     memset(&cfg, 0, sizeof(cfg));
     int v;
-    bool have_prio = wtsn_json_get_int(payload, "priority", &v);
+    bool have_prio = htsn_json_get_int(payload, "priority", &v);
     if (have_prio) cfg.priority = v;
-    if (wtsn_json_get_int(payload, "traffic_class", &v)) cfg.traffic_class = v;
-    if (wtsn_json_get_int(payload, "bandwidth_kbps", &v)) cfg.bandwidth_kbps = v;
-    if (wtsn_json_get_int(payload, "latency_ms", &v)) cfg.latency_ms = v;
-    if (wtsn_json_get_int(payload, "preemption", &v)) cfg.preemption = v;
-    if (wtsn_json_get_int(payload, "vlan_id", &v)) cfg.vlan_id = v;
-    wtsn_json_get_str(payload, "group", cfg.group, sizeof(cfg.group));
-    if (wtsn_json_get_int(payload, "timesync_mode", &v)) cfg.timesync_mode = v;
-    wtsn_json_get_str(payload, "grandmaster", cfg.grandmaster, sizeof(cfg.grandmaster));
+    if (htsn_json_get_int(payload, "traffic_class", &v)) cfg.traffic_class = v;
+    if (htsn_json_get_int(payload, "bandwidth_kbps", &v)) cfg.bandwidth_kbps = v;
+    if (htsn_json_get_int(payload, "latency_ms", &v)) cfg.latency_ms = v;
+    if (htsn_json_get_int(payload, "preemption", &v)) cfg.preemption = v;
+    if (htsn_json_get_int(payload, "vlan_id", &v)) cfg.vlan_id = v;
+    htsn_json_get_str(payload, "group", cfg.group, sizeof(cfg.group));
+    if (htsn_json_get_int(payload, "timesync_mode", &v)) cfg.timesync_mode = v;
+    htsn_json_get_str(payload, "grandmaster", cfg.grandmaster, sizeof(cfg.grandmaster));
     int64_t l;
-    if (wtsn_json_get_i64(payload, "tas_cycle_ns", &l)) cfg.tas_cycle_ns = l;
+    if (htsn_json_get_i64(payload, "tas_cycle_ns", &l)) cfg.tas_cycle_ns = l;
 
     /* parse optional GCL array (802.1Qbv gate windows), if present */
     const char *gcl_arr = NULL;
-    wtsn_json_get_root_array(payload, "gcl", &gcl_arr);
+    htsn_json_get_root_array(payload, "gcl", &gcl_arr);
     if (gcl_arr) {
-        cfg.gcl_entries = wtsn_json_parse_gcl(gcl_arr, cfg.gates, cfg.durations,
-                                               WTSN_GCL_MAX);
+        cfg.gcl_entries = htsn_json_parse_gcl(gcl_arr, cfg.gates, cfg.durations,
+                                               HTSN_GCL_MAX);
     }
 
     if (have_prio && (cfg.priority < 0 || cfg.priority > 7)) {
@@ -143,7 +143,7 @@ static void apply_snapshot(const char *payload) {
         return;
     }
 
-    if (wtsn_tsn_apply_snapshot(&cfg) == 0) send_ack(true, "");
+    if (htsn_tsn_apply_snapshot(&cfg) == 0) send_ack(true, "");
     else send_ack(false, "apply_failed");
 }
 
@@ -156,10 +156,10 @@ static void on_command(const char *topic, const char *payload, void *ud) {
     if (strcmp(topic, "tsn/fx/data") == 0 || strcmp(topic, "tsn/sensors/event") == 0) {
         if (strstr(payload, "\"motion\":1") || strstr(payload, "\"wifi_motion\":1")) {
             ESP_LOGI(TAG, "motion event -> sonar sweep"); 
-            wtsn_sonar_trigger();
+            htsn_sonar_trigger();
             /* actor board: pulse the relay trigger on motion as well */
             if (!g_has_sensors) {
-                wtsn_sensor_actor_set(7);
+                htsn_sensor_actor_set(7);
             }
         }
         return;
@@ -168,7 +168,7 @@ static void on_command(const char *topic, const char *payload, void *ud) {
     /* The shared telemetry feed: feed the actor board OLED HUD with
      * esp32-01's temp/hum/press/motion values. */
     if (strcmp(topic, "tsn/sensors") == 0) {
-        wtsn_display_on_telemetry(topic, payload);
+        htsn_display_on_telemetry(topic, payload);
         return;
     }
 
@@ -183,36 +183,36 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         send_ack(true, "");
     } else if (strcmp(cmd, "qos") == 0) {
         int p = atoi(payload);
-        wtsn_tsn_apply_qos(p, p, 0, 0, 0);
+        htsn_tsn_apply_qos(p, p, 0, 0, 0);
         send_ack(true, "");
     } else if (strcmp(cmd, "vlan") == 0) {
-        wtsn_tsn_apply_vlan(atoi(payload), "");
+        htsn_tsn_apply_vlan(atoi(payload), "");
         send_ack(true, "");
     } else if (strcmp(cmd, "timesync") == 0) {
-        wtsn_tsn_apply_timesync(atoi(payload), "");
+        htsn_tsn_apply_timesync(atoi(payload), "");
         send_ack(true, "");
     } else if (strcmp(cmd, "tas") == 0) {
-        wtsn_tsn_apply_tas((int64_t)atoi(payload), NULL, NULL, 0);
+        htsn_tsn_apply_tas((int64_t)atoi(payload), NULL, NULL, 0);
         send_ack(true, "");
     } else if (strcmp(cmd, "stream") == 0) {
-        wtsn_stream s;
+        htsn_stream s;
         memset(&s, 0, sizeof(s));
         int v;
-        wtsn_json_get_str(payload, "stream_id", s.stream_id, sizeof(s.stream_id));
-        wtsn_json_get_str(payload, "name", s.name, sizeof(s.name));
-        wtsn_json_get_str(payload, "talker", s.talker, sizeof(s.talker));
-        if (wtsn_json_get_int(payload, "vlan_id", &v)) s.vlan_id = v;
+        htsn_json_get_str(payload, "stream_id", s.stream_id, sizeof(s.stream_id));
+        htsn_json_get_str(payload, "name", s.name, sizeof(s.name));
+        htsn_json_get_str(payload, "talker", s.talker, sizeof(s.talker));
+        if (htsn_json_get_int(payload, "vlan_id", &v)) s.vlan_id = v;
         int64_t l;
-        if (wtsn_json_get_i64(payload, "max_latency_ns", &l)) s.max_latency_ns = l;
-        if (wtsn_json_get_i64(payload, "max_interval_ns", &l)) s.max_interval_ns = l;
-        if (wtsn_json_get_int(payload, "priority", &v)) s.priority = v;
-        if (wtsn_json_get_int(payload, "data_frame_prio", &v)) s.data_frame_prio = v;
+        if (htsn_json_get_i64(payload, "max_latency_ns", &l)) s.max_latency_ns = l;
+        if (htsn_json_get_i64(payload, "max_interval_ns", &l)) s.max_interval_ns = l;
+        if (htsn_json_get_int(payload, "priority", &v)) s.priority = v;
+        if (htsn_json_get_int(payload, "data_frame_prio", &v)) s.data_frame_prio = v;
         const char *arr = NULL;
-        if (wtsn_json_get_root_array(payload, "listeners", &arr)) {
-            s.listener_count = wtsn_json_parse_str_array(arr, s.listeners,
-                                                        WTSN_STREAM_MAX_LISTENERS);
+        if (htsn_json_get_root_array(payload, "listeners", &arr)) {
+            s.listener_count = htsn_json_parse_str_array(arr, s.listeners,
+                                                        HTSN_STREAM_MAX_LISTENERS);
         }
-        if (s.stream_id[0] && wtsn_tsn_apply_stream(&s) == 0)
+        if (s.stream_id[0] && htsn_tsn_apply_stream(&s) == 0)
             send_ack(true, "");
         else
             send_ack(false, "stream_invalid");
@@ -228,17 +228,17 @@ static void on_command(const char *topic, const char *payload, void *ud) {
             if (c2) {
                 size_t el = (size_t)(c2 - p2);
                 strncpy(emac, p2, el < sizeof(emac) ? el : sizeof(emac) - 1);
-                wtsn_strlcpy(pmac, c2 + 1, sizeof(pmac));
+                htsn_strlcpy(pmac, c2 + 1, sizeof(pmac));
             } else {
-                wtsn_strlcpy(emac, p2, sizeof(emac));
+                htsn_strlcpy(emac, p2, sizeof(emac));
             }
         } else {
-            wtsn_strlcpy(mode, p1, sizeof(mode));
+            htsn_strlcpy(mode, p1, sizeof(mode));
         }
-        wtsn_tsn_apply_preemption(atoi(mode), emac, pmac);
+        htsn_tsn_apply_preemption(atoi(mode), emac, pmac);
         send_ack(true, "");
     } else if (strcmp(cmd, "status") == 0) {
-        wtsn_tsn_state *st = wtsn_tsn_get_state();
+        htsn_tsn_state *st = htsn_tsn_get_state();
         char buf[256];
         snprintf(buf, sizeof(buf),
                   "{\"id\":\"%s\",\"status\":\"online\",\"prio\":%d,\"vlan\":%d,"
@@ -246,46 +246,46 @@ static void on_command(const char *topic, const char *payload, void *ud) {
                   "\"timesync_mode\":%d,\"fw\":\"%s\",\"rssi\":%d}",
                   g_device_id, st->priority, st->vlan_id, st->preemption,
                   st->traffic_class, (long long)st->tas_cycle_ns, st->gcl_entries,
-                  st->timesync_mode, WTSN_FW_VERSION, current_rssi());
-        wtsn_mqtt_publish(g_mqtt, "tsn/status", buf);
+                  st->timesync_mode, HTSN_FW_VERSION, current_rssi());
+        htsn_mqtt_publish(g_mqtt, "tsn/status", buf);
     } else if (strcmp(cmd, "fx") == 0) {
         char buf[64];
         snprintf(buf, sizeof(buf), "tsn/fx/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, buf, payload);
+        htsn_mqtt_publish(g_mqtt, buf, payload);
     } else if (strcmp(cmd, "actor") == 0) {
         int mode = atoi(payload);
-        int prev = wtsn_sensor_actor_set(mode);
+        int prev = htsn_sensor_actor_set(mode);
         char buf[96];
         snprintf(buf, sizeof(buf), "{\"id\":\"%s\",\"ok\":true,\"mode\":%d,\"prev\":%d}",
                  g_device_id, mode, prev);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, buf);
+        htsn_mqtt_publish(g_mqtt, topic, buf);
         return;
     } else if (strcmp(cmd, "display") == 0) {
         /* SSD1306 OLED text: {"line1":"...","line2":"..."} */
         static char dl1[24], dl2[24];
-        wtsn_json_get_str(payload, "line1", dl1, sizeof(dl1));
-        wtsn_json_get_str(payload, "line2", dl2, sizeof(dl2));
-        wtsn_display_status(dl1[0] ? dl1 : NULL, dl2[0] ? dl2 : NULL);
+        htsn_json_get_str(payload, "line1", dl1, sizeof(dl1));
+        htsn_json_get_str(payload, "line2", dl2, sizeof(dl2));
+        htsn_display_status(dl1[0] ? dl1 : NULL, dl2[0] ? dl2 : NULL);
         char ack[80];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"display\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "oled") == 0) {
         /* Panel controller: "sh1106" or "ssd1306" (also "1"/"0").
          * Re-inits the OLED with the matching addressing. */
         bool sh = (strstr(payload, "sh1106") != NULL) || (payload[0] == '1');
-        bool on = wtsn_display_set_controller(sh);
+        bool on = htsn_display_set_controller(sh);
         char ack[96];
         snprintf(ack, sizeof(ack),
                  "{\"id\":\"%s\",\"ok\":true,\"oled\":\"%s\",\"present\":%d}",
                  g_device_id, sh ? "sh1106" : "ssd1306", on ? 1 : 0);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "fill") == 0) {
         /* OLED transport test: "on" (0xFF), "off" (0x00), "stripe" (0xAA),
@@ -294,69 +294,69 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         if (strcmp(payload, "off") == 0) pat = 0x00;
         else if (strcmp(payload, "stripe") == 0) pat = 0xAA;
         else if (strcmp(payload, "dots") == 0) pat = 0x55;
-        wtsn_display_fill(pat);
+        htsn_display_fill(pat);
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"fill\":\"%s\"}",
                  g_device_id, payload);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "read") == 0) {
         /* OLED GDDRAM readback: fills 0xFF, flushes, reads the panel memory
          * back and logs it (see serial). "ff ff ff ..." = panel stores data;
          * random = panel not receiving our writes. */
-        wtsn_display_readback();
+        htsn_display_readback();
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"read\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "run") == 0) {
         /* Resume normal OLED rendering (clears a fill/freeze test pattern). */
-        wtsn_display_freeze(false);
+        htsn_display_freeze(false);
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"run\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "dump") == 0) {
         /* Log the current framebuffer as an ASCII bitmap to the serial console. */
-        wtsn_display_dump();
+        htsn_display_dump();
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"dump\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "paneldump") == 0) {
         /* Read the panel's own GDDRAM back over I2C and log it as an ASCII bitmap. */
-        wtsn_display_dump_panel();
+        htsn_display_dump_panel();
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"paneldump\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "quad") == 0) {
         /* Decisive mapping test: 4 solid quadrants (TL+BR lit), frozen. */
-        wtsn_display_quad();
+        htsn_display_quad();
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"quad\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "bars") == 0) {
         /* Combined row+column mapping test: 4 bars, each left-half lit. */
-        wtsn_display_bars();
+        htsn_display_bars();
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"bars\":1}", g_device_id);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "button") == 0) {
         /* Echo which button(s) to act on: {"k":1} returns the latched level.
@@ -364,26 +364,26 @@ static void on_command(const char *topic, const char *payload, void *ud) {
          * tsn/button/<id>/K* ; this command just ACKs + returns the state. */
         int k = atoi(payload);
         int level = 0;
-        if (k >= 1 && k <= 4) level = wtsn_display_btn(k);
+        if (k >= 1 && k <= 4) level = htsn_display_btn(k);
         char ack[80];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"k\":%d,\"level\":%d}",
                  g_device_id, k, level);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "servo") == 0) {
         /* manual servo test: {"deg":90} -> move SG90 to 90 deg */
         int deg = 90;
-        wtsn_json_get_int(payload, "deg", &deg);
+        htsn_json_get_int(payload, "deg", &deg);
         if (deg < 0) deg = 0;
         if (deg > 180) deg = 180;
-        wtsn_sonar_set_angle(deg);
+        htsn_sonar_set_angle(deg);
         char ack[96];
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"deg\":%d}", g_device_id, deg);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "ping") == 0) {
         /* reply with the device IP so the CNC can show src(PC)->dst(ESP) in the monitor,
@@ -393,7 +393,7 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true,\"ip\":\"%s\"}", g_device_id, g_ip);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, ack);
+        htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
     } else if (strcmp(cmd, "identify") == 0) {
         identify_start();
@@ -407,9 +407,9 @@ static void on_command(const char *topic, const char *payload, void *ud) {
          * A bad new app is rolled back automatically by the bootloader. */
         char url[256] = {0};
         char crc[16] = {0};
-        wtsn_json_get_str(payload, "url", url, sizeof(url));
-        wtsn_json_get_str(payload, "crc32", crc, sizeof(crc));
-        if (url[0] && wtsn_ota_start_checked(url, crc[0] ? crc : NULL) == ESP_OK) {
+        htsn_json_get_str(payload, "url", url, sizeof(url));
+        htsn_json_get_str(payload, "crc32", crc, sizeof(crc));
+        if (url[0] && htsn_ota_start_checked(url, crc[0] ? crc : NULL) == ESP_OK) {
             send_ack(true, "");
             ESP_LOGI(TAG, "OTA started: %s (crc32 %s)", url, crc[0] ? crc : "none");
         } else {
@@ -420,9 +420,9 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         /* GUI "delete device" sends tsn/cmd/<id>/reset -> clear the persisted TSN
          * state and the saved WiFi so the node forgets its assignment and can be
          * re-provisioned. ACK first so the GUI sees a clean reply, then reboot. */
-        wtsn_cfg_net_clear();
-        wtsn_cfg_set_wifi("", "");
-        wtsn_tsn_reset_state();
+        htsn_cfg_net_clear();
+        htsn_cfg_set_wifi("", "");
+        htsn_tsn_reset_state();
         send_ack(true, "reset_ok");
         ESP_LOGW(TAG, "reset requested -> clearing config, rebooting");
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -440,7 +440,7 @@ static void on_command(const char *topic, const char *payload, void *ud) {
     } else if (strcmp(cmd, "wfm_recal") == 0) {
         /* WiFiVision press-to-recalibrate: restart the "empty room" calibration
          * window so motion thresholds re-learn the current radio floor. */
-        wtsn_wifimotion_recalibrate();
+        htsn_wifimotion_recalibrate();
         send_ack(true, "wfm_recal");
         return;
     }
@@ -463,16 +463,16 @@ static int g_cur_net = 0;
 static int g_net_count = 0;
 /* Network list preloaded into RAM before wifi starts (the wifi event handler runs on a
  * small stack and must not touch NVS/flash). Index 0 is the highest priority. */
-static char g_nets[WTSN_NET_MAX][64];
-static char g_pass[WTSN_NET_MAX][64];
+static char g_nets[HTSN_NET_MAX][64];
+static char g_pass[HTSN_NET_MAX][64];
 
-/* WTSN_NET_MAX comes from wtsn_cfg.h included above. */
+/* HTSN_NET_MAX comes from htsn_cfg.h included above. */
 static void load_nets(void) {
-    g_net_count = wtsn_cfg_net_count();
-    if (g_net_count > WTSN_NET_MAX) g_net_count = WTSN_NET_MAX;
-    for (int i = 0; i < WTSN_NET_MAX; i++) { g_nets[i][0] = 0; g_pass[i][0] = 0; }
+    g_net_count = htsn_cfg_net_count();
+    if (g_net_count > HTSN_NET_MAX) g_net_count = HTSN_NET_MAX;
+    for (int i = 0; i < HTSN_NET_MAX; i++) { g_nets[i][0] = 0; g_pass[i][0] = 0; }
     for (int i = 0; i < g_net_count; i++)
-        wtsn_cfg_net_get(i, g_nets[i], sizeof(g_nets[i]), g_pass[i], sizeof(g_pass[i]));
+        htsn_cfg_net_get(i, g_nets[i], sizeof(g_nets[i]), g_pass[i], sizeof(g_pass[i]));
 }
 
 /* After this long without joining a saved WiFi, bring up the provisioning AP. */
@@ -498,7 +498,7 @@ static volatile int g_identifying = 0;
 static bool g_sntp_started = false;
 /* Count of consecutive STA disconnects with no GOT_IP in between. When it climbs
  * past PROV_FALLBACK_DISCONNECTS the device gives up retrying and brings back the
- * WTSN-Setup provisioning SoftAP so it can be re-pointed at a new network. */
+ * HTSN-Setup provisioning SoftAP so it can be re-pointed at a new network. */
 static volatile int g_disconnect_streak = 0;
 #ifndef PROV_FALLBACK_DISCONNECTS
 #define PROV_FALLBACK_DISCONNECTS 6
@@ -513,7 +513,7 @@ static void prov_fallback_now(void *arg) { (void)arg;
     g_led_state = LED_STATE_PROV;
     ESP_LOGW(TAG, "could not stabilise on '%s' -> starting provisioning AP",
              g_ctx.ssid);
-    wtsn_prov_start_ap();   /* starts AP + portal; user config -> restart */
+    htsn_prov_start_ap();   /* starts AP + portal; user config -> restart */
     vTaskDelete(NULL);
 }
 
@@ -538,7 +538,7 @@ static void prov_fallback_task(void *arg) {
         g_led_state = LED_STATE_PROV;
         ESP_LOGW(TAG, "could not join '%s' within %d ms -> starting provisioning AP",
                  g_ctx.ssid, FALLBACK_PROV_MS);
-        wtsn_prov_start_ap();  /* blocks serving the portal; user config -> restart */
+        htsn_prov_start_ap();  /* blocks serving the portal; user config -> restart */
     }
     vTaskDelete(NULL);
 }
@@ -551,16 +551,16 @@ static void prov_fallback_task(void *arg) {
 static void display_btn_action(int btn, void *ud) {
     (void)ud;
     if (btn == 1) {
-        int cur = wtsn_sensor_actor_get();
+        int cur = htsn_sensor_actor_get();
         int next = cur == 1 ? 0 : 1;   /* manual-on <-> off */
-        wtsn_sensor_actor_set(next);
+        htsn_sensor_actor_set(next);
         char buf[80];
         snprintf(buf, sizeof(buf), "{\"id\":\"%s\",\"ok\":true,\"mode\":%d}",
                  g_device_id, next);
         char topic[40];
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
-        wtsn_mqtt_publish(g_mqtt, topic, buf);
-        if (wtsn_display_present()) wtsn_display_status("actor", next ? "ON" : "off");
+        htsn_mqtt_publish(g_mqtt, topic, buf);
+        if (htsn_display_present()) htsn_display_status("actor", next ? "ON" : "off");
         ESP_LOGI(TAG, "K1: actor -> %d", next);
     } else if (btn == 2) {
         /* publish current status (like the tsn/cmd/<id>/status handler) */
@@ -568,18 +568,18 @@ static void display_btn_action(int btn, void *ud) {
         snprintf(buf, sizeof(buf),
                  "{\"id\":\"%s\",\"status\":\"online\",\"lane\":\"btn\","
                  "\"fw\":\"%s\",\"rssi\":%d,\"ts\":%lld}",
-                 g_device_id, WTSN_FW_VERSION, current_rssi(), (long long)time(NULL));
-        wtsn_mqtt_publish(g_mqtt, "tsn/status", buf);
-        wtsn_sensor_buzzer_beep(1000, 120);
+                 g_device_id, HTSN_FW_VERSION, current_rssi(), (long long)time(NULL));
+        htsn_mqtt_publish(g_mqtt, "tsn/status", buf);
+        htsn_sensor_buzzer_beep(1000, 120);
         ESP_LOGI(TAG, "K2: status published");
     } else if (btn == 3) {
-        bool hud = wtsn_display_hud();
-        wtsn_display_set_hud(!hud);
-        if (wtsn_display_present()) wtsn_display_status("view", hud ? "status" : "hud");
+        bool hud = htsn_display_hud();
+        htsn_display_set_hud(!hud);
+        if (htsn_display_present()) htsn_display_status("view", hud ? "status" : "hud");
         ESP_LOGI(TAG, "K3: display mode -> %s", hud ? "status text" : "HUD");
     } else if (btn == 4) {
         identify_start();
-        wtsn_sensor_buzzer_beep(1800, 150);
+        htsn_sensor_buzzer_beep(1800, 150);
         ESP_LOGI(TAG, "K4: identify");
     }
 }
@@ -604,7 +604,7 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
                 /* cycled back to start -> give up and go to provisioning */
                 if (!g_wifi_ready && !g_prov_fallback_started) {
                     if (++g_disconnect_streak >= PROV_FALLBACK_DISCONNECTS) {
-                        xTaskCreatePinnedToCore(&prov_fallback_now, "wtsn_reprov", 4096,
+                        xTaskCreatePinnedToCore(&prov_fallback_now, "htsn_reprov", 4096,
                                                NULL, 5, NULL, 1);
                         return;
                     }
@@ -615,7 +615,7 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
         /* single network, or all-networks retry path */
         if (++g_disconnect_streak >= PROV_FALLBACK_DISCONNECTS &&
             !g_wifi_ready && !g_prov_fallback_started) {
-            xTaskCreatePinnedToCore(&prov_fallback_now, "wtsn_reprov", 4096,
+            xTaskCreatePinnedToCore(&prov_fallback_now, "htsn_reprov", 4096,
                                    NULL, 5, NULL, 1);
         } else {
             esp_wifi_connect();
@@ -639,37 +639,37 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
         if (!g_mqtt) {
             char muser[64] = {0}, mpass[64] = {0}, mtls_ca[1024] = {0};
             bool mtls = false, minsec = false;
-            wtsn_cfg_get_broker_auth(muser, sizeof(muser), mpass, sizeof(mpass),
+            htsn_cfg_get_broker_auth(muser, sizeof(muser), mpass, sizeof(mpass),
                                      &mtls, mtls_ca, sizeof(mtls_ca), &minsec);
             char mqtt_host[64];
             snprintf(mqtt_host, sizeof(mqtt_host), "%s", ctx->host);
             resolve_mqtt_host(mqtt_host, sizeof(mqtt_host));
-            g_mqtt = wtsn_mqtt_create_auth(mqtt_host, ctx->port, g_device_id,
+            g_mqtt = htsn_mqtt_create_auth(mqtt_host, ctx->port, g_device_id,
                                            muser[0] ? muser : NULL,
                                            mpass[0] ? mpass : NULL,
                                            mtls, mtls_ca[0] ? mtls_ca : NULL, minsec,
                                            on_command, on_connected, NULL);
             if (g_mqtt) {
-                wtsn_mqtt_set_device_id(g_mqtt, g_device_id);
-                wtsn_mqtt_start(g_mqtt);
+                htsn_mqtt_set_device_id(g_mqtt, g_device_id);
+                htsn_mqtt_start(g_mqtt);
             }
-            wtsn_ptp_setup(g_device_id, g_mqtt);
-            wtsn_ptp_start();
-            wtsn_sensor_init(g_device_id, g_mqtt);
+            htsn_ptp_setup(g_device_id, g_mqtt);
+            htsn_ptp_start();
+            htsn_sensor_init(g_device_id, g_mqtt);
             /* esp32-02 is the actor/relay board: it owns the panning sonar
              * (HC-SR04 on a DC motor) which triggers on motion from esp32-01,
-             * plus optionally an SSD1306 OLED + 4 buttons (see wtsn_display). */
+             * plus optionally an SSD1306 OLED + 4 buttons (see htsn_display). */
             if (!g_has_sensors) {
-                wtsn_sonar_init(g_device_id, g_mqtt);
-                wtsn_sensor_actor_set_pin();
+                htsn_sonar_init(g_device_id, g_mqtt);
+                htsn_sensor_actor_set_pin();
                 /* startup test click: pulse the relay module trigger (mode 7)
                  * ~0.3 s after boot so the actor is audibly confirmed. */
-                wtsn_sensor_actor_set(7);
+                htsn_sensor_actor_set(7);
                 /* actor board: OLED (SDD1306 I2C) + K1..K4 buttons */
-                wtsn_display_init(g_device_id, g_mqtt);
-                wtsn_display_set_btn_cb(display_btn_action, NULL);
-                wtsn_display_set_hud(true);   /* 4-corner sensor HUD */
-                wtsn_display_status(g_device_id, "online");
+                htsn_display_init(g_device_id, g_mqtt);
+                htsn_display_set_btn_cb(display_btn_action, NULL);
+                htsn_display_set_hud(true);   /* 4-corner sensor HUD */
+                htsn_display_status(g_device_id, "online");
             }
             ESP_LOGI(TAG, "agent %s broker %s:%d", g_device_id, mqtt_host, ctx->port);
         }
@@ -725,7 +725,7 @@ static void identify_task(void *arg) {
 static void identify_start(void) {
     if (g_identifying) return;
     g_identifying = 1;
-    xTaskCreatePinnedToCore(&identify_task, "wtsn_ident", 2048, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&identify_task, "htsn_ident", 2048, NULL, 5, NULL, 1);
 }
 
 /* LED blink-code task: provisioning = fast blink, connecting = medium blink,
@@ -747,7 +747,7 @@ static void led_task(void *arg) {
 }
 
 /* Long-press factory reset: hold the BOOT button (GPIO0) for FACTORY_HOLD_MS.
- * Erases the whole "wtsn" NVS namespace (WiFi + device id + TSN state) and
+ * Erases the whole "htsn" NVS namespace (WiFi + device id + TSN state) and
  * reboots into provisioning mode. */
 #define FACTORY_BTN_GPIO GPIO_NUM_0
 #define FACTORY_HOLD_MS 3000
@@ -757,7 +757,7 @@ static void led_task(void *arg) {
 
 static void factory_reset(void) {
     nvs_handle_t h;
-    if (nvs_open("wtsn", NVS_READWRITE, &h) == ESP_OK) {
+    if (nvs_open("htsn", NVS_READWRITE, &h) == ESP_OK) {
         nvs_erase_all(h);
         nvs_commit(h);
         nvs_close(h);
@@ -786,7 +786,7 @@ static void btn_task(void *arg) {
                     /* Press-to-recalibrate: WiFiVision "empty room" floor. Only
                      * once per press; keep holding past FACTORY_HOLD_MS for the
                      * factory reset. */
-                    wtsn_wifimotion_recalibrate();
+                    htsn_wifimotion_recalibrate();
                     wfm_recal_done = 1;
                     ESP_LOGI(TAG, "WiFiVision recalibrated (BOOT held ~%d ms)",
                              WFM_RECAL_HOLD_MS);
@@ -806,8 +806,8 @@ static void btn_led_init(void) {
     io.mode = GPIO_MODE_INPUT;
     io.pull_up_en = GPIO_PULLUP_ENABLE;
     gpio_config(&io);
-    xTaskCreatePinnedToCore(btn_task, "wtsn_btn", 3072, NULL, 4, NULL, 1);
-    xTaskCreatePinnedToCore(led_task, "wtsn_led", 3072, NULL, 3, NULL, 1);
+    xTaskCreatePinnedToCore(btn_task, "htsn_btn", 3072, NULL, 4, NULL, 1);
+    xTaskCreatePinnedToCore(led_task, "htsn_led", 3072, NULL, 3, NULL, 1);
 }
 
 /* Try the next saved network. Returns false when every saved network has been tried. */
@@ -837,7 +837,7 @@ static bool try_net(int idx) {
  * lwIP getaddrinfo() path in this IDF setup does not reliably answer .local
  * names even with the mDNS resolver hooked, so we issue an explicit mDNS
  * query (espressif/mdns). The broker daemon on the provisioning PC advertises
- * "wtsn-broker.local"; when mDNS is unavailable we leave the configured host in
+ * "htsn-broker.local"; when mDNS is unavailable we leave the configured host in
  * place so lwIP's own resolver (or DHCP search domain) still has a chance to
  * answer - there is no sensible hardcoded IP to fall back to because the PC can
  * be anywhere on the LAN. */
@@ -874,7 +874,7 @@ static void wifi_init(const char *ssid, const char *pass) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
     /* Enable the mDNS resolver so ".local" hostnames (e.g. the default
-     * wtsn-broker.local broker) resolve over the LAN. mdns_init() must run
+     * htsn-broker.local broker) resolve over the LAN. mdns_init() must run
      * after the STA netif exists and needs to be bound to it so multicast
      * queries go out over WiFi (not only the provisioning AP). */
     ESP_ERROR_CHECK(mdns_init());
@@ -896,12 +896,12 @@ static void wifi_init(const char *ssid, const char *pass) {
 
 static void prov_save(const char *ssid, const char *pass,
                       const char *devid, const char *mqtt) {
-    wtsn_cfg_save(devid && devid[0] ? devid : NULL, ssid, pass, mqtt, 1883);
-    wtsn_cfg_net_add(ssid, pass);
+    htsn_cfg_save(devid && devid[0] ? devid : NULL, ssid, pass, mqtt, 1883);
+    htsn_cfg_net_add(ssid, pass);
 }
 
 static bool prov_load_id(char *out, size_t sz) {
-    return wtsn_cfg_load_device_id(out, &sz);
+    return htsn_cfg_load_device_id(out, &sz);
 }
 
 void app_main(void) {
@@ -914,46 +914,46 @@ void app_main(void) {
     char mqtt_host[64] = {0};
     int mqtt_port = 1883;
     ensure_device_id();
-    wtsn_prov_init("WTSN Node Setup", "wtsn-broker.local", prov_save, prov_load_id);
-    wtsn_cfg_load(g_device_id, sizeof(g_device_id),
+    htsn_prov_init("HTSN Node Setup", "htsn-broker.local", prov_save, prov_load_id);
+    htsn_cfg_load(g_device_id, sizeof(g_device_id),
                   wifi_ssid, sizeof(wifi_ssid), wifi_pass, sizeof(wifi_pass),
                   mqtt_host, sizeof(mqtt_host), &mqtt_port);
 
     if (!wifi_ssid[0]) {
         ESP_LOGW(TAG, "no WiFi in NVS -> entering provisioning mode");
         g_led_state = LED_STATE_PROV;
-        wtsn_prov_start();
+        htsn_prov_start();
         for (;;) vTaskDelay(pdMS_TO_TICKS(1000));
     }
     g_led_state = LED_STATE_CONN;
 
     /* Migrate the legacy single-network entry into the multihome list so previously
      * provisioned devices keep working and can add more networks later. */
-    if (wtsn_cfg_net_count() == 0) wtsn_cfg_net_add(wifi_ssid, wifi_pass);
+    if (htsn_cfg_net_count() == 0) htsn_cfg_net_add(wifi_ssid, wifi_pass);
 
     snprintf(g_ctx.host, sizeof(g_ctx.host), "%s", mqtt_host);
     g_ctx.port = mqtt_port;
 
-    wtsn_tsn_restore();
+    htsn_tsn_restore();
 
     wifi_init(wifi_ssid, wifi_pass);
 
     /* If the saved network is unreachable, start provisioning AP after a timeout. */
     g_wifi_ready = 0;
     g_prov_fallback_started = 0;
-    xTaskCreatePinnedToCore(&prov_fallback_task, "wtsn_provfb", 4096, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&prov_fallback_task, "htsn_provfb", 4096, NULL, 5, NULL, 1);
 
     int64_t last_beat = 0;
     while (1) {
-        wtsn_sensor_tick();
+        htsn_sensor_tick();
         /* actor board: refresh OLED and scan the K1..K4 buttons */
         if (!g_has_sensors) {
-            wtsn_display_tick();
-            int btn = wtsn_display_btn_last();
+            htsn_display_tick();
+            int btn = htsn_display_btn_last();
             if (btn) {
                 /* A physical button was pressed: publish a labelled event and
                  * show it on the OLED. Handlers are wired in on_command(). */
-                wtsn_display_status(g_device_id, "btn pressed");
+                htsn_display_status(g_device_id, "btn pressed");
             }
         }
         /* periodic heartbeat so the webgui can mark offline if we disappear */
@@ -963,9 +963,9 @@ void app_main(void) {
             snprintf(buf, sizeof(buf),
                     "{\"id\":\"%s\",\"status\":\"online\",\"lane\":\"heartbeat\","
                     "\"ssid\":\"%s\",\"fw\":\"%s\",\"rssi\":%d,\"ts\":%lld}",
-                    g_device_id, g_ctx.ssid, WTSN_FW_VERSION, current_rssi(),
+                    g_device_id, g_ctx.ssid, HTSN_FW_VERSION, current_rssi(),
                     (long long)time(NULL));
-            wtsn_mqtt_publish(g_mqtt, "tsn/status", buf);
+            htsn_mqtt_publish(g_mqtt, "tsn/status", buf);
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }
@@ -975,17 +975,17 @@ static void ensure_device_id(void) {
     /* Auto-detect role from hardware: the board that has the sensor add-on
      * (BME280 on I2C) wired becomes esp32-01; any other board is esp32-02.
      * This survives a physical swap of the two boards.
-     * WTSN_DEVICE_ID (build-time) still overrides if explicitly provided. */
-#ifdef WTSN_DEVICE_ID
-    snprintf(g_device_id, sizeof(g_device_id), "%s", WTSN_DEVICE_ID);
-    wtsn_cfg_set_device_id(g_device_id);
+     * HTSN_DEVICE_ID (build-time) still overrides if explicitly provided. */
+#ifdef HTSN_DEVICE_ID
+    snprintf(g_device_id, sizeof(g_device_id), "%s", HTSN_DEVICE_ID);
+    htsn_cfg_set_device_id(g_device_id);
     g_has_sensors = (strcmp(g_device_id, "esp32-01") == 0);
     ESP_LOGI(TAG, "device id %s (fixed)", g_device_id);
 #else
-    g_has_sensors = wtsn_sensor_probe();
+    g_has_sensors = htsn_sensor_probe();
     snprintf(g_device_id, sizeof(g_device_id), "%s",
              g_has_sensors ? "esp32-01" : "esp32-02");
-    wtsn_cfg_set_device_id(g_device_id);
+    htsn_cfg_set_device_id(g_device_id);
     ESP_LOGI(TAG, "device id %s (auto, sensors=%d)", g_device_id, (int)g_has_sensors);
 #endif
 }

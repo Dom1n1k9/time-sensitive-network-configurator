@@ -1,0 +1,16 @@
+[Unit]
+Description=HTSN LLM Bridge (local Ollama -> validated TSN actions)
+After=network-online.target ollama.service htsn-webgui.service
+Wants=network-online.target ollama.service htsn-webgui.service
+
+[Service]
+Type=simple
+User=htsn
+EnvironmentFile=/etc/htsn/env
+WorkingDirectory=/home/htsn/htsn-ai
+ExecStart=/usr/bin/python3 /home/htsn/htsn-ai/llm_bridge.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,5 @@
-#ifndef WTSN_TIMESYNC_MANAGER_H
-#define WTSN_TIMESYNC_MANAGER_H
+#ifndef HTSN_TIMESYNC_MANAGER_H
+#define HTSN_TIMESYNC_MANAGER_H
 
 #include "common/common.h"
 #include "db/db.h"
@@ -7,18 +7,18 @@
 #include "mvc/event_bus.h"
 #include "timesync/timesync.h"
 
-#define WTSN_TIMESYNC_MANAGER_MODEL "timesync"
+#define HTSN_TIMESYNC_MANAGER_MODEL "timesync"
 
-typedef struct wtsn_timesync_manager wtsn_timesync_manager;
+typedef struct htsn_timesync_manager htsn_timesync_manager;
 
-wtsn_timesync_manager *wtsn_timesync_manager_create(wtsn_db *db, wtsn_event_bus *bus);
-void wtsn_timesync_manager_destroy(wtsn_timesync_manager *m);
+htsn_timesync_manager *htsn_timesync_manager_create(htsn_db *db, htsn_event_bus *bus);
+void htsn_timesync_manager_destroy(htsn_timesync_manager *m);
 
-wtsn_error wtsn_timesync_manager_set_mode(wtsn_timesync_manager *m, wtsn_timesync_mode mode);
-wtsn_error wtsn_timesync_manager_set_grandmaster(wtsn_timesync_manager *m, const char *gm_id);
-const wtsn_timesync_status *wtsn_timesync_manager_status(wtsn_timesync_manager *m);
-wtsn_error wtsn_timesync_manager_load(wtsn_timesync_manager *m);
-wtsn_error wtsn_timesync_manager_record_report(wtsn_timesync_manager *m, const char *device_id,
+htsn_error htsn_timesync_manager_set_mode(htsn_timesync_manager *m, htsn_timesync_mode mode);
+htsn_error htsn_timesync_manager_set_grandmaster(htsn_timesync_manager *m, const char *gm_id);
+const htsn_timesync_status *htsn_timesync_manager_status(htsn_timesync_manager *m);
+htsn_error htsn_timesync_manager_load(htsn_timesync_manager *m);
+htsn_error htsn_timesync_manager_record_report(htsn_timesync_manager *m, const char *device_id,
                                              int64_t offset_ns, int64_t jitter_ns,
                                              int packet_count, int packet_loss);
 

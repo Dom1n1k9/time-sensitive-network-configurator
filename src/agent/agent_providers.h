@@ -6,9 +6,9 @@
 
 /* Linux / Raspberry Pi: native process executing TSN via iproute2/tc/ethtool */
 agent_platform_ops agt_linux_ops(void);
-void *agt_linux_state_create(wtsn_mqtt_client *mqtt);
+void *agt_linux_state_create(htsn_mqtt_client *mqtt);
 
-wtsn_error agt_linux_send_fx_multicast(void *state, const char *group,
+htsn_error agt_linux_send_fx_multicast(void *state, const char *group,
                                        const unsigned char *data, size_t len);
 
 /* Embedded platforms: ESP32 / STM32 / NXP - compile-safe stubs that log.

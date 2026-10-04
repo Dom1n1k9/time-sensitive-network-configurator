@@ -5,7 +5,7 @@ emulate a specific platform (e.g. real ESP32 silicon). Instead, it models
 arbitrary virtual nodes defined by configuration profiles, so you can simulate
 ESP32, Raspberry Pi, STM32, NXP, Linux or any custom node type in a uniform way.
 
-It complements the Wireless TSN Configurator by populating the network with
+It complements the Heterogeneous TSN Configurator by populating the network with
 virtual devices that speak the same protocols.
 
 ## Features

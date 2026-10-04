@@ -1,4 +1,4 @@
-# wtsn-tsn — STM32F767ZI TSN actuator endpoint (Zephyr)
+# htsn-tsn — STM32F767ZI TSN actuator endpoint (Zephyr)
 
 A self-contained **real-TSN actuator node** that runs on the **STM32 Nucleo-
 F767ZI** (on-board 10/100 Ethernet, LAN8742A PHY). It owns all the actuators that
@@ -46,7 +46,7 @@ link-layer gPTP is the documented upgrade once it's validated on-target (the
 ## Pin map (single source of truth: `boards/nucleo_f767zi.overlay`)
 
 The Nucleo-F767ZI on-board Ethernet (LAN8742A) occupies PA1/PA2/PA7/PC1/PC4/PC5 —
-those are avoided. The wiring lives in the `wtsn-actuators` node of the DT overlay
+those are avoided. The wiring lives in the `htsn-actuators` node of the DT overlay
 (the C reads pins via `GPIO_DT_SPEC_GET`); the servo/buzzer PWM pins are programmed
 in `Board/pwm.c`. **Edit the overlay (and `Board/pwm.c` for the two PWM pins) to
 match your actual wiring.** `inc/pins.h` is a human-readable index only.
@@ -76,20 +76,20 @@ stm32-tsn/
     nucleo_f767zi.overlay  console + I2C2 + ETH + actuator pin map (DT)
   inc/
     pins.h              pin-map index (human-readable; the overlay is the source of truth)
-    wtsn_config.h       node id, endpoints, timings
-    wtsn_port.h         DWT clock / reset / logging macros
+    htsn_config.h       node id, endpoints, timings
+    htsn_port.h         DWT clock / reset / logging macros
   Board/
     board.c/.h          DWT high-res clock, reset, heartbeat LED
     pwm.c/.h            CMSIS PWM shim: servo (TIM1) + buzzer (TIM3) + AF mux
   tsn/
     ptp.c/.h            PTP v2 (IEEE 1588) slave over Zephyr sockets -> time base
-    wtsn_net.h          transport interface (publish_* + command callback)
-    eth_proto.c         wtsn_net impl: Zephyr UDP sockets, frame codec, cmd thread
-    wtsn_frame.h        shared wire format (CRC16, kinds)
+    htsn_net.h          transport interface (publish_* + command callback)
+    eth_proto.c         htsn_net impl: Zephyr UDP sockets, frame codec, cmd thread
+    htsn_frame.h        shared wire format (CRC16, kinds)
   actuators/
-    wtsn_sonar.c/.h     HC-SR04 + servo (DT GPIO + PWM shim)
-    wtsn_display.c/.h   SSD1306 OLED (Zephyr I2C) + buttons (DT GPIO)
-    wtsn_actuator.c/.h  relay (DT GPIO) + buzzer (PWM shim)
+    htsn_sonar.c/.h     HC-SR04 + servo (DT GPIO + PWM shim)
+    htsn_display.c/.h   SSD1306 OLED (Zephyr I2C) + buttons (DT GPIO)
+    htsn_actuator.c/.h  relay (DT GPIO) + buzzer (PWM shim)
   src/
     main.c              Zephyr app: init board, start threads, command dispatch
   README.md             this file
@@ -106,7 +106,7 @@ git clone https://github.com/zephyrproject-rtos/sdk-ng.git && cd sdk-ng
 ./setup.sh -r                 # install west + zephyr-sdk into ./westenv
 source ./westenv/zephyr-env.sh
 
-cd /path/to/wtsn-configurator/stm32-tsn
+cd /path/to/htsn-configurator/stm32-tsn
 west build -b nucleo_f767zi .
 west flash -r                 # on-board ST-Link (or: west flash --runner openocd)
 ```
@@ -133,7 +133,7 @@ is standard Zephyr API.
   `#define`s; the servo just runs a few % off in speed (sonar accuracy is unaffected
   — the echo timing uses the DWT clock, not the PWM).
 - **Static IP** — `CONFIG_NET_CONFIG_IPV4_ADDR` / `CONFIG_NET_CONFIG_PEER_IPV4_ADDR`
-  in `prj.conf`; `CNC_IP` in `inc/wtsn_config.h` (the UDP destination + OPC UA host).
+  in `prj.conf`; `CNC_IP` in `inc/htsn_config.h` (the UDP destination + OPC UA host).
 - **CMSIS peripheral registers** — `Board/pwm.c` + `Board/board.c` use the CMSIS
   core (`DWT`, `CoreDebug`, `NVIC_SystemReset`) and peripheral (`RCC`, `TIM1`, `TIM3`,
   `GPIOA/B`) register maps via `<zephyr/cmsis.h>`. Zephyr normally exposes these for
@@ -148,9 +148,9 @@ The RPi peer lives in the main repo (`rpi-tsn/`). It is the CNC and runs:
 | Process | Role |
 |---|---|
 | `ptpd` (linuxptp) | PTP v2 **grandmaster** on the wired NIC (the STM32 slave in `tsn/ptp.c` locks to it). Runs on a **PREEMPT_RT** kernel — see `deploy/enable_preempt_rt.sh`. |
-| `cnc_opcua` | open62541 **server** on `opc.tcp://:4840` — hosts the telemetry + `cmd_*` nodes (`rpi-tsn/wtsn_opcua_ids.h`) |
-| `tsn_opcua_link` | a single persistent OPC UA **client** that reads telemetry every ~1 s and writes a JSON file (`/tmp/wtsn_tsn_opcua.json`) the GUI reads |
-| Web GUI | real-mode only; reads the JSON file (no Python OPC UA dep), sends commands via `wtsn_opcua_cli` |
+| `cnc_opcua` | open62541 **server** on `opc.tcp://:4840` — hosts the telemetry + `cmd_*` nodes (`rpi-tsn/htsn_opcua_ids.h`) |
+| `tsn_opcua_link` | a single persistent OPC UA **client** that reads telemetry every ~1 s and writes a JSON file (`/tmp/htsn_tsn_opcua.json`) the GUI reads |
+| Web GUI | real-mode only; reads the JSON file (no Python OPC UA dep), sends commands via `htsn_opcua_cli` |
 | MQTT broker | used **only** for the wireless ESP32 side — the STM32 never touches MQTT |
 
 The wired data plane is **OPC UA only**; the wireless side is **MQTT only**.
@@ -169,7 +169,7 @@ See `deploy/enable_preempt_rt.sh` for exactly what it does and how to roll back.
 
 ## STM32 → OPC UA client (on-target rework, not yet done)
 
-`tsn/eth_proto.c` (Zephyr UDP + `wtsn_frame.h`) is the current **interim** transport.
+`tsn/eth_proto.c` (Zephyr UDP + `htsn_frame.h`) is the current **interim** transport.
 The final design replaces it with an **open62541 embedded client** on the F767
 (`opc.tcp://` to the RPi). Because there is no board on the dev box, this has not
 been built or verified on-target. Steps:
@@ -179,15 +179,15 @@ been built or verified on-target. Steps:
    + 128 KB CCM).
 2. In a new `tsn/opcua_client.c` (replacing `eth_proto.c` for the data plane, keep
    `ptp.c` as the time base):
-   - connect to `opc.tcp://<CNC_IP>:4840` (`CNC_IP` in `wtsn_config.h`);
-   - **write** the telemetry nodes (id list in `rpi-tsn/wtsn_opcua_ids.h`):
+   - connect to `opc.tcp://<CNC_IP>:4840` (`CNC_IP` in `htsn_config.h`);
+   - **write** the telemetry nodes (id list in `rpi-tsn/htsn_opcua_ids.h`):
      `servo_angle`, `relay_on`, `buzzer_hz/ms`, `sonar_sweep[]`, `btn1..4`,
      `ptp_offset_ns`, `ptp_state`, `ptp_locked`, `last_seen` — from the existing
-     `wtsn_net_publish_*` calls;
-   - **monitor** (or poll) the `cmd_*` nodes and dispatch to `wtsn_actuator_*`:
+     `htsn_net_publish_*` calls;
+   - **monitor** (or poll) the `cmd_*` nodes and dispatch to `htsn_actuator_*`:
      `cmd_servo_angle` → servo, `cmd_relay_on` → relay, `cmd_beep_ms` → buzzer,
      `cmd_sonar_trigger` → sonar sweep, `cmd_reboot` → `NVIC_SystemReset()`.
-3. `wtsn_net.h` keeps the same `publish_*` / command-callback interface, so
+3. `htsn_net.h` keeps the same `publish_*` / command-callback interface, so
    `main.c` and the actuator code are unchanged — only the transport swaps.
 4. Known server quirk handled on the RPi side (see `tsn_opcua_link.c`): a client
    session opened during the server's first few seconds can read

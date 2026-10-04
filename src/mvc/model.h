@@ -1,15 +1,15 @@
-#ifndef WTSN_MODEL_H
-#define WTSN_MODEL_H
+#ifndef HTSN_MODEL_H
+#define HTSN_MODEL_H
 
 #include "mvc/event_bus.h"
 
 typedef struct {
-    char name[WTSN_MAX_STR];
-    wtsn_event_bus *bus;
-} wtsn_model;
+    char name[HTSN_MAX_STR];
+    htsn_event_bus *bus;
+} htsn_model;
 
-void wtsn_model_init(wtsn_model *m, const char *name, wtsn_event_bus *bus);
-void wtsn_model_notify(wtsn_model *m, const char *event);
-void wtsn_model_notify_data(wtsn_model *m, const char *event, void *data);
+void htsn_model_init(htsn_model *m, const char *name, htsn_event_bus *bus);
+void htsn_model_notify(htsn_model *m, const char *event);
+void htsn_model_notify_data(htsn_model *m, const char *event, void *data);
 
 #endif

@@ -18,13 +18,13 @@ typedef enum {
 typedef struct {
     void *state;
     const char *(*name)(void *state);
-    wtsn_error (*apply_qos)(void *state, int priority, int tc, int bw_kbps, int lat_ms, int preemption);
-    wtsn_error (*apply_vlan)(void *state, int vlan_id, const char *group);
-    wtsn_error (*apply_timesync)(void *state, int mode, const char *gm);
-    wtsn_error (*apply_tas)(void *state, int64_t cycle_ns, const wtsn_gcl_entry *gcl, int entries);
-    wtsn_error (*read_sensors)(void *state);
-    wtsn_error (*send)(void *state, const char *topic, const unsigned char *data, size_t len);
-    wtsn_error (*init)(void *state);
+    htsn_error (*apply_qos)(void *state, int priority, int tc, int bw_kbps, int lat_ms, int preemption);
+    htsn_error (*apply_vlan)(void *state, int vlan_id, const char *group);
+    htsn_error (*apply_timesync)(void *state, int mode, const char *gm);
+    htsn_error (*apply_tas)(void *state, int64_t cycle_ns, const htsn_gcl_entry *gcl, int entries);
+    htsn_error (*read_sensors)(void *state);
+    htsn_error (*send)(void *state, const char *topic, const unsigned char *data, size_t len);
+    htsn_error (*init)(void *state);
     void (*destroy)(void *state);
 } agent_platform_ops;
 

@@ -1,0 +1,207 @@
+#include "htsn_mqtt.h"
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "mqtt_client.h"
+#include "string.h"
+#include "stdio.h"
+#include "stdlib.h"
+
+static const char *TAG = "mqtt";
+
+struct htsn_mqtt {
+    esp_mqtt_client_handle_t c;
+    htsn_cmd_cb cb;
+    htsn_connected_cb conn_cb;
+    void *ud;
+    char device_id[32];
+};
+
+/* Subscriptions keyed to this node's own device_id so each ESP/TT device only
+ * handles its own commands (previously it subscribed to tsn/cmd/+/... and any
+ * node could consume another node's config). */
+void htsn_mqtt_set_device_id(htsn_mqtt *m, const char *id) {
+    if (!m) return;
+    snprintf(m->device_id, sizeof(m->device_id), "%s", id ? id : "");
+}
+
+static void on_data(esp_mqtt_event_handle_t e, htsn_mqtt *m) {
+    if (m->cb && e->topic) {
+        char *topic = malloc((size_t)e->topic_len + 1);
+        char *payload = malloc((size_t)e->data_len + 1);
+        if (topic && payload) {
+            memcpy(topic, e->topic, (size_t)e->topic_len);
+            topic[e->topic_len] = '\0';
+            memcpy(payload, e->data, (size_t)e->data_len);
+            payload[e->data_len] = '\0';
+            m->cb(topic, payload, m->ud);
+        }
+        free(topic);
+        free(payload);
+    }
+}
+
+static void on_connected(esp_mqtt_event_handle_t e, htsn_mqtt *m) {
+    (void)e;
+    char t[64];
+    snprintf(t, sizeof(t), "tsn/cmd/%s/apply", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/qos", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/vlan", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/wifi", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/timesync", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/tas", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/stream", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/preemption", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/status", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/fx", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/actor", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/servo", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/identify", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/ping", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/ota", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/factory", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/reset", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/reboot", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    esp_mqtt_client_subscribe(m->c, "tsn/fx/cmd/#", 0);
+    /* FX field exchange: only the shared motion/event feed drives the local
+     * actor. A broad "tsn/fx/#" would let every node re-trigger itself (echo)
+     * and fire on unrelated FX stream/field traffic. */
+    esp_mqtt_client_subscribe(m->c, "tsn/fx/data", 0);
+    /* motion events raised by the sensor board's PIR */
+    esp_mqtt_client_subscribe(m->c, "tsn/sensors/event", 0);
+    /* The shared telemetry feed (esp32-01 publishes temp/hum/press/light/pir
+     * here). The actor board's OLED parses the esp32-01 values to show a live
+     * sensor HUD. */
+    esp_mqtt_client_subscribe(m->c, "tsn/sensors", 0);
+    /* Actor board OLED commands (REAL-MODE.md §7b): display text, panel
+     * controller toggle, and the fill/readback diagnostics. Only the actor
+     * board acts on these; other nodes ignore them. */
+    snprintf(t, sizeof(t), "tsn/cmd/%s/display", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/button", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/oled", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/fill", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/read", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/run", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/dump", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/paneldump", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/quad", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/bars", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    ESP_LOGI(TAG, "subscribed to commands for device '%s'", m->device_id);
+    if (m->conn_cb) m->conn_cb("", m->ud);
+}
+
+static void on_event(void *handler_args, esp_event_base_t base, int32_t event_id,
+                    void *event_data) {
+    (void)base;
+    esp_mqtt_event_handle_t e = (esp_mqtt_event_handle_t)event_data;
+    htsn_mqtt *m = (htsn_mqtt *)handler_args;
+    switch (event_id) {
+    case MQTT_EVENT_CONNECTED:
+        on_connected(e, m);
+        break;
+    case MQTT_EVENT_DATA:
+        on_data(e, m);
+        break;
+    default:
+        break;
+    }
+}
+
+htsn_mqtt *htsn_mqtt_create(const char *host, int port, const char *client_id,
+                             htsn_cmd_cb cb, htsn_connected_cb conn_cb, void *ud) {
+    return htsn_mqtt_create_auth(host, port, client_id, NULL, NULL,
+                                 false, NULL, false, cb, conn_cb, ud);
+}
+
+htsn_mqtt *htsn_mqtt_create_auth(const char *host, int port, const char *client_id,
+                                 const char *user, const char *pass,
+                                 bool tls, const char *tls_ca_pem, bool insecure,
+                                 htsn_cmd_cb cb, htsn_connected_cb conn_cb, void *ud) {
+    htsn_mqtt *m = calloc(1, sizeof(htsn_mqtt));
+    if (!m) return NULL;
+    m->cb = cb;
+    m->conn_cb = conn_cb;
+    m->ud = ud;
+
+    /* LWT: the broker publishes this (retained) on tsn/lwt/<id> if we vanish
+     * unexpectedly, so the web GUI marks the device offline immediately. */
+    char will_topic[48];
+    snprintf(will_topic, sizeof(will_topic), "tsn/lwt/%s", client_id ? client_id : "unknown");
+    static const char will_msg[] = "offline";
+
+    esp_mqtt_transport_t transport = MQTT_TRANSPORT_OVER_TCP;
+#if defined(MQTT_TRANSPORT_OVER_SSL)
+    if (tls) transport = MQTT_TRANSPORT_OVER_SSL;
+#else
+    (void)tls;
+#endif
+    esp_mqtt_client_config_t cfg = {
+        .broker = { .address = { .uri = NULL, .hostname = host, .port = port,
+                                 .transport = transport } },
+        .credentials = { .client_id = client_id },
+        .session = { .keepalive = 30,
+                     .disable_clean_session = 0,
+                     .last_will = {
+                         .topic = will_topic,
+                         .msg = will_msg,
+                         .msg_len = (size_t)strlen(will_msg),
+                         .qos = 1,
+                         .retain = 1,
+                     } },
+    };
+#if defined(CONFIG_ESP_TLS_INSECURE) || defined(CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY)
+    if (tls && insecure) cfg.broker.verification.skip_cert_common_name_check = true;
+#endif
+    if (tls && tls_ca_pem && tls_ca_pem[0]) {
+        cfg.broker.verification.certificate = tls_ca_pem;
+    }
+    if (user && user[0]) cfg.credentials.username = user;
+    if (pass && pass[0]) cfg.credentials.authentication.password = pass;
+    m->c = esp_mqtt_client_init(&cfg);
+    if (!m->c) { free(m); return NULL; }
+    esp_mqtt_client_register_event(m->c, ESP_EVENT_ANY_ID, on_event, m);
+    return m;
+}
+
+void htsn_mqtt_start(htsn_mqtt *m) {
+    if (!m) return;
+    esp_mqtt_client_start(m->c);
+}
+
+void htsn_mqtt_publish_qos(htsn_mqtt *m, const char *topic, const char *payload, int qos) {
+    if (!m || !m->c) return;
+    esp_mqtt_client_publish(m->c, topic, payload, qos, 0, 0);
+}
+
+void htsn_mqtt_publish(htsn_mqtt *m, const char *topic, const char *payload) {
+    htsn_mqtt_publish_qos(m, topic, payload, 0);
+}

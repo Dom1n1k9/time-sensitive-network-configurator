@@ -1,5 +1,5 @@
-#ifndef WTSN_VLAN_MANAGER_H
-#define WTSN_VLAN_MANAGER_H
+#ifndef HTSN_VLAN_MANAGER_H
+#define HTSN_VLAN_MANAGER_H
 
 #include "common/common.h"
 #include "db/db.h"
@@ -7,19 +7,19 @@
 #include "mvc/event_bus.h"
 #include "vlan/vlan.h"
 
-#define WTSN_VLAN_MANAGER_MODEL "vlan"
+#define HTSN_VLAN_MANAGER_MODEL "vlan"
 
-typedef struct wtsn_vlan_manager wtsn_vlan_manager;
+typedef struct htsn_vlan_manager htsn_vlan_manager;
 
-wtsn_vlan_manager *wtsn_vlan_manager_create(wtsn_db *db, wtsn_event_bus *bus);
-void wtsn_vlan_manager_destroy(wtsn_vlan_manager *m);
+htsn_vlan_manager *htsn_vlan_manager_create(htsn_db *db, htsn_event_bus *bus);
+void htsn_vlan_manager_destroy(htsn_vlan_manager *m);
 
-wtsn_error wtsn_vlan_manager_create_group(wtsn_vlan_manager *m, const wtsn_vlan_group_model *g);
-wtsn_error wtsn_vlan_manager_delete_group(wtsn_vlan_manager *m, const char *id);
-wtsn_error wtsn_vlan_manager_add_member(wtsn_vlan_manager *m, const char *group_id, const char *device_id);
-wtsn_error wtsn_vlan_manager_remove_member(wtsn_vlan_manager *m, const char *group_id, const char *device_id);
+htsn_error htsn_vlan_manager_create_group(htsn_vlan_manager *m, const htsn_vlan_group_model *g);
+htsn_error htsn_vlan_manager_delete_group(htsn_vlan_manager *m, const char *id);
+htsn_error htsn_vlan_manager_add_member(htsn_vlan_manager *m, const char *group_id, const char *device_id);
+htsn_error htsn_vlan_manager_remove_member(htsn_vlan_manager *m, const char *group_id, const char *device_id);
 
-wtsn_error wtsn_vlan_manager_import(wtsn_vlan_manager *m, const char *file);
-wtsn_error wtsn_vlan_manager_export(wtsn_vlan_manager *m, const char *file);
+htsn_error htsn_vlan_manager_import(htsn_vlan_manager *m, const char *file);
+htsn_error htsn_vlan_manager_export(htsn_vlan_manager *m, const char *file);
 
 #endif

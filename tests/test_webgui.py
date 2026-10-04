@@ -1,4 +1,4 @@
-"""Tests for the wtsn_webgui package: action handlers and HTTP smoke tests."""
+"""Tests for the htsn_webgui package: action handlers and HTTP smoke tests."""
 import json
 import os
 import shutil
@@ -10,16 +10,16 @@ import urllib.error
 import urllib.request
 import zlib
 
-from wtsn_webgui import state
-from wtsn_webgui.actions import run_action
-from wtsn_webgui.db import clamp, connect, load_all
-from wtsn_webgui.mqtt_link import parse_listener_msg
-from wtsn_webgui.server import WTSNServer, make_handler
+from htsn_webgui import state
+from htsn_webgui.actions import run_action
+from htsn_webgui.db import clamp, connect, load_all
+from htsn_webgui.mqtt_link import parse_listener_msg
+from htsn_webgui.server import HTSNServer, make_handler
 
 class WebGuiActionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.mkdtemp(prefix="wtsn_test_")
+        cls.tmp = tempfile.mkdtemp(prefix="htsn_test_")
         cls._old_sim = state.DB_SIM
         cls._old_real = state.DB_REAL
         state.DB_SIM = os.path.join(cls.tmp, "sim.db")
@@ -171,7 +171,7 @@ class WebGuiActionTest(unittest.TestCase):
             state.DB_REAL = saved
 
     def test_sim_fleet_deterministic(self):
-        from wtsn_webgui import sim
+        from htsn_webgui import sim
         a = [d["id"] for d in sim._gen_stable_devices()]
         b = [d["id"] for d in sim._gen_stable_devices()]
         self.assertEqual(a, b)
@@ -407,7 +407,7 @@ class WebGuiRealModeTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.mkdtemp(prefix="wtsn_real_")
+        cls.tmp = tempfile.mkdtemp(prefix="htsn_real_")
         cls._old_sim = state.DB_SIM
         cls._old_real = state.DB_REAL
         state.DB_SIM = os.path.join(cls.tmp, "sim.db")
@@ -425,12 +425,12 @@ class WebGuiRealModeTest(unittest.TestCase):
         state.EVENTS.clear()
         state.RECENT_ACKS.clear()
         self.broker = MockBroker()
-        from wtsn_webgui import mqtt_link
+        from htsn_webgui import mqtt_link
         self._orig = mqtt_link.get_real_mqtt
         mqtt_link.get_real_mqtt = lambda con: self.broker
 
     def tearDown(self):
-        from wtsn_webgui import mqtt_link
+        from htsn_webgui import mqtt_link
         mqtt_link.get_real_mqtt = self._orig
         state.MODE["mode"] = "sim"
 
@@ -524,13 +524,13 @@ class WebGuiRealModeTest(unittest.TestCase):
 class WebGuiHttpTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.mkdtemp(prefix="wtsn_http_")
+        cls.tmp = tempfile.mkdtemp(prefix="htsn_http_")
         cls._old_sim = state.DB_SIM
         cls._old_real = state.DB_REAL
         state.DB_SIM = os.path.join(cls.tmp, "sim.db")
         state.DB_REAL = os.path.join(cls.tmp, "real.db")
         state.MODE["mode"] = "sim"
-        cls.srv = WTSNServer(("127.0.0.1", 0), make_handler())
+        cls.srv = HTSNServer(("127.0.0.1", 0), make_handler())
         cls.port = cls.srv.server_address[1]
         cls.thread = threading.Thread(target=cls.srv.serve_forever, daemon=True)
         cls.thread.start()
@@ -564,7 +564,7 @@ class WebGuiHttpTest(unittest.TestCase):
     def test_index_served(self):
         status, body = self.get("/")
         self.assertEqual(status, 200)
-        self.assertIn(b"WTSN Configurator", body)
+        self.assertIn(b"HTSN Configurator", body)
         self.assertIn(b"architecture", body)
         self.assertIn(b"/api/actions/topology", body)
 
@@ -615,14 +615,14 @@ class WebGuiFirmwareTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.mkdtemp(prefix="wtsn_fw_")
+        cls.tmp = tempfile.mkdtemp(prefix="htsn_fw_")
         cls._old_sim = state.DB_SIM
         cls._old_fw = state.FW_DIR
         state.DB_SIM = os.path.join(cls.tmp, "sim.db")
         state.FW_DIR = os.path.join(cls.tmp, "fw")
         os.makedirs(state.FW_DIR, exist_ok=True)
         state.MODE["mode"] = "sim"
-        cls.srv = WTSNServer(("127.0.0.1", 0), make_handler())
+        cls.srv = HTSNServer(("127.0.0.1", 0), make_handler())
         cls.port = cls.srv.server_address[1]
         cls.thread = threading.Thread(target=cls.srv.serve_forever, daemon=True)
         cls.thread.start()

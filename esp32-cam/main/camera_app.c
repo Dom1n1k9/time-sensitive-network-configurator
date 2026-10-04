@@ -1,11 +1,11 @@
-/* Wireless TSN ESP32-CAM agent: WiFi + MQTT node + MJPEG HTTP stream.
+/* Heterogeneous TSN ESP32-CAM agent: WiFi + MQTT node + MJPEG HTTP stream.
  *
- * The CAM acts as another WTSN node: it joins the same MQTT broker, announces
+ * The CAM acts as another HTSN node: it joins the same MQTT broker, announces
  * itself (tsn/discover), publishes motion/events (tsn/sensors/event) and serves
  * a live MJPEG stream on http://<ip>/stream for the user to view in a browser.
  *
  * It reuses the same credential model as esp32-agent (NVS). On first boot with no
- * WiFi stored it starts a WTSN-Setup SoftAP + provisioning portal at 192.168.4.1.
+ * WiFi stored it starts a HTSN-Setup SoftAP + provisioning portal at 192.168.4.1.
  */
 
 #include <string.h>
@@ -25,9 +25,9 @@
 #include "mqtt_client.h"
 #include "driver/gpio.h"
 #include "esp_camera.h"
-#include "wtsn_prov.h"
-#include "wtsn_version.h"
-#include "wtsn_ota.h"
+#include "htsn_prov.h"
+#include "htsn_version.h"
+#include "htsn_ota.h"
 #include "sntp.h"
 
 #include "driver/sdmmc_host.h"
@@ -81,14 +81,14 @@ static const char *TAG = "cam_agent";
 /* ---------------- NVS helpers (credential model identical to esp32-agent) ---------------- */
 static void nvs_str_get(const char *key, char *out, size_t sz) {
     nvs_handle_t h; out[0] = '\0';
-    if (nvs_open("wtsn", NVS_READONLY, &h) != ESP_OK) return;
+    if (nvs_open("htsn", NVS_READONLY, &h) != ESP_OK) return;
     size_t len = sz;
     if (nvs_get_str(h, key, out, &len) != ESP_OK) out[0] = '\0';
     nvs_close(h);
 }
 static void nvs_str_set(const char *key, const char *val) {
     nvs_handle_t h;
-    if (nvs_open("wtsn", NVS_READWRITE, &h) != ESP_OK) return;
+    if (nvs_open("htsn", NVS_READWRITE, &h) != ESP_OK) return;
     nvs_set_str(h, key, val);
     nvs_commit(h);
     nvs_close(h);
@@ -117,7 +117,7 @@ static int     g_last_clip_frames = 0;
 static uint32_t g_last_offs[LAST_CLIP_MAX_FRAMES];
 static uint32_t g_last_lens[LAST_CLIP_MAX_FRAMES];
 
-/* ---------------- provisioning (shared component: shared/wtsn_prov) ---------------- */
+/* ---------------- provisioning (shared component: shared/htsn_prov) ---------------- */
 static void cam_prov_save(const char *ssid, const char *pass,
                           const char *devid, const char *mqtt) {
     if (devid && devid[0]) nvs_str_set("device_id", devid);
@@ -549,7 +549,7 @@ static void ota_go(const char *url, const char *crc32_hex) {
     snprintf(ack, sizeof(ack), "{\"id\":\"%s\",\"ok\":true}", g_device_id);
     ESP_LOGI(TAG, "OTA command: %s (crc32 %s)", url, crc32_hex ? crc32_hex : "none");
     esp_mqtt_client_publish(g_mqtt, ack_topic, ack, 0, 0, 0);
-    wtsn_ota_start_checked(url, crc32_hex);
+    htsn_ota_start_checked(url, crc32_hex);
 }
 
 static void mqtt_event(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
@@ -566,7 +566,7 @@ static void mqtt_event(void *handler_args, esp_event_base_t base, int32_t event_
         char buf[192];
         snprintf(buf, sizeof(buf),
                  "{\"id\":\"%s\",\"fw\":\"%s\",\"ip\":\"%s\",\"kind\":\"cam\"}",
-                 g_device_id, WTSN_FW_VERSION, g_ip);
+                 g_device_id, HTSN_FW_VERSION, g_ip);
         esp_mqtt_client_publish(g_mqtt, "tsn/discover", buf, 0, 1, 0);
     }
 }
@@ -599,7 +599,7 @@ static void resolve_mqtt_host(char *host, size_t host_sz) {
 
 static esp_err_t mqtt_start(void) {
     char host[64] = {0}; nvs_str_get("mqtt_host", host, sizeof(host));
-    if (!host[0]) snprintf(host, sizeof(host), "wtsn-broker.local");
+    if (!host[0]) snprintf(host, sizeof(host), "htsn-broker.local");
     resolve_mqtt_host(host, sizeof(host));
     /* LWT: broker marks the CAM offline (retained) if it vanishes unexpectedly. */
     char will_topic[48];
@@ -641,7 +641,7 @@ typedef struct {
 static wifi_ctx_t g_ctx;
 
 /* Re-provision fallback: after this many consecutive disconnects with no IP, give up
- * retrying the dead network and bring back the WTSN-Setup SoftAP so the CAM can be
+ * retrying the dead network and bring back the HTSN-Setup SoftAP so the CAM can be
  * re-pointed at a new network over the air (no USB flash needed). */
 #ifndef PROV_FALLBACK_DISCONNECTS
 #define PROV_FALLBACK_DISCONNECTS 6
@@ -655,7 +655,7 @@ static void reprov_task(void *arg) {
     if (g_reprov_started) { vTaskDelete(NULL); return; }
     g_reprov_started = 1;
     ESP_LOGW(TAG, "unable to connect on '%s' -> starting provisioning AP", g_ctx.ssid);
-    wtsn_prov_start_ap();   /* blocks serving the portal; user config -> restart */
+    htsn_prov_start_ap();   /* blocks serving the portal; user config -> restart */
     vTaskDelete(NULL);
 }
 
@@ -734,10 +734,10 @@ void app_main(void) {
     nvs_str_get("device_id", g_device_id, sizeof(g_device_id));
     if (g_device_id[0] == '\0') snprintf(g_device_id, sizeof(g_device_id), "esp32-cam-01");
 
-    wtsn_prov_init("WTSN CAM Setup", "wtsn-broker.local", cam_prov_save, cam_prov_load_id);
+    htsn_prov_init("HTSN CAM Setup", "htsn-broker.local", cam_prov_save, cam_prov_load_id);
 
     if (!wifi_ssid[0]) {
-        wtsn_prov_start();
+        htsn_prov_start();
         for (;;) vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
@@ -749,7 +749,7 @@ void app_main(void) {
     esp_netif_init();
     esp_event_loop_create_default();
     esp_netif_create_default_wifi_sta();
-    /* mDNS resolver so a ".local" broker (wtsn-broker.local) can be resolved;
+    /* mDNS resolver so a ".local" broker (htsn-broker.local) can be resolved;
      * must run after the STA netif exists so multicast goes out over WiFi. */
     mdns_init();
     mdns_hostname_set(g_device_id);

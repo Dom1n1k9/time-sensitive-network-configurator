@@ -3,18 +3,18 @@
  * Holds ONE long-lived client connection to the CNC server and, every ~1 s,
  * reads all telemetry and atomically writes it to a JSON file. The GUI reads
  * that file (no OPC UA dependency, no connect churn). Commands are rare and
- * user-triggered, so they go through the one-shot `wtsn_opcua_cli write`.
+ * user-triggered, so they go through the one-shot `htsn_opcua_cli write`.
  *
- *   WTSN_OPCUA_URL   server url        (default opc.tcp://127.0.0.1:4840)
- *   WTSN_OPCUA_OUT   output json path  (default /tmp/wtsn_tsn_opcua.json)
- *   WTSN_OPCUA_HZ    poll rate ~Hz     (default 1)
+ *   HTSN_OPCUA_URL   server url        (default opc.tcp://127.0.0.1:4840)
+ *   HTSN_OPCUA_OUT   output json path  (default /tmp/htsn_tsn_opcua.json)
+ *   HTSN_OPCUA_HZ    poll rate ~Hz     (default 1)
  */
 #include <open62541/client.h>
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/types.h>
 #include <open62541/types_generated.h>
-#include "wtsn_opcua_ids.h"
+#include "htsn_opcua_ids.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,20 +31,20 @@ typedef struct {
 } NodeDef;
 
 static const NodeDef NODES[] = {
-    { "sonar_sweep",    WTSN_ID_SONAR_SWEEP,    UA_TYPES_INT16,   1 },
-    { "sonar_sweep_id", WTSN_ID_SONAR_SWEEP_ID, UA_TYPES_INT32,   0 },
-    { "servo_angle",    WTSN_ID_SERVO_ANGLE,    UA_TYPES_INT16,   0 },
-    { "relay_on",       WTSN_ID_RELAY_ON,       UA_TYPES_BOOLEAN, 0 },
-    { "buzzer_hz",      WTSN_ID_BUZZER_HZ,      UA_TYPES_UINT16,  0 },
-    { "buzzer_ms",      WTSN_ID_BUZZER_MS,      UA_TYPES_UINT16,  0 },
-    { "btn1",           WTSN_ID_BTN1,           UA_TYPES_BOOLEAN, 0 },
-    { "btn2",           WTSN_ID_BTN2,           UA_TYPES_BOOLEAN, 0 },
-    { "btn3",           WTSN_ID_BTN3,           UA_TYPES_BOOLEAN, 0 },
-    { "btn4",           WTSN_ID_BTN4,           UA_TYPES_BOOLEAN, 0 },
-    { "ptp_offset_ns",  WTSN_ID_PTP_OFFSET_NS,  UA_TYPES_INT64,   0 },
-    { "ptp_state",      WTSN_ID_PTP_STATE,      UA_TYPES_BYTE,    0 },
-    { "ptp_locked",     WTSN_ID_PTP_LOCKED,     UA_TYPES_BOOLEAN, 0 },
-    { "last_seen",      WTSN_ID_LAST_SEEN,      UA_TYPES_INT64,   0 },
+    { "sonar_sweep",    HTSN_ID_SONAR_SWEEP,    UA_TYPES_INT16,   1 },
+    { "sonar_sweep_id", HTSN_ID_SONAR_SWEEP_ID, UA_TYPES_INT32,   0 },
+    { "servo_angle",    HTSN_ID_SERVO_ANGLE,    UA_TYPES_INT16,   0 },
+    { "relay_on",       HTSN_ID_RELAY_ON,       UA_TYPES_BOOLEAN, 0 },
+    { "buzzer_hz",      HTSN_ID_BUZZER_HZ,      UA_TYPES_UINT16,  0 },
+    { "buzzer_ms",      HTSN_ID_BUZZER_MS,      UA_TYPES_UINT16,  0 },
+    { "btn1",           HTSN_ID_BTN1,           UA_TYPES_BOOLEAN, 0 },
+    { "btn2",           HTSN_ID_BTN2,           UA_TYPES_BOOLEAN, 0 },
+    { "btn3",           HTSN_ID_BTN3,           UA_TYPES_BOOLEAN, 0 },
+    { "btn4",           HTSN_ID_BTN4,           UA_TYPES_BOOLEAN, 0 },
+    { "ptp_offset_ns",  HTSN_ID_PTP_OFFSET_NS,  UA_TYPES_INT64,   0 },
+    { "ptp_state",      HTSN_ID_PTP_STATE,      UA_TYPES_BYTE,    0 },
+    { "ptp_locked",     HTSN_ID_PTP_LOCKED,     UA_TYPES_BOOLEAN, 0 },
+    { "last_seen",      HTSN_ID_LAST_SEEN,      UA_TYPES_INT64,   0 },
 };
 static const size_t NN = sizeof(NODES) / sizeof(NODES[0]);
 
@@ -84,13 +84,13 @@ static void emit_value(const NodeDef *nd, const UA_Variant *v, char *buf, size_t
 static int read_all(UA_Client *c, char *json, size_t cap) {
     size_t off = 0;
     int okc = 0;
-    int dbg = getenv("WTSN_OPCUA_DEBUG") != NULL;
+    int dbg = getenv("HTSN_OPCUA_DEBUG") != NULL;
     off += (size_t)snprintf(json + off, cap - off, "{\"ok\":true,\"ts\":%ld,", (long)time(NULL));
     for (size_t i = 0; i < NN; i++) {
         UA_Variant v;
         UA_Variant_init(&v);
         UA_StatusCode rv = UA_Client_readValueAttribute(c,
-            UA_NODEID_NUMERIC(WTSN_OPCUA_NS, NODES[i].id), &v);
+            UA_NODEID_NUMERIC(HTSN_OPCUA_NS, NODES[i].id), &v);
         char field[256];
         if (rv == UA_STATUSCODE_GOOD) {
             emit_value(&NODES[i], &v, field, sizeof(field));
@@ -121,9 +121,9 @@ static void atomic_write(const char *path, const char *data) {
 int main(void) {
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
-    const char *url = env_or("WTSN_OPCUA_URL", "opc.tcp://127.0.0.1:4840");
-    const char *out = env_or("WTSN_OPCUA_OUT", "/tmp/wtsn_tsn_opcua.json");
-    long hz = atol(env_or("WTSN_OPCUA_HZ", "1"));
+    const char *url = env_or("HTSN_OPCUA_URL", "opc.tcp://127.0.0.1:4840");
+    const char *out = env_or("HTSN_OPCUA_OUT", "/tmp/htsn_tsn_opcua.json");
+    long hz = atol(env_or("HTSN_OPCUA_HZ", "1"));
     if (hz < 1) hz = 1;
     if (hz > 20) hz = 20;
     long sleep_us = 1000000L / hz;

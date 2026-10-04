@@ -1,7 +1,7 @@
-/* wtsn-tsn pin map — Nucleo-F767ZI.
+/* htsn-tsn pin map — Nucleo-F767ZI.
  *
  * SUPERSEDED: the physical wiring now lives in the Zephyr device-tree overlay
- *   boards/nucleo_f767zi.overlay  (node `wtsn-actuators`)
+ *   boards/nucleo_f767zi.overlay  (node `htsn-actuators`)
  * which is the single source of truth (the C reads pins via GPIO_DT_SPEC_GET).
  * This file is kept only as a human-readable index of what is wired where.
  *
@@ -15,6 +15,6 @@
  *
  * RESERVED (on-board LAN8742A PHY): PA1/PA2/PA7/PC1/PC4/PC5 — do not reuse.
  */
-#ifndef WTSN_PINS_H
-#define WTSN_PINS_H
-#endif /* WTSN_PINS_H */
+#ifndef HTSN_PINS_H
+#define HTSN_PINS_H
+#endif /* HTSN_PINS_H */

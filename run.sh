@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================
-#  WTSN Configurator - one launcher for everything
+#  HTSN Configurator - one launcher for everything
 #  MQTT broker + web GUI + browser (+ optional flash)
 # ============================================================
 
@@ -19,11 +19,11 @@ GUI_PORT=8000
 GUI_LOG=/tmp/webgui.log
 
 # detect current LAN IP (first non-loopback); the broker runs on THIS PC so the
-# ESP32 nodes must reach it at this IP (or via the mDNS name "wtsn-broker.local").
+# ESP32 nodes must reach it at this IP (or via the mDNS name "htsn-broker.local").
 LAN_IP=$(ip -4 addr show 2>/dev/null | grep -oE "inet [0-9.]+" | grep -v "127.0.0.1" | head -1 | sed 's/inet //')
 [ -z "$LAN_IP" ] && LAN_IP="127.0.0.1"
 
-log() { echo -e "\033[1;36m[wtsn]\033[0m $*"; }
+log() { echo -e "\033[1;36m[htsn]\033[0m $*"; }
 
 get_lan_ip() {
     local ip=$(ip -4 addr show 2>/dev/null | grep -oE "inet [0-9.]+" | grep -v "^inet 127" | head -1 | sed 's/inet //')
@@ -32,7 +32,7 @@ get_lan_ip() {
 }
 
 # ---------------- 1) MQTT broker ----------------
-# mDNS: advertise this PC as "wtsn-broker.local" so ESP32 nodes can find the
+# mDNS: advertise this PC as "htsn-broker.local" so ESP32 nodes can find the
 # broker by name instead of by a hardcoded IP that goes stale when this PC changes
 # network / gets a new DHCP address.
 ensure_mdns() {
@@ -40,7 +40,7 @@ ensure_mdns() {
         log "avahi-publish not found - nodes must use a static broker IP"
         return
     fi
-    avahi-publish-address wtsn-broker.local "$LAN_IP" >/dev/null 2>&1 &
+    avahi-publish-address htsn-broker.local "$LAN_IP" >/dev/null 2>&1 &
     PUB_PID=$!
     # keep the A-record in sync with the current IP (kill+re-publish on change)
     ( while kill -0 $PUB_PID 2>/dev/null; do
@@ -48,26 +48,26 @@ ensure_mdns() {
           if [ -n "$cur" ] && [ "$cur" != "$LAN_IP" ]; then
               LAN_IP="$cur"
               kill $PUB_PID 2>/dev/null
-              avahi-publish-address wtsn-broker.local "$LAN_IP" >/dev/null 2>&1 &
+              avahi-publish-address htsn-broker.local "$LAN_IP" >/dev/null 2>&1 &
               PUB_PID=$!
           fi
           sleep 5
       done ) </dev/null & disown
-    log "advertising broker on LAN as wtsn-broker.local ($LAN_IP)"
+    log "advertising broker on LAN as htsn-broker.local ($LAN_IP)"
 }
 
 ensure_broker() {
     # make sure mosquitto listens on 0.0.0.0 (reachable from ESP32).
     # NOTE: this needs sudo. If you are not root, run these once manually:
-    #   sudo tee /etc/mosquitto/conf.d/wtsn.conf <<EOF
+    #   sudo tee /etc/mosquitto/conf.d/htsn.conf <<EOF
     #   listener 1883 0.0.0.0
     #   allow_anonymous true
     #   EOF
     #   sudo systemctl restart mosquitto
-    if ! grep -q "listener $MQTT_PORT 0.0.0.0" /etc/mosquitto/conf.d/wtsn.conf 2>/dev/null; then
+    if ! grep -q "listener $MQTT_PORT 0.0.0.0" /etc/mosquitto/conf.d/htsn.conf 2>/dev/null; then
         log "broker config missing -> needs sudo. Run these manually:"
-        log "  echo 'listener 1883 0.0.0.0' | sudo tee /etc/mosquitto/conf.d/wtsn.conf"
-        log "  echo 'allow_anonymous true' | sudo tee -a /etc/mosquitto/conf.d/wtsn.conf"
+        log "  echo 'listener 1883 0.0.0.0' | sudo tee /etc/mosquitto/conf.d/htsn.conf"
+        log "  echo 'allow_anonymous true' | sudo tee -a /etc/mosquitto/conf.d/htsn.conf"
         log "  sudo systemctl restart mosquitto"
         exit 1
     fi
@@ -99,7 +99,7 @@ gui_pid=""
 start_gui() {
     cd "$PROJ_DIR"
     # webgui.py does not take --mqtt-host; the broker address is passed by env.
-    WTSN_BROKER="$LAN_IP:$MQTT_PORT" python3 webgui.py --host 127.0.0.1 \
+    HTSN_BROKER="$LAN_IP:$MQTT_PORT" python3 webgui.py --host 127.0.0.1 \
          < /dev/null > "$GUI_LOG" 2>&1 &
     gui_pid=$!
     disown
@@ -113,9 +113,9 @@ monitor_gui() {
         # HTTP health check; 000 = connection refused/timeout (frozen or down)
         if ! curl -fsS -m 3 "http://127.0.0.1:$GUI_PORT/" >/dev/null 2>&1; then
             stale=$((stale + 1))
-            echo "$(date '+%H:%M:%S') [wtsn] GUI unhealthy, attempt $stale/2" >> /tmp/wtsn_mon.log
+            echo "$(date '+%H:%M:%S') [htsn] GUI unhealthy, attempt $stale/2" >> /tmp/htsn_mon.log
             if [ $stale -ge 2 ]; then
-                echo "$(date '+%H:%M:%S') [wtsn] RESTARTING GUI" >> /tmp/wtsn_mon.log
+                echo "$(date '+%H:%M:%S') [htsn] RESTARTING GUI" >> /tmp/htsn_mon.log
                 pkill -9 -f "webgui.py" 2>/dev/null || true
                 sleep 1
                 start_gui
@@ -156,18 +156,18 @@ ensure_gui() {
 open_browser() { xdg-open "http://127.0.0.1:$GUI_PORT" >/dev/null 2>&1 & }
 
 # ---------------- 4) provisioning helper in a new terminal ----------------
-PROV_SCRIPT="/tmp/wtsn_prov_helper.sh"
+PROV_SCRIPT="/tmp/htsn_prov_helper.sh"
 write_prov_script() {
     MASTER_IP="$LAN_IP"
     cat > "$PROV_SCRIPT" <<EOF
 #!/usr/bin/env bash
 sleep 1
 echo '============================================'
-echo ' WTSN ESP32 WiFi provisioning'
+echo ' HTSN ESP32 WiFi provisioning'
 echo '============================================'
 echo
 echo '1. Connect this machine to the ESP SoftAP:'
-echo '   SSID:   WTSN-Setup'
+echo '   SSID:   HTSN-Setup'
 echo '   (no password)'
 echo
 echo '2. Then open in the browser:'
@@ -201,7 +201,7 @@ open_prov_terminal() {
         esac
     else
         log "no graphical terminal found; run provisioning manually:"
-        log "   iwctl station wlan0 connect WTSN-Setup   (or NetworkManager GUI)"
+        log "   iwctl station wlan0 connect HTSN-Setup   (or NetworkManager GUI)"
         log "   then open http://192.168.4.1/"
     fi
 }
@@ -212,7 +212,7 @@ do_flash() {
         log "ESP-IDF not found - install it or set IDF_PATH=/path/to/esp-idf"
         return 1
     fi
-    if [ ! -f "$ESP_DIR/build/wtsn_esp32_agent.bin" ]; then
+    if [ ! -f "$ESP_DIR/build/htsn_esp32_agent.bin" ]; then
         log "firmware not built - building ..."
         bash -c "source $IDF_PATH/export.sh >/dev/null 2>&1 && cd $ESP_DIR && idf.py build"
     fi
@@ -221,13 +221,13 @@ do_flash() {
     log "flashing to $PORT_UART ..."
     bash -c "source $IDF_PATH/export.sh >/dev/null 2>&1 && cd $ESP_DIR && idf.py -p $PORT_UART flash"
     log "firmware flashed. ESP32 restarts."
-    log "If WiFi is NOT stored in NVS, it starts the WTSN-Setup SoftAP provisioning portal."
+    log "If WiFi is NOT stored in NVS, it starts the HTSN-Setup SoftAP provisioning portal."
     xdg-open "http://192.168.4.1/" >/dev/null 2>&1 &
-    log "Connect to WiFi 'WTSN-Setup' and open http://192.168.4.1/ to enter your WiFi details."
+    log "Connect to WiFi 'HTSN-Setup' and open http://192.168.4.1/ to enter your WiFi details."
 }
 
 # ---------------- TSN endpoint CNC (RPi) ----------------
-# Starts when WTSN_TSN=1 (on the RPi; never on the dev PC). The RPi is the CNC:
+# Starts when HTSN_TSN=1 (on the RPi; never on the dev PC). The RPi is the CNC:
 #   - ptpd grandmaster: the STM32 PTP slave (tsn/ptp.c) syncs to this (PTP v2).
 #   - cnc_opcua server : the WIRED data plane. The STM32 is an OPC UA CLIENT that
 #     writes telemetry and monitors cmd_* variables on this server (opc.tcp :4840).
@@ -241,34 +241,34 @@ start_tsn_cnc() {
     if ! uname -v 2>/dev/null | grep -qiE 'preempt[-_ ]?rt'; then
         log "note: not on a PREEMPT_RT kernel - for lower PTP jitter run:  sudo bash $PROJ_DIR/deploy/enable_preempt_rt.sh"
     fi
-    if command -v ptpd >/dev/null 2>&1 && [ -n "$WTSN_TSN_IFACE" ]; then
+    if command -v ptpd >/dev/null 2>&1 && [ -n "$HTSN_TSN_IFACE" ]; then
         if pgrep -x ptpd >/dev/null 2>&1; then
             log "ptpd grandmaster already running"
-        elif ptpd -i "$WTSN_TSN_IFACE" -f "$PROJ_DIR/rpi-tsn/ptpd.conf" 2>/dev/null; then
-            log "ptpd grandmaster on $WTSN_TSN_IFACE"
+        elif ptpd -i "$HTSN_TSN_IFACE" -f "$PROJ_DIR/rpi-tsn/ptpd.conf" 2>/dev/null; then
+            log "ptpd grandmaster on $HTSN_TSN_IFACE"
         else
-            log "ptpd failed to start (needs root:  sudo ptpd -i $WTSN_TSN_IFACE -f $PROJ_DIR/rpi-tsn/ptpd.conf)"
+            log "ptpd failed to start (needs root:  sudo ptpd -i $HTSN_TSN_IFACE -f $PROJ_DIR/rpi-tsn/ptpd.conf)"
         fi
     else
-        log "ptpd not started (set WTSN_TSN_IFACE=<wired-nic> and install linuxptp to enable the GM)"
+        log "ptpd not started (set HTSN_TSN_IFACE=<wired-nic> and install linuxptp to enable the GM)"
     fi
 
     local bin="$PROJ_DIR/rpi-tsn/cnc_opcua"
     local poller="$PROJ_DIR/rpi-tsn/tsn_opcua_link"
     if [ ! -x "$bin" ]; then
-        log "cnc_opcua not built - build on the RPi:  cd rpi-tsn && make PFX=\$WTSN_O62541_PFX   (open62541 v1.5, -DUA_ENABLE_SUBSCRIBERS=ON)"
+        log "cnc_opcua not built - build on the RPi:  cd rpi-tsn && make PFX=\$HTSN_O62541_PFX   (open62541 v1.5, -DUA_ENABLE_SUBSCRIBERS=ON)"
     else
         pkill -x cnc_opcua 2>/dev/null || true
-        "$bin" < /dev/null > /tmp/wtsn_tsn_cnc.log 2>&1 &
+        "$bin" < /dev/null > /tmp/htsn_tsn_cnc.log 2>&1 &
         disown
-        log "TSN CNC OPC UA server on opc.tcp://$LAN_IP:4840 (log /tmp/wtsn_tsn_cnc.log)"
+        log "TSN CNC OPC UA server on opc.tcp://$LAN_IP:4840 (log /tmp/htsn_tsn_cnc.log)"
         # Poller: one persistent OPC UA client -> JSON file the GUI reads
         # (rpi-tsn/tsn_opcua_link). Default out/url match the GUI's defaults.
         if [ -x "$poller" ]; then
             pkill -x tsn_opcua_link 2>/dev/null || true
-            "$poller" < /dev/null > /tmp/wtsn_tsn_poller.log 2>&1 &
+            "$poller" < /dev/null > /tmp/htsn_tsn_poller.log 2>&1 &
             disown
-            log "TSN OPC UA poller -> ${WTSN_OPCUA_OUT:-/tmp/wtsn_tsn_opcua.json} (log /tmp/wtsn_tsn_poller.log)"
+            log "TSN OPC UA poller -> ${HTSN_OPCUA_OUT:-/tmp/htsn_tsn_opcua.json} (log /tmp/htsn_tsn_poller.log)"
         fi
     fi
 }
@@ -278,7 +278,7 @@ main() {
     ensure_mdns
     ensure_broker
     ensure_gui
-    if [ "$WTSN_TSN" = "1" ]; then
+    if [ "$HTSN_TSN" = "1" ]; then
         start_tsn_cnc
     fi
     log "Done. Broker=$LAN_IP:$MQTT_PORT  GUI=http://127.0.0.1:$GUI_PORT"

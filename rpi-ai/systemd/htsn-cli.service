@@ -1,0 +1,16 @@
+[Unit]
+Description=HTSN CNC controller (htsn-cli)
+After=network-online.target mosquitto.service
+Wants=network-online.target mosquitto.service
+
+[Service]
+EnvironmentFile=/etc/htsn/env
+Type=simple
+User=htsn
+WorkingDirectory=/home/htsn/htsn-configurator
+ExecStart=/home/htsn/htsn-configurator/build/htsn-cli --headless --db /home/htsn/htsn.db --mqtt-host localhost --mqtt-port 1883
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

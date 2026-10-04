@@ -1,4 +1,4 @@
-"""WTSN AI Policy Engine (runs on the Raspberry Pi edge node).
+"""HTSN AI Policy Engine (runs on the Raspberry Pi edge node).
 
 Deterministic decision layer that watches live telemetry from the web GUI
 (sensors, metrics, time-sync state) and reconfigures the TSN domain through
@@ -13,7 +13,7 @@ Active rules:
   R3  E2E control-plane latency too high for a device -> reserve an
       802.1Qcc stream for it (talker -> grandmaster).
 
-Config file JSON, default /home/wtsn/wtsn-ai/policy.json (all keys optional):
+Config file JSON, default /home/htsn/htsn-ai/policy.json (all keys optional):
   {"gui": "http://127.0.0.1:8000",
    "poll_s": 5,
    "r1": {"cooldown_s": 120, "calm_s": 300, "pir_window_s": 60,
@@ -29,7 +29,7 @@ import time
 import urllib.request
 
 BASE = {
-    "gui": os.environ.get("WTSN_AI_GUI", "http://127.0.0.1:8000"),
+    "gui": os.environ.get("HTSN_AI_GUI", "http://127.0.0.1:8000"),
     "poll_s": 5,
     "r1": {"cooldown_s": 120, "calm_s": 300, "pir_window_s": 60,
            "priority": 5, "traffic_class": 3, "bandwidth_kbps": 50000,
@@ -39,16 +39,16 @@ BASE = {
            "vlan_id": 100, "priority": 5, "max_latency_ns": 2000000,
            "max_interval_ns": 200000},
 }
-STATE_PATH = os.path.join(os.path.expanduser("~"), "wtsn-ai", "policy_state.json")
+STATE_PATH = os.path.join(os.path.expanduser("~"), "htsn-ai", "policy_state.json")
 
 
 def log(msg):
-    print("[wtsn-policy] %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
+    print("[htsn-policy] %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
 
 
 def load_cfg():
-    path = os.environ.get("WTSN_AI_POLICY",
-                          os.path.join(os.path.expanduser("~"), "wtsn-ai", "policy.json"))
+    path = os.environ.get("HTSN_AI_POLICY",
+                          os.path.join(os.path.expanduser("~"), "htsn-ai", "policy.json"))
     if os.path.isfile(path):
         try:
             data = json.load(open(path))
@@ -62,8 +62,8 @@ def load_cfg():
     return BASE
 
 
-GUI_USER = os.environ.get("WTSN_WEB_USER", "")
-GUI_PASS = os.environ.get("WTSN_WEB_PASS", "")
+GUI_USER = os.environ.get("HTSN_WEB_USER", "")
+GUI_PASS = os.environ.get("HTSN_WEB_PASS", "")
 
 
 def http_json(url, body=None):

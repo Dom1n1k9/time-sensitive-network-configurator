@@ -1,7 +1,7 @@
-# WTSN Configurator — 5-minute demo script
+# HTSN Configurator — 5-minute demo script
 
 Run from the Pi in **Simulation mode**. Credentials (GUI / MQTT / Tailscale):
-`/home/dominik/Documents/wtsn-site-credentials.txt` (PC) — never put them here.
+`/home/dominik/Documents/htsn-site-credentials.txt` (PC) — never put them here.
 
 - GUI: `http://rpi:8000` or `http://192.168.1.248:8000`
 - Seeded state: 7 devices, all deployed; QoS on 3; VLAN 100 "Cameras"; 2 TAS
@@ -17,7 +17,7 @@ Run from the Pi in **Simulation mode**. Credentials (GUI / MQTT / Tailscale):
 
 Open the GUI. Header shows the **SIM** badge; Devices lists 7 online nodes.
 
-> "This is the WTSN Configurator running on the Raspberry Pi edge node.
+> "This is the HTSN Configurator running on the Raspberry Pi edge node.
 > Right now it simulates a 7-device TSN fleet; in real mode the exact same
 > GUI talks to physical ESP32 agents over MQTT — nothing else changes."
 
@@ -114,9 +114,9 @@ Open the GUI. Header shows the **SIM** badge; Devices lists 7 online nodes.
 
 ```bash
 # services (all must be active)
-systemctl is-active mosquitto wtsn-cli wtsn-webgui wtsn-ai wtsn-policy wtsn-llm tailscaled
+systemctl is-active mosquitto htsn-cli htsn-webgui htsn-ai htsn-policy htsn-llm tailscaled
 # re-seed the demo state (walkthrough script on the PC at /tmp/opencode/walkthrough.py,
 # scp it to the Pi and: python3 /tmp/walkthrough.py)
 # journal for a service
-journalctl -u wtsn-webgui -n 50 --no-pager
+journalctl -u htsn-webgui -n 50 --no-pager
 ```

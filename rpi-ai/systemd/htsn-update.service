@@ -1,0 +1,12 @@
+[Unit]
+Description=HTSN auto-update (git pull + rebuild + restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=htsn
+EnvironmentFile=/etc/htsn/env
+WorkingDirectory=/home/htsn/htsn-ai
+ExecStart=/home/htsn/htsn-ai/update.sh
+TimeoutStartSec=10min

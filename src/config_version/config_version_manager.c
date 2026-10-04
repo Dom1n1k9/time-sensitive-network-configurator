@@ -19,10 +19,10 @@
 
 #define CFG_PAYLOAD_MAX 65536
 
-struct wtsn_config_version_manager {
-    wtsn_db *db;
-    wtsn_event_bus *bus;
-    wtsn_model model;
+struct htsn_config_version_manager {
+    htsn_db *db;
+    htsn_event_bus *bus;
+    htsn_model model;
 };
 
 static void append_field(char *buf, size_t cap, const char *fmt, ...) {
@@ -35,25 +35,25 @@ static void append_field(char *buf, size_t cap, const char *fmt, ...) {
 
 /* ---- serialization ------------------------------------------------------ */
 
-static int collect_vlan(const wtsn_vlan_group *g, void *ud) {
+static int collect_vlan(const htsn_vlan_group *g, void *ud) {
     char *buf = (char *)ud;
     append_field(buf, CFG_PAYLOAD_MAX, "vlan:%s:%d ", g->id, g->vlan_id);
     return 0;
 }
 
-static int collect_vlan_member(const wtsn_vlan_member *m, void *ud) {
+static int collect_vlan_member(const htsn_vlan_member *m, void *ud) {
     char *buf = (char *)ud;
     append_field(buf, CFG_PAYLOAD_MAX, "vmem:%s:%s ", m->group_id, m->device_id);
     return 0;
 }
 
-static void collect_device(const wtsn_device *d, void *ud) {
+static void collect_device(const htsn_device *d, void *ud) {
     char *buf = (char *)ud;
     append_field(buf, CFG_PAYLOAD_MAX, "device:%s:kind=%s:domain=%s ", d->id,
-                 wtsn_device_kind_str(d->kind), d->domain[0] ? d->domain : "default");
+                 htsn_device_kind_str(d->kind), d->domain[0] ? d->domain : "default");
 }
 
-static int collect_stream(const wtsn_stream *s, void *ud) {
+static int collect_stream(const htsn_stream *s, void *ud) {
     char *buf = (char *)ud;
     append_field(buf, CFG_PAYLOAD_MAX, "stream:%s:%s:vlan=%d:prio=%d:lat=%lld:iv=%lld:st=%d ",
                 s->stream_id, s->talker, s->vlan_id, s->priority,
@@ -66,7 +66,7 @@ static int collect_stream(const wtsn_stream *s, void *ud) {
     return 0;
 }
 
-static int collect_tas(const wtsn_tas_schedule *s, void *ud) {
+static int collect_tas(const htsn_tas_schedule *s, void *ud) {
     char *buf = (char *)ud;
     append_field(buf, CFG_PAYLOAD_MAX, "tas:%s:cycle=%lld:tgt=%s ",
                  s->id, (long long)s->cycle_time_ns, s->deploy_target);
@@ -78,14 +78,14 @@ static int collect_tas(const wtsn_tas_schedule *s, void *ud) {
     return 0;
 }
 
-static void serialize_global(wtsn_config_version_manager *m, char *out, size_t cap) {
+static void serialize_global(htsn_config_version_manager *m, char *out, size_t cap) {
     out[0] = '\0';
     sqlite3_stmt *st = NULL;
-    wtsn_db_device_for_each(m->db, collect_device, out);
-    wtsn_db_vlan_group_for_each(m->db, collect_vlan, out);
-    wtsn_db_vlan_member_for_each_all(m->db, collect_vlan_member, out);
-    wtsn_db_tsn_for_each(m->db, collect_stream, out);
-    wtsn_db_tas_for_each(m->db, collect_tas, out);
+    htsn_db_device_for_each(m->db, collect_device, out);
+    htsn_db_vlan_group_for_each(m->db, collect_vlan, out);
+    htsn_db_vlan_member_for_each_all(m->db, collect_vlan_member, out);
+    htsn_db_tsn_for_each(m->db, collect_stream, out);
+    htsn_db_tas_for_each(m->db, collect_tas, out);
     if (sqlite3_prepare_v2(m->db->handle,
         "SELECT device_id,priority,bandwidth_kbps,latency_ms,preemption FROM qos_configs;",
         -1, &st, NULL) == SQLITE_OK) {
@@ -101,7 +101,7 @@ static void serialize_global(wtsn_config_version_manager *m, char *out, size_t c
                 "preemption", "", "");
 }
 
-static void serialize_device(wtsn_config_version_manager *m, const char *device_id,
+static void serialize_device(htsn_config_version_manager *m, const char *device_id,
                           char *out, size_t cap) {
     out[0] = '\0';
     sqlite3_stmt *st = NULL;
@@ -135,7 +135,7 @@ static void serialize_device(wtsn_config_version_manager *m, const char *device_
     }
 }
 
-static void serialize_scope(wtsn_config_version_manager *m, const char *device_id, char *out,
+static void serialize_scope(htsn_config_version_manager *m, const char *device_id, char *out,
                           size_t cap) {
     if (device_id && device_id[0]) serialize_device(m, device_id, out, cap);
     else serialize_global(m, out, cap);
@@ -143,12 +143,12 @@ static void serialize_scope(wtsn_config_version_manager *m, const char *device_i
 
 /* ---- restore ----------------------------------------------------------- */
 
-static wtsn_error restore_qos(wtsn_db *db, const char *tdev, int p, int bw, int lat, int pre) {
+static htsn_error restore_qos(htsn_db *db, const char *tdev, int p, int bw, int lat, int pre) {
     sqlite3_stmt *st = NULL;
     if (sqlite3_prepare_v2(db->handle,
         "INSERT OR REPLACE INTO qos_configs(device_id,priority,traffic_class,"
         "bandwidth_kbps,latency_ms,preemption) VALUES(?,?,?,?,?,?);",
-        -1, &st, NULL) != SQLITE_OK) return WTSN_ERR_DB;
+        -1, &st, NULL) != SQLITE_OK) return HTSN_ERR_DB;
     sqlite3_bind_text(st, 1, tdev, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(st, 2, p);
     sqlite3_bind_int(st, 3, p);
@@ -157,10 +157,10 @@ static wtsn_error restore_qos(wtsn_db *db, const char *tdev, int p, int bw, int 
     sqlite3_bind_int(st, 6, pre);
     sqlite3_step(st);
     sqlite3_finalize(st);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-static void exec_del(wtsn_db *db, const char *sql, const char *arg) {
+static void exec_del(htsn_db *db, const char *sql, const char *arg) {
     sqlite3_stmt *st = NULL;
     if (sqlite3_prepare_v2(db->handle, sql, -1, &st, NULL) != SQLITE_OK) return;
     if (arg) sqlite3_bind_text(st, 1, arg, -1, SQLITE_TRANSIENT);
@@ -170,9 +170,9 @@ static void exec_del(wtsn_db *db, const char *sql, const char *arg) {
 
 /* Restore config tables from a version payload token stream. Global rollbacks
  * wipe the config tables first; device-scoped rollbacks wipe only that device. */
-static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *payload,
+static htsn_error restore_payload(htsn_config_version_manager *m, const char *payload,
                                  const char *device_id) {
-    wtsn_db *db = m->db;
+    htsn_db *db = m->db;
     if (device_id && device_id[0]) {
         exec_del(db, "DELETE FROM qos_configs WHERE device_id=?;", device_id);
         exec_del(db, "DELETE FROM vlan_members WHERE device_id=?;", device_id);
@@ -188,8 +188,8 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
     }
 
     char *buf = malloc(CFG_PAYLOAD_MAX);
-    if (!buf) return WTSN_ERR_NO_MEMORY;
-    wtsn_strlcpy(buf, payload ? payload : "", CFG_PAYLOAD_MAX);
+    if (!buf) return HTSN_ERR_NO_MEMORY;
+    htsn_strlcpy(buf, payload ? payload : "", CFG_PAYLOAD_MAX);
     char *save = NULL;
     char *tok = strtok_r(buf, " ", &save);
     sqlite3_stmt *st = NULL;
@@ -201,14 +201,14 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
                            p, bw, lat, pre);
             }
         } else if (strncmp(tok, "qos:", 4) == 0) {
-            char tdev[WTSN_MAX_STR] = "";
+            char tdev[HTSN_MAX_STR] = "";
             int p = 0, bw = 0, lat = 0, pre = 0;
             if (sscanf(tok, "qos:%255[^:]:p=%d:bw=%d:lat=%d:pre=%d",
                        tdev, &p, &bw, &lat, &pre) == 5) {
                 restore_qos(db, tdev, p, bw, lat, pre);
             }
         } else if (strncmp(tok, "vlan:", 5) == 0) {
-            char gid[WTSN_MAX_STR] = "";
+            char gid[HTSN_MAX_STR] = "";
             int vid = 0;
             if (sscanf(tok, "vlan:%255[^:]:%d", gid, &vid) == 2 && gid[0] && vid > 0) {
                 if (sqlite3_prepare_v2(db->handle,
@@ -221,7 +221,7 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
                 }
             }
         } else if (strncmp(tok, "vmem:", 5) == 0) {
-            char gid[WTSN_MAX_STR] = "", dev[WTSN_MAX_STR] = "";
+            char gid[HTSN_MAX_STR] = "", dev[HTSN_MAX_STR] = "";
             if (sscanf(tok, "vmem:%255[^:]:%255[^:]", gid, dev) == 2) {
                 if (sqlite3_prepare_v2(db->handle,
                     "INSERT OR IGNORE INTO vlan_members(group_id,device_id) VALUES(?,?);",
@@ -232,7 +232,7 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
                 }
             }
         } else if (strncmp(tok, "stream:", 7) == 0) {
-            char sid[WTSN_MAX_STR] = "", talker[WTSN_MAX_STR] = "";
+            char sid[HTSN_MAX_STR] = "", talker[HTSN_MAX_STR] = "";
             int vlan = 0, prio = 0, sts = 0;
             long long lat = 0, iv = 0;
             if (sscanf(tok, "stream:%255[^:]:%255[^:]:vlan=%d:prio=%d:lat=%lld:iv=%lld:st=%d",
@@ -254,7 +254,7 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
                 }
             }
         } else if (strncmp(tok, "streammem:", 10) == 0) {
-            char sid[WTSN_MAX_STR] = "", dev[WTSN_MAX_STR] = "";
+            char sid[HTSN_MAX_STR] = "", dev[HTSN_MAX_STR] = "";
             if (sscanf(tok, "streammem:%255[^:]:%255[^:]", sid, dev) == 2) {
                 const char *role = (strcmp(dev, "*") == 0) ? "listener" : "listener";
                 if (sqlite3_prepare_v2(db->handle,
@@ -267,7 +267,7 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
                 }
             }
         } else if (strncmp(tok, "tas:", 4) == 0) {
-            char tid[WTSN_MAX_STR] = "", tgt[WTSN_MAX_STR] = "";
+            char tid[HTSN_MAX_STR] = "", tgt[HTSN_MAX_STR] = "";
             long long cyc = 0;
             if (sscanf(tok, "tas:%255[^:]:cycle=%lld:tgt=%255s", tid, &cyc, tgt) >= 2) {
                 if (sqlite3_prepare_v2(db->handle,
@@ -281,7 +281,7 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
                 }
             }
         } else if (strncmp(tok, "gcl:", 4) == 0) {
-            char tid[WTSN_MAX_STR] = "";
+            char tid[HTSN_MAX_STR] = "";
             int idx = 0, gs = 0;
             long long dur = 0;
             if (sscanf(tok, "gcl:%255[^:]:%d:%d:%lld", tid, &idx, &gs, &dur) == 4) {
@@ -299,57 +299,57 @@ static wtsn_error restore_payload(wtsn_config_version_manager *m, const char *pa
         tok = strtok_r(NULL, " ", &save);
     }
     free(buf);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-wtsn_config_version_manager *wtsn_cfg_ver_manager_create(wtsn_db *db, wtsn_event_bus *bus) {
+htsn_config_version_manager *htsn_cfg_ver_manager_create(htsn_db *db, htsn_event_bus *bus) {
     if (!db || !bus) return NULL;
-    wtsn_config_version_manager *m = calloc(1, sizeof(wtsn_config_version_manager));
+    htsn_config_version_manager *m = calloc(1, sizeof(htsn_config_version_manager));
     if (!m) return NULL;
     m->db = db;
     m->bus = bus;
-    wtsn_model_init(&m->model, WTSN_CONFIG_VERSION_MODEL, bus);
+    htsn_model_init(&m->model, HTSN_CONFIG_VERSION_MODEL, bus);
     return m;
 }
 
-void wtsn_cfg_ver_manager_destroy(wtsn_config_version_manager *m) {
+void htsn_cfg_ver_manager_destroy(htsn_config_version_manager *m) {
     free(m);
 }
 
-wtsn_error wtsn_cfg_ver_snapshot(wtsn_config_version_manager *m, const char *name,
+htsn_error htsn_cfg_ver_snapshot(htsn_config_version_manager *m, const char *name,
                                  const char *device_id) {
-    if (!m || !name) return WTSN_ERR_INVALID_ARG;
+    if (!m || !name) return HTSN_ERR_INVALID_ARG;
     char *buf = malloc(CFG_PAYLOAD_MAX);
-    if (!buf) return WTSN_ERR_NO_MEMORY;
+    if (!buf) return HTSN_ERR_NO_MEMORY;
     serialize_scope(m, device_id, buf, CFG_PAYLOAD_MAX);
-    wtsn_db_config_version_add(m->db, name, device_id ? device_id : "", buf);
+    htsn_db_config_version_add(m->db, name, device_id ? device_id : "", buf);
     free(buf);
-    wtsn_model_notify(&m->model, "changed");
-    return WTSN_OK;
+    htsn_model_notify(&m->model, "changed");
+    return HTSN_OK;
 }
 
-wtsn_error wtsn_cfg_ver_rollback(wtsn_config_version_manager *m, int id) {
-    if (!m) return WTSN_ERR_INVALID_ARG;
-    wtsn_config_version v;
-    if (wtsn_db_config_version_get(m->db, id, &v) != WTSN_OK) return WTSN_ERR_NOT_FOUND;
-    wtsn_error e = restore_payload(m, v.payload, v.device_id);
-    if (e != WTSN_OK) return e;
-    wtsn_model_notify(&m->model, "changed");
-    return WTSN_OK;
+htsn_error htsn_cfg_ver_rollback(htsn_config_version_manager *m, int id) {
+    if (!m) return HTSN_ERR_INVALID_ARG;
+    htsn_config_version v;
+    if (htsn_db_config_version_get(m->db, id, &v) != HTSN_OK) return HTSN_ERR_NOT_FOUND;
+    htsn_error e = restore_payload(m, v.payload, v.device_id);
+    if (e != HTSN_OK) return e;
+    htsn_model_notify(&m->model, "changed");
+    return HTSN_OK;
 }
 
 /* Row-level diff: compare canonical token sets and list the rows that differ. */
-wtsn_error wtsn_cfg_ver_diff(wtsn_config_version_manager *m, int id_a, int id_b,
+htsn_error htsn_cfg_ver_diff(htsn_config_version_manager *m, int id_a, int id_b,
                              char *out, size_t out_size) {
-    if (!m || !out || out_size == 0) return WTSN_ERR_INVALID_ARG;
-    wtsn_config_version a, b;
+    if (!m || !out || out_size == 0) return HTSN_ERR_INVALID_ARG;
+    htsn_config_version a, b;
     memset(&a, 0, sizeof(a));
     memset(&b, 0, sizeof(b));
-    wtsn_db_config_version_get(m->db, id_a, &a);
-    wtsn_db_config_version_get(m->db, id_b, &b);
+    htsn_db_config_version_get(m->db, id_a, &a);
+    htsn_db_config_version_get(m->db, id_b, &b);
     if (strcmp(a.payload, b.payload) == 0) {
         snprintf(out, out_size, "no differences");
-        return WTSN_OK;
+        return HTSN_OK;
     }
 
     /* tokenise into line-per-row and compare */
@@ -382,14 +382,14 @@ wtsn_error wtsn_cfg_ver_diff(wtsn_config_version_manager *m, int id_a, int id_b,
     }
     if (off == 0) snprintf(out, out_size, "versions differ (v%d vs v%d)", id_a, id_b);
     free(pa); free(pb);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-int wtsn_cfg_ver_count(wtsn_config_version_manager *m) {
-    return m ? wtsn_db_config_version_count(m->db) : 0;
+int htsn_cfg_ver_count(htsn_config_version_manager *m) {
+    return m ? htsn_db_config_version_count(m->db) : 0;
 }
 
-void wtsn_cfg_ver_for_each(wtsn_config_version_manager *m, wtsn_db_config_version_cb cb,
+void htsn_cfg_ver_for_each(htsn_config_version_manager *m, htsn_db_config_version_cb cb,
                            void *ud) {
-    if (m) wtsn_db_config_version_for_each(m->db, cb, ud);
+    if (m) htsn_db_config_version_for_each(m->db, cb, ud);
 }

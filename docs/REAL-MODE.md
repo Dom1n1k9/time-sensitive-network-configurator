@@ -1,23 +1,23 @@
-# WTSN Real-Mode Runbook (hardware day)
+# HTSN Real-Mode Runbook (hardware day)
 
 From "ESP32 + relay in hand" to "real device in the GUI, config deployed,
 relay clicking". The Pi is already the complete CNC: broker, C core, web GUI,
 edge AI, local LLM, backups, auto-update.
 
 Credentials (MQTT pass, WiFi PSK, GUI login):
-`/home/dominik/Documents/wtsn-site-credentials.txt` — never paste them here.
+`/home/dominik/Documents/htsn-site-credentials.txt` — never paste them here.
 
 ---
 
 ## 0. Already done (no action needed)
 
 - Pi services all active (verified incl. reboot test):
-  `mosquitto wtsn-cli wtsn-webgui wtsn-ai wtsn-policy wtsn-llm tailscaled`
+  `mosquitto htsn-cli htsn-webgui htsn-ai htsn-policy htsn-llm tailscaled`
 - mosquitto listens on `0.0.0.0:1883`, password auth — a LAN publish from the
   PC was tested OK, so the agent will be able to reach it
 - Firmware built and current (rebuild only if firmware sources changed):
-  - agent: `esp32-agent/build/wtsn_esp32_agent.bin`
-  - cam:   `esp32-cam/build/wtsn_esp32_cam.bin` (optional)
+  - agent: `esp32-agent/build/htsn_esp32_agent.bin`
+  - cam:   `esp32-cam/build/htsn_esp32_cam.bin` (optional)
   - rebuild: `. ~/esp/esp-idf/export.sh && idf.py build` in the project dir
 
 ## 1. Parts
@@ -43,7 +43,7 @@ idf.py -p /dev/ttyUSB0 flash monitor     # adjust /dev/ttyUSB*
 
 ## 3. Provision (first boot only)
 
-1. Board boots with no WiFi in NVS → SoftAP **`WTSN-Setup-<id>`**
+1. Board boots with no WiFi in NVS → SoftAP **`HTSN-Setup-<id>`**
    (unique per board).
 2. Join it from a phone/PC, open **http://192.168.4.1/**.
 3. Fill in:
@@ -53,14 +53,14 @@ idf.py -p /dev/ttyUSB0 flash monitor     # adjust /dev/ttyUSB*
    - WiFi password — from the credentials file
    - MQTT broker host:port — **`192.168.1.248:1883`** (Pi's LAN IP; the board
      cannot use `localhost`)
-   - MQTT user / MQTT password — `wtsn` / from the credentials file
+   - MQTT user / MQTT password — `htsn` / from the credentials file
      (leave empty only for an anonymous broker)
 4. Save → board reboots, joins T-266581, connects to the broker.
 
 Sanity check on the PC:
 
 ```bash
-mosquitto_sub -h 192.168.1.248 -p 1883 -u wtsn -P <pass> -t 'tsn/#' -v
+mosquitto_sub -h 192.168.1.248 -p 1883 -u htsn -P <pass> -t 'tsn/#' -v
 # expect: tsn/discover {…}, then periodic tsn/status heartbeats
 ```
 
@@ -70,8 +70,8 @@ mosquitto_sub -h 192.168.1.248 -p 1883 -u wtsn -P <pass> -t 'tsn/#' -v
   {"mode":"real"}`).
 - **The mode is in-memory only** — after any webgui restart it returns to
   Simulation; flip it again.
-- Real mode uses a **separate database** (`wtsn_gui.db`); the sim demo config
-  (VLAN/QoS/streams seeded in `wtsn_sim.db`) does not carry over. For the
+- Real mode uses a **separate database** (`htsn_gui.db`); the sim demo config
+  (VLAN/QoS/streams seeded in `htsn_sim.db`) does not carry over. For the
   hardware demo, configure directly in real mode (a few QoS rows + a stream is
   enough), or keep it minimal: device → deploy → ping → actor.
 
@@ -84,7 +84,7 @@ mosquitto_sub -h 192.168.1.248 -p 1883 -u wtsn -P <pass> -t 'tsn/#' -v
 4. Add one QoS row (or a stream), then header → **Execute settings on
    controller** → deploy ack; the deploy column goes green
    (`last_deploy_ok=1`).
-5. **OTA round-trip**: Firmware page → upload `wtsn_esp32_agent.bin`
+5. **OTA round-trip**: Firmware page → upload `htsn_esp32_agent.bin`
    (select the real device for kind-compat) → Flash. The agent downloads
    `http://192.168.1.248:8000/fw/<file>`, verifies the **CRC32** against the
    uploaded value, reboots into the new app; firmware version updates in the
@@ -109,9 +109,9 @@ USB          ──> powers the relay's logic section (if present)
 - The GUI actor page is on hold, so drive it directly for the demo:
 
 ```bash
-mosquitto_pub -h 192.168.1.248 -p 1883 -u wtsn -P <pass> \
+mosquitto_pub -h 192.168.1.248 -p 1883 -u htsn -P <pass> \
   -t 'tsn/cmd/esp32-02/actor' -m '1'     # ON  (you should hear it click)
-mosquitto_pub -h 192.168.1.248 -p 1883 -u wtsn -P <pass> \
+mosquitto_pub -h 192.168.1.248 -p 1883 -u htsn -P <pass> \
   -t 'tsn/cmd/esp32-02/actor' -m '0'     # OFF
 ```
 
@@ -160,7 +160,7 @@ Behaviour:
   is reported as a sensor `btn1..btn4` (`tsn/sensors`) so it appears on the
   GUI Sensors page.
 - Set the display text over MQTT:
-  `mosquitto_pub -h <pi> -u wtsn -P <pass> -t tsn/cmd/esp32-02/display -m '{"line1":"LIVE","line2":"OK"}'`
+  `mosquitto_pub -h <pi> -u htsn -P <pass> -t tsn/cmd/esp32-02/display -m '{"line1":"LIVE","line2":"OK"}'`
 - Read a button level: `... -t tsn/cmd/esp32-02/button -m '1'`
 
 There is also a **Display** button per device row in the GUI (Devices page)
@@ -168,7 +168,7 @@ that opens a small dialog to set line1/line2 over MQTT.
 
 ## 8. Factory reset / re-provision
 
-- **Hold BOOT (GPIO0) ~3 s** → NVS erased → back to the `WTSN-Setup` AP.
+- **Hold BOOT (GPIO0) ~3 s** → NVS erased → back to the `HTSN-Setup` AP.
 - Or over MQTT: `tsn/cmd/<id>/factory` payload `1`.
 - Fallback: if a provisioned board cannot reach its saved WiFi, the
   provisioning AP comes back on its own — re-provision without reflashing.
@@ -176,13 +176,13 @@ that opens a small dialog to set line1/line2 over MQTT.
 ## 9. Back to simulation
 
 GUI mode → Simulation. The deterministic 7-device sim fleet resumes on
-`wtsn_sim.db`; the real device's rows live in `wtsn_gui.db` and are untouched.
+`htsn_sim.db`; the real device's rows live in `htsn_gui.db` and are untouched.
 
 ## Troubleshooting
 
 | symptom | check |
 |---------|-------|
-| No `WTSN-Setup` AP | power OK? hold BOOT 3 s (factory reset) to re-enter provisioning |
+| No `HTSN-Setup` AP | power OK? hold BOOT 3 s (factory reset) to re-enter provisioning |
 | Joins WiFi, no MQTT traffic | broker must be the **Pi LAN IP** (192.168.1.248:1883), user/pass correct; watch `mosquitto_sub -t 'tsn/#'` |
 | Device row offline | LWT fired — board lost the broker; check `tsn/status` cadence in Monitor |
 | Deploy fails | read the ack line in Monitor (`tsn/ack/<id>`); confirm the device id matches the command topic |

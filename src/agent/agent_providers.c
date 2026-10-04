@@ -20,7 +20,7 @@
 /* ---------------- Linux / Raspberry Pi adapter ---------------- */
 
 typedef struct {
-    wtsn_mqtt_client *mqtt;
+    htsn_mqtt_client *mqtt;
     char iface[32];
 } linux_state;
 
@@ -35,11 +35,11 @@ static void run(const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(cmd, sizeof(cmd), fmt, ap);
     va_end(ap);
-    wtsn_log(WTSN_LOG_INFO, "exec: %s", cmd);
-    if (system(cmd) != 0) wtsn_log(WTSN_LOG_WARN, "command failed: %s", cmd);
+    htsn_log(HTSN_LOG_INFO, "exec: %s", cmd);
+    if (system(cmd) != 0) htsn_log(HTSN_LOG_WARN, "command failed: %s", cmd);
 }
 
-static wtsn_error linux_apply_qos(void *state, int priority, int tc, int bw, int lat, int preempt) {
+static htsn_error linux_apply_qos(void *state, int priority, int tc, int bw, int lat, int preempt) {
     (void)state;
     (void)lat; (void)preempt;
     if (bw > 0) {
@@ -48,18 +48,18 @@ static wtsn_error linux_apply_qos(void *state, int priority, int tc, int bw, int
     }
     run("tc qdisc add dev %s parent 1:1 handle 10: prio", "wlan0");
     (void)priority; (void)tc;
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-static wtsn_error linux_apply_vlan(void *state, int vlan_id, const char *group) {
+static htsn_error linux_apply_vlan(void *state, int vlan_id, const char *group) {
     (void)state;
     (void)group;
     run("ip link add link %s name vlan%d type vlan id %d 2>/dev/null || true", "wlan0", vlan_id, vlan_id);
     run("ip link set vlan%d up", vlan_id);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-static wtsn_error linux_apply_timesync(void *state, int mode, const char *gm) {
+static htsn_error linux_apply_timesync(void *state, int mode, const char *gm) {
     linux_state *ls = (linux_state *)state;
     (void)gm;
     /* mode: 0 disabled, 1 local GM, 2 external GM, 3 auto */
@@ -69,24 +69,24 @@ static wtsn_error linux_apply_timesync(void *state, int mode, const char *gm) {
         run("pkill -f ptp4l");
         run("ptp4l -i %s -m -f /etc/linuxptp/gptp_master.cfg &", ls->iface);
         run("phc2sys -s %s -c CLOCK_REALTIME -O 0 -w &", ls->iface);
-        wtsn_log(WTSN_LOG_INFO, "linux gPTP: this node = grandmaster (ptp4l master)");
+        htsn_log(HTSN_LOG_INFO, "linux gPTP: this node = grandmaster (ptp4l master)");
     } else if (mode == 2 || mode == 3) {
         /* slave: follow the external master */
         run("pkill -f ptp4l");
         run("ptp4l -i %s -m -s -f /etc/linuxptp/gptp.cfg &", ls->iface);
         run("phc2sys -s CLOCK_REALTIME -c %s -O 0 -w &", ls->iface);
-        wtsn_log(WTSN_LOG_INFO, "linux gPTP: slave mode (follow master via ptp4l %s)", opt);
+        htsn_log(HTSN_LOG_INFO, "linux gPTP: slave mode (follow master via ptp4l %s)", opt);
     } else {
         run("pkill -f ptp4l; pkill -f phc2sys");
-        wtsn_log(WTSN_LOG_INFO, "linux gPTP disabled");
+        htsn_log(HTSN_LOG_INFO, "linux gPTP disabled");
     }
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-static wtsn_error linux_apply_tas(void *state, int64_t cycle_ns,
-                                const wtsn_gcl_entry *gcl, int entries) {
+static htsn_error linux_apply_tas(void *state, int64_t cycle_ns,
+                                const htsn_gcl_entry *gcl, int entries) {
     linux_state *ls = (linux_state *)state;
-    if (entries <= 0) return WTSN_ERR_INVALID_ARG;
+    if (entries <= 0) return HTSN_ERR_INVALID_ARG;
     char gcl_str[512] = {0};
     for (int i = 0; i < entries && i < 8; i++) {
         /* gcl entry -> "gate[duration_ns]" ; gate_state bit0 = open */
@@ -103,53 +103,53 @@ static wtsn_error linux_apply_tas(void *state, int64_t cycle_ns,
              ls->iface, (long)cycle_ns / 2, (long)cycle_ns / 4, (long)cycle_ns / 4);
     (void)gcl_str;
     run("%s", cmd);
-    wtsn_log(WTSN_LOG_INFO, "linux TAS: taprio applied on %s cycle=%lld ns (%d GCL entries)",
+    htsn_log(HTSN_LOG_INFO, "linux TAS: taprio applied on %s cycle=%lld ns (%d GCL entries)",
              ls->iface, (long long)cycle_ns, entries);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-static wtsn_error linux_read_sensors(void *state) {
+static htsn_error linux_read_sensors(void *state) {
     (void)state;
     /* read /sys/class/thermal or IMU if on the Pi; abstract here */
     run("cat /sys/class/thermal/thermal_zone0/temp");
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-static wtsn_error linux_send(void *state, const char *topic, const unsigned char *data, size_t len) {
+static htsn_error linux_send(void *state, const char *topic, const unsigned char *data, size_t len) {
     linux_state *ls = (linux_state *)state;
-    if (!ls || !topic) return WTSN_ERR_INVALID_ARG;
+    if (!ls || !topic) return HTSN_ERR_INVALID_ARG;
     if (!ls->mqtt) {
-        wtsn_log(WTSN_LOG_WARN, "linux_send: no mqtt client connected, dropping %s", topic);
-        return WTSN_ERR_NOT_READY;
+        htsn_log(HTSN_LOG_WARN, "linux_send: no mqtt client connected, dropping %s", topic);
+        return HTSN_ERR_NOT_READY;
     }
     /* Publish via the established MQTT client. The payload is arbitrary binary
      * data, so copy it into a NUL-terminated buffer (MQTT payloads are byte
      * strings; this publish API takes a C string). */
     char *buf = malloc(len + 1);
-    if (!buf) return WTSN_ERR_NO_MEMORY;
+    if (!buf) return HTSN_ERR_NO_MEMORY;
     if (data && len) memcpy(buf, data, len);
     buf[len] = '\0';
-    wtsn_error e = wtsn_mqtt_client_publish(ls->mqtt, topic, buf);
+    htsn_error e = htsn_mqtt_client_publish(ls->mqtt, topic, buf);
     free(buf);
-    if (e != WTSN_OK) {
-        wtsn_log(WTSN_LOG_WARN, "linux_send: publish %s failed (%d)", topic, (int)e);
+    if (e != HTSN_OK) {
+        htsn_log(HTSN_LOG_WARN, "linux_send: publish %s failed (%d)", topic, (int)e);
         return e;
     }
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
 /* FX over MQTT: send a dataset into the C2C field exchange. */
-wtsn_error agt_linux_send_fx_multicast(void *state, const char *group,
+htsn_error agt_linux_send_fx_multicast(void *state, const char *group,
                                       const unsigned char *data, size_t len) {
     (void)state;
-    if (!group) return WTSN_ERR_INVALID_ARG;
+    if (!group) return HTSN_ERR_INVALID_ARG;
 #ifdef _WIN32
     (void)data; (void)len;
-    return WTSN_ERR_NOT_IMPLEMENTED;
+    return HTSN_ERR_NOT_IMPLEMENTED;
 #else
     /* real POSIX multicast send */
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) return WTSN_ERR_IO;
+    if (fd < 0) return HTSN_ERR_IO;
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
@@ -157,19 +157,19 @@ wtsn_error agt_linux_send_fx_multicast(void *state, const char *group,
     if (inet_pton(AF_INET, group, &sin.sin_addr) != 1 ||
         !IN_MULTICAST(ntohl(sin.sin_addr.s_addr))) {
         close(fd);
-        return WTSN_ERR_INVALID_ARG;
+        return HTSN_ERR_INVALID_ARG;
     }
     unsigned char ttl = 1;
     setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
     ssize_t n = sendto(fd, data, len, 0, (struct sockaddr *)&sin, sizeof(sin));
     close(fd);
-    return n >= 0 ? WTSN_OK : WTSN_ERR_IO;
+    return n >= 0 ? HTSN_OK : HTSN_ERR_IO;
 #endif
 }
 
-static wtsn_error linux_init(void *state) {
+static htsn_error linux_init(void *state) {
     (void)state;
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
 static void linux_destroy(void *state) {
@@ -191,7 +191,7 @@ agent_platform_ops agt_linux_ops(void) {
     return ops;
 }
 
-void *agt_linux_state_create(wtsn_mqtt_client *mqtt) {
+void *agt_linux_state_create(htsn_mqtt_client *mqtt) {
     linux_state *s = calloc(1, sizeof(linux_state));
     if (!s) return NULL;
     s->mqtt = mqtt;
@@ -215,38 +215,38 @@ static const char *embedded_name(void *state) {
     }
 }
 
-static wtsn_error emb_apply_qos(void *st, int p, int t, int b, int l, int pr) {
+static htsn_error emb_apply_qos(void *st, int p, int t, int b, int l, int pr) {
     (void)p; (void)t; (void)b; (void)l; (void)pr;
-    wtsn_log(WTSN_LOG_INFO, "[%s] qos applied (embedded adapter)",
+    htsn_log(HTSN_LOG_INFO, "[%s] qos applied (embedded adapter)",
              embedded_name(st));
-    return WTSN_OK;
+    return HTSN_OK;
 }
-static wtsn_error emb_apply_vlan(void *st, int vid, const char *g) {
+static htsn_error emb_apply_vlan(void *st, int vid, const char *g) {
     (void)vid; (void)g;
-    wtsn_log(WTSN_LOG_INFO, "[%s] vlan applied (embedded adapter)", embedded_name(st));
-    return WTSN_OK;
+    htsn_log(HTSN_LOG_INFO, "[%s] vlan applied (embedded adapter)", embedded_name(st));
+    return HTSN_OK;
 }
-static wtsn_error emb_apply_timesync(void *st, int mode, const char *gm) {
+static htsn_error emb_apply_timesync(void *st, int mode, const char *gm) {
     (void)mode; (void)gm;
-    wtsn_log(WTSN_LOG_INFO, "[%s] timesync applied (embedded adapter)", embedded_name(st));
-    return WTSN_OK;
+    htsn_log(HTSN_LOG_INFO, "[%s] timesync applied (embedded adapter)", embedded_name(st));
+    return HTSN_OK;
 }
-static wtsn_error emb_apply_tas(void *st, int64_t cycle, const wtsn_gcl_entry *gcl, int entries) {
+static htsn_error emb_apply_tas(void *st, int64_t cycle, const htsn_gcl_entry *gcl, int entries) {
     (void)cycle; (void)gcl; (void)entries;
-    wtsn_log(WTSN_LOG_INFO, "[%s] tas/gcl applied (embedded adapter)", embedded_name(st));
-    return WTSN_OK;
+    htsn_log(HTSN_LOG_INFO, "[%s] tas/gcl applied (embedded adapter)", embedded_name(st));
+    return HTSN_OK;
 }
-static wtsn_error emb_read_sensors(void *st) {
-    wtsn_log(WTSN_LOG_INFO, "[%s] sensor read (embedded adapter)", embedded_name(st));
-    return WTSN_OK;
+static htsn_error emb_read_sensors(void *st) {
+    htsn_log(HTSN_LOG_INFO, "[%s] sensor read (embedded adapter)", embedded_name(st));
+    return HTSN_OK;
 }
-static wtsn_error emb_send(void *st, const char *topic, const unsigned char *data, size_t len) {
+static htsn_error emb_send(void *st, const char *topic, const unsigned char *data, size_t len) {
     (void)topic; (void)data; (void)len;
-    return WTSN_ERR_NOT_IMPLEMENTED;
+    return HTSN_ERR_NOT_IMPLEMENTED;
 }
-static wtsn_error emb_init(void *st) {
+static htsn_error emb_init(void *st) {
     (void)st;
-    return WTSN_OK;
+    return HTSN_OK;
 }
 static void emb_destroy(void *st) { free((embedded_state *)st); }
 

@@ -1,4 +1,4 @@
-/* wtsn-tsn endpoint peripheral overlay — Nucleo-F767ZI (Zephyr).
+/* htsn-tsn endpoint peripheral overlay — Nucleo-F767ZI (Zephyr).
  *
  * The board DTS (boards/st/nucleo_f7/nucleo_f767zi.dts) provides the base
  * (UART, I2C2, the Ethernet MAC + LAN8742A PHY, GPIO controllers, timers).
@@ -16,15 +16,15 @@
 
 / {
 	aliases {
-		wtsn-console = &usart6;
+		htsn-console = &usart6;
 	};
 	chosen {
 		zephyr,console = &usart6;
 	};
 
 	/* Logical actuator wiring. C code reads these via GPIO_DT_SPEC_GET(). */
-	wtsn_actuators: wtsn-actuators {
-		compatible = "wtsn,actuators";
+	htsn_actuators: htsn-actuators {
+		compatible = "htsn,actuators";
 
 		/* HC-SR04 sonar */
 		sonar-trig-gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;

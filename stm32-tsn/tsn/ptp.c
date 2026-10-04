@@ -1,10 +1,10 @@
-/* wtsn-tsn time sync: PTP v2 (IEEE 1588-2008) slave over UDP (Zephyr sockets).
+/* htsn-tsn time sync: PTP v2 (IEEE 1588-2008) slave over UDP (Zephyr sockets).
  *
  * The RPi/CNC runs ptpd as the grandmaster on the same NIC. This endpoint is a
  * boundary-clock TIME-SOURCE CLIENT: it receives SYNC/FOLLOW_UP (2-step GM) or a
  * 1-step SYNC, replies with DELAY_REQ, receives DELAY_RESP, and steers a local
  * high-resolution clock (DWT, mapped by SystemCoreClock) to track the GM.
- * wtsn_ptp_time_ns() returns a network-referenced ns time base shared with the
+ * htsn_ptp_time_ns() returns a network-referenced ns time base shared with the
  * CNC.
  *
  * Clock model: local ns = raw_ns() (DWT, since boot) + C, where C is the
@@ -17,9 +17,9 @@
  */
 #include "ptp.h"
 
-#include "wtsn_config.h"
-#include "wtsn_port.h"
-#include "wtsn_net.h"
+#include "htsn_config.h"
+#include "htsn_port.h"
+#include "htsn_net.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/cmsis.h>      /* DWT, SystemCoreClock */
@@ -69,9 +69,9 @@ static uint64_t raw_ns(void)
 	return (cycles * 1000000000ULL) / SystemCoreClock;
 }
 
-uint64_t wtsn_ptp_time_ns(void) { return raw_ns() + g_c_ns; }
-bool     wtsn_ptp_is_locked(void) { return g_locked; }
-int64_t  wtsn_ptp_offset_ns(void) { return g_last_offset_ns; }
+uint64_t htsn_ptp_time_ns(void) { return raw_ns() + g_c_ns; }
+bool     htsn_ptp_is_locked(void) { return g_locked; }
+int64_t  htsn_ptp_offset_ns(void) { return g_last_offset_ns; }
 
 /* ---- PTP v2 accessors (RFC 5905) over the UDP payload ---- */
 static uint8_t  ptp_type(const uint8_t *b)      { return b[1]; }
@@ -131,7 +131,7 @@ static uint64_t send_delay_req(void)
 	m[6] = (uint8_t)((PTP_HDR_LEN >> 8) & 0xFF);
 	m[7] = (uint8_t)(PTP_HDR_LEN & 0xFF);
 	m[10] = g_domain;
-	ptp_write_hdr_time(m, wtsn_ptp_time_ns());   /* O = current PTP time */
+	ptp_write_hdr_time(m, htsn_ptp_time_ns());   /* O = current PTP time */
 	uint64_t s3 = raw_ns();
 	if (g_ev_sock >= 0 && g_gm_known)
 		sendto(g_ev_sock, m, PTP_HDR_LEN, 0, (struct sockaddr *)&g_gm, sizeof(g_gm));
@@ -226,14 +226,14 @@ static void ptp_task_fn(void *a, void *b, void *c)
 			iters = 0;
 			char st[72];
 			snprintf(st, sizeof(st), "{\"offset_ns\":%lld,\"jitter_ns\":0,\"state\":%d}",
-			         (long long)wtsn_ptp_offset_ns(), wtsn_ptp_is_locked() ? 0 : 2);
-			wtsn_net_publish_telemetry("ptp", st);
+			         (long long)htsn_ptp_offset_ns(), htsn_ptp_is_locked() ? 0 : 2);
+			htsn_net_publish_telemetry("ptp", st);
 		}
 		k_msleep(1);
 	}
 }
 
-int wtsn_ptp_init(void)
+int htsn_ptp_init(void)
 {
 	g_c_ns = 0;
 	k_thread_create(&ptp_thread, ptp_stack, K_THREAD_STACK_SIZEOF(ptp_stack),

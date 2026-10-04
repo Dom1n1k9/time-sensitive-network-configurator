@@ -7,15 +7,15 @@
  * old raw USART6 _write() retarget is gone.
  */
 #include "board.h"
-#include "wtsn_port.h"
+#include "htsn_port.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/cmsis.h>              /* DWT, CoreDebug, SystemCoreClock, NVIC_SystemReset */
 #include <zephyr/drivers/gpio.h>
 
-#define WTSN_ACT DT_NODELABEL(wtsn_actuators)
-static const struct gpio_dt_spec led_hb = GPIO_DT_SPEC_GET(WTSN_ACT, led_hb_gpios);
+#define HTSN_ACT DT_NODELABEL(htsn_actuators)
+static const struct gpio_dt_spec led_hb = GPIO_DT_SPEC_GET(HTSN_ACT, led_hb_gpios);
 
 void board_dwt_init(void)
 {
@@ -24,19 +24,19 @@ void board_dwt_init(void)
 	DWT->CTRL  |= DWT_CTRL_CYCCNTENA_Msk;            /* start the cycle counter */
 }
 
-uint64_t wtsn_now_us(void)
+uint64_t htsn_now_us(void)
 {
 	return (uint64_t)((DWT->CYCCNT * 1000000ULL) / SystemCoreClock);
 }
 
-void wtsn_delay_us(uint32_t us)
+void htsn_delay_us(uint32_t us)
 {
 	uint32_t cycles = (uint32_t)((uint64_t)us * SystemCoreClock / 1000000u);
 	uint32_t start = DWT->CYCCNT;
 	while ((uint32_t)(DWT->CYCCNT - start) < cycles) { /* busy-wait */ }
 }
 
-void wtsn_reset(void)
+void htsn_reset(void)
 {
 	NVIC_SystemReset();
 }

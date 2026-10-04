@@ -1,0 +1,1346 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>HTSN Configurator</title>
+<style>
+:root{--bg:#0e0e16;--surf:#161622;--surf2:#1e1e2c;--pri:#4C8DFF;--sec:#2f9ee6;--ok:#31C96B;--warn:#FFC94A;--err:#FF5F56;--text:#E8E8F0;--dim:#8a8aa0;--border:#2a2a3a}
+*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:14px;padding:0 16px;height:54px;background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0}
+header .logo{font-weight:700;font-size:16px;color:var(--pri)}
+header .sub{color:var(--dim);font-size:12px}
+.execbtn{margin-left:16px;padding:8px 14px;background:var(--pri);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+.execbtn:hover{filter:brightness(1.1)}
+.spacer{flex:1}
+.muted{color:var(--dim);font-size:13px}
+.mode{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.mode button{padding:7px 14px;background:none;color:var(--dim);border:none;cursor:pointer;font-size:13px}
+.mode button.on{background:var(--pri);color:#fff}
+.wrap{display:flex;flex:1;overflow:hidden}
+nav{width:200px;background:var(--surf);border-right:1px solid var(--border);padding:8px 0;overflow:auto;flex-shrink:0}
+nav button{display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--dim);text-align:left;font-size:14px;cursor:pointer}
+nav button.on{color:var(--text);background:var(--surf2);border-left:3px solid var(--pri)}
+.navgroup{margin-bottom:4px}
+.navtitle{color:var(--sec);font-size:11px;font-weight:700;letter-spacing:.04em;padding:10px 14px 4px;text-transform:uppercase}
+main{flex:1;overflow:auto;padding:18px;padding-bottom:140px}
+button.big{width:100%;font-size:14px;padding:11px;background:var(--sec);color:#04121c;font-weight:700}
+label.ck{width:auto;display:inline-flex;align-items:center;gap:4px;margin:4px 8px 0 0;color:var(--text)}
+label.ck input{width:auto}
+h2{margin:0 0 12px;font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--surf)}
+.stat .l{color:var(--dim);font-size:12px}
+.stat .v{font-size:26px;margin-top:4px;color:var(--ok)}
+.card{border:1px solid var(--border);border-radius:10px;background:var(--surf);padding:14px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:15px}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
+label{color:var(--dim);font-size:12px;width:120px;flex-shrink:0}
+input,select{background:var(--surf2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px}
+input[type=number]{width:100px}
+button{background:var(--pri);color:#fff;border:none;border-radius:6px;padding:7px 12px;cursor:pointer}
+button.danger{background:#8a0000}button.ghost{background:none;color:var(--dim);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1px solid var(--border);padding:6px;text-align:left}th{color:var(--dim)}
+#toast{position:fixed;bottom:18px;right:18px;background:var(--surf2);border:1px solid var(--sec);padding:10px 14px;border-radius:8px;display:none;z-index:50}
+.monrow{display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);font-family:ui-monospace,monospace;font-size:12px}
+.monrow .t{color:var(--dim);width:70px}.monrow .s{color:var(--sec);width:110px}.monrow .ip{color:var(--dim);width:130px;font-family:ui-monospace,monospace}.monrow .pro{color:var(--ok);width:170px;font-weight:700}
+.gclbox{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px}
+.gclrow{display:flex;align-items:center;gap:8px;margin:3px 0}
+.gq{width:22px;color:var(--dim);font-size:11px;text-align:right;flex-shrink:0}
+.gcllegend{color:var(--dim);font-size:11px;margin-top:8px;word-break:break-all}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.sensor-big{margin:10px 0}
+.sensor-big h4{margin:0 0 8px;font-size:14px}
+.sensor-grid{display:grid;grid-template-columns:1fr;gap:12px;margin:8px 0}
+@media(min-width:900px){.sensor-grid{grid-template-columns:1fr 1fr}}
+.chip{display:inline-block;background:var(--surf2);border:1px solid var(--border);padding:2px 8px;border-radius:14px;font-size:12px;color:var(--dim);margin:0 4px 4px 0}
+.chip b{color:var(--text);font-weight:600}
+.chip.det{border-color:var(--err);color:var(--err)}
+.chip.det b{color:var(--err)}
+.badge.ok{color:#04190b;background:var(--ok)}.badge.warn{color:#241c00;background:var(--warn)}.badge.err{color:#fff;background:var(--err)}.badge.dim{color:var(--text);background:var(--border)}
+code{background:var(--surf2);padding:1px 5px;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;color:var(--sec)}
+ul{padding-left:20px}.card p{margin:6px 0}.card li{margin:3px 0}
+/* ---- Architecture / Node-RED style diagram ---- */
+#archSvg{position:absolute;top:0;left:0;pointer-events:none;z-index:0}
+.arch-node{position:absolute;min-width:170px;max-width:220px;border:1px solid var(--border);border-radius:10px;background:var(--surf);padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:2;font-size:12px;transition:border-color .3s,box-shadow .3s}
+.arch-node:hover{border-color:var(--sec);box-shadow:0 0 0 1px var(--sec),0 4px 14px rgba(0,0,0,.5);z-index:5}
+.arch-node .ah{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+.arch-node .ah .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.arch-node .asub{color:var(--dim);font-size:11px;margin-top:2px;word-break:break-word}
+.arch-node .apwr{margin-top:4px;font-size:10px;color:var(--dim);letter-spacing:.02em}
+.arch-node .aval{margin-top:3px;font-size:11px;color:var(--ok)}
+.arch-node .atsn{margin-top:3px;display:flex;flex-wrap:wrap;gap:3px}
+.arch-node.plug .atsn,.arch-node.plug .aval{display:none;cursor:none}
+.arch-node.plug .ah{margin-bottom:4px}
+.arch-node .achip{font-size:9px;background:var(--surf2);border:1px solid var(--border);padding:1px 5px;border-radius:8px;color:var(--dim)}
+.arch-node.cnc{border-color:var(--pri)}.arch-node.broker{border-color:var(--sec)}
+.arch-node.radio{border-color:var(--warn)}.arch-node.esp{border-color:#5a5a7a}
+.arch-node.esp .ah{color:var(--ok)}.arch-node.cam .ah{color:var(--warn)}
+.arch-node.host .ah{color:var(--dim)}
+.arch-node.sensor{background:var(--surf2);min-width:150px;padding:7px 9px;border-style:dashed}
+.arch-node.sensor .ah{font-size:12px;font-weight:600;color:var(--sec)}
+.arch-node.offline{opacity:.55;filter:grayscale(.5)}
+.arch-link{stroke:var(--dim);stroke-width:1.4;fill:none}
+.arch-link.active{stroke:var(--ok);stroke-width:2}
+.arch-link.hot{stroke:var(--sec)}
+.arch-linkpts{fill:var(--dim)}
+.port{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--dim);border:1px solid var(--bg);z-index:3}
+.port.o{right:-5px;top:50%;margin-top:-4px;cursor:crosshair}
+.port.i{left:-5px;top:50%;margin-top:-4px}
+.pwr{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--warn);z-index:3;border:1px solid var(--bg)}
+.pwr.l{left:-4px;top:22%}.pwr.r{right:-4px;top:22%}
+.arch-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px}
+.arch-flow .card{margin:0}
+.arch-flow ol{margin:0;padding-left:18px}
+.arch-flow li{font-size:12px;margin:3px 0;color:var(--text)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--dim);margin-bottom:6px}
+.legend .l{display:inline-flex;align-items:center;gap:5px}
+.legend .sw{width:18px;height:3px;border-radius:2px;display:inline-block}
+#archOv{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90}
+#archOv .box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--surf);border:1px solid var(--sec);border-radius:10px;padding:16px;min-width:320px;max-width:560px;max-height:70vh;overflow:auto}
+#archOv .box h3{margin:0 0 8px;font-size:14px}
+#archOv .box .kv{display:flex;gap:6px;margin:3px 0;font-size:12px}
+#archOv .box .kv b{width:110px;color:var(--dim);font-weight:600}
+@keyframes dashmove{to{stroke-dashoffset:-18}}
+.arch-link.anim{stroke-dasharray:6 6;animation:dashmove .8s linear infinite}
+.arch-link.xmqtt{stroke:var(--sec)}.arch-link.xfx{stroke:var(--ok);stroke-width:2}
+.arch-link.xradio{stroke:var(--warn);stroke-dasharray:2 3}
+.arch-link.xptp{stroke:#b45cff}.arch-link.xstream{stroke:#ff9d5c;stroke-width:2.4}
+.arch-link.xbus{stroke:#8a8aa0;stroke-width:1}
+/* ---- pan/zoom viewport ---- */
+.arch-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.arch-toolbar button{padding:3px 10px;font-size:14px}
+.arch-toolbar .spacer{flex:1}
+.arch-viewport{position:relative;overflow:hidden;height:600px;background:
+ radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+ background-size:22px 22px;border:1px solid var(--border);border-radius:8px;cursor:grab;touch-action:none}
+.arch-viewport.grabbing{cursor:grabbing}
+.arch-canvas{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+.arch-canvas svg{position:absolute;top:0;left:0;pointer-events:none}
+#archNodes{position:absolute;top:0;left:0}
+</style></head><body>
+<header><span class="logo">HTSN Configurator</span><span class="sub">Heterogeneous TSN control plane</span>
+<select id="execScope" onchange="execAll()" style="margin-left:12px;background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px" title="Scope the deploy to a TSN domain (physical 802.11 cell)"><option value="">All domains</option></select>
+<button class="execbtn" onclick="execAll()">Execute settings on controller</button>
+<div class="spacer"></div>
+ <span id="modeBadge" class="badge" title="Real mode — simulation mode has been removed" style="background:var(--ok);color:#fff">Real</span>
+ <span id="bkBadge" class="badge" style="display:none"></span>
+</header>
+<div class="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<div id="toast"></div>
+<script>
+const NAV=[["System",[["devices","Devices"],["recordings","Recordings"],["monitor","Monitor"],["metrics","Metrics"],["sensors","Sensors"],["tsn","TSN Endpoint"],["assistant","AI Assistant"],["architecture","Architecture"]]],["OPC UA FX over MQTT",[["fxmqtt","FXMQTT Config"]]],["IEEE 802.1AS",[["timesync","Synchronization"]]],["IEEE 802.1Q",[["qos","QoS Priority"],["vlan","WVLAN ID"]]],["IEEE 802.1Qbv",[["tas","TAS / GCL"]]],["IEEE 802.1Qbu",[["preemption","Preemption"]]],["IEEE 802.1Qcc",[["streams","TSN Streams"]]]];
+let D={},cur="devices",MON_RUNNING=true;
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+async function api(a,d){const r=await fetch("/api/actions/"+a,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d||{})});const j=await r.json();toast(j.msg,j.ok);return j}
+function toast(m,ok){const t=$("toast");t.style.display="block";t.style.borderColor=ok?"var(--sec)":"var(--err)";t.textContent=m;clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200)}
+async function load(){const r=await fetch("/api/data");D=await r.json();renderNav();syncExecScope();go((location.hash||"").replace("#","")||cur||"devices")}
+function syncExecScope(){const sel=$("execScope");if(!sel)return;const cur=sel.value;const opt='<option value="">All domains</option>'+[].concat(D.domains||[]).map(x=>"<option value='"+esc(x.id)+"'>"+esc(x.name)+" ("+esc(x.id)+")</option>").join("");if(sel.innerHTML!==opt){sel.innerHTML=opt;if(cur)sel.value=cur}}
+window.addEventListener("hashchange",()=>{const p=(location.hash||"").replace("#","");if(p)go(p)});
+function renderNav(){const n=$("nav");n.innerHTML="";
+ NAV.forEach(g=>{if(g[0]){const h=document.createElement("div");h.className="navgroup";n.appendChild(h);const t=document.createElement("div");t.className="navtitle";t.textContent=g[0];h.appendChild(t)}const cont=g[1];cont.forEach(pp=>{const b=document.createElement("button");b.textContent=pp[1];b.onclick=()=>go(pp[0]);b.id="nv_"+pp[0];(g[0]?n.lastElementChild:n).appendChild(b)})});
+  const mb=$("modeBadge");if(mb)mb.textContent=D.mode||"real"}
+function stat(l,v){return "<div class='stat'><div class='l'>"+l+"</div><div class='v'>"+v+"</div></div>"}
+function stBadge(s){const map=[["ok","online"],["warn","offline"],["err","error"]];const b=map[s]||["dim",s];return "<span class='badge "+(b[0])+"'>"+esc(b[1])+"</span>"}
+function types(d){return (D.device_tsn_features||[]).filter(f=>f.device_id==d).map(f=>f.feature).join(", ")}
+function tsnOpts(gm){return D.devices.map(d=>"<label><input type=checkbox value='"+esc(d.id)+"' "+(d.id==gm?"checked":"")+"> GM:"+esc(d.id)+"</label>").join("")}
+function go(p){cur=p;document.querySelectorAll("#nav button").forEach(b=>b.className=b.id==="nv_"+p?"on":"");
+  const m=$("main");
+   if(p==="devices"||p==="domains"||p==="versions")m.innerHTML=devices();
+   else if(p==="recordings")m.innerHTML=recordings();
+  else if(p==="qos")m.innerHTML=qos();
+ else if(p==="vlan")m.innerHTML=vlan();
+ else if(p==="tas")m.innerHTML=tas();
+ else if(p==="preemption")m.innerHTML=preemption(); else if(p==="timesync"){m.innerHTML=timesync();redrawSetup();}
+ else if(p==="streams")m.innerHTML=streams();
+ else if(p==="fxmqtt")m.innerHTML=fxmqtt();
+   else if(p==="monitor"){m.innerHTML=monitor();refreshMon();}
+   else if(p==="tsn"){m.innerHTML=tsnEndpoint();tsnRender();}
+    else if(p==="metrics"){m.innerHTML=metrics();mtLoad();}
+    else if(p==="sensors")m.innerHTML=sensors();
+    else if(p==="decisions"||p==="help")go("assistant");
+    else if(p==="assistant"){m.innerHTML=assistant();llmLoad()}
+    else if(p==="architecture"){m.innerHTML=architecture();archGo();}
+    else if(p==="settings")m.innerHTML=settings();}
+
+function execAll(){api("exec_all",{domain:$("execScope")?$("execScope").value:""}).then(load)}
+function execDomain(d){api("exec_all",{domain:d}).then(load)}
+
+function tsnEndpoint(){
+  const e=D.tsn_endpoint,on=e&&e.online;
+  const st=on?"<span class='badge ok'>online</span>":"<span class='badge err'>offline / warming up</span>";
+  return "<h2>TSN Endpoint <span class='muted'>(STM32, wired via OPC UA)</span></h2>"+
+   "<div class='card'><div class='row'><span class='muted'>Endpoint <b>stm32-tsn-01</b>: RPi CNC &harr; STM32 over <code>opc.tcp://</code>. The ESP32 (wireless) side uses MQTT and is separate.</span>"+
+   "<span class='spacer'></span>"+st+"<span class='muted' id='tsn_ts' style='margin-left:10px'></span></div></div>"+
+   "<div class='row' style='gap:16px;margin:16px 0'>"+
+     "<div class='card' style='flex:1'><h3>Telemetry</h3><table>"+
+       "<tr><th>servo angle</th><td><b id='tsn_servo'>&ndash;</b> &deg;</td></tr>"+
+       "<tr><th>relay</th><td><b id='tsn_relay'>&ndash;</b></td></tr>"+
+       "<tr><th>buzzer</th><td><b id='tsn_buzzer'>&ndash;</b></td></tr>"+
+       "<tr><th>sonar sweep</th><td id='tsn_sonar'>&ndash;</td></tr>"+
+       "<tr><th>buttons K1&ndash;K4</th><td id='tsn_btns'>&ndash;</td></tr>"+
+       "<tr><th>PTP (802.1AS)</th><td id='tsn_ptp'>&ndash;</td></tr>"+
+     "</table></div>"+
+     "<div class='card' style='flex:1'><h3>Commands</h3>"+
+       "<div class='row'><label style='width:150px'>servo angle 0&ndash;180&deg;</label><input type='range' id='tsn_sld' min=0 max=180 value=90 oninput=\"$('tsn_sldv').textContent=this.value\" style='flex:1'><b id='tsn_sldv'>90</b> <button class='ghost' onclick='tsnCmd(\"cmd_servo_angle\",$(\"tsn_sld\").value)'>Set</button></div>"+
+       "<div class='row'><label style='width:150px'>relay</label><label><input type='checkbox' id='tsn_relaychk'> on</label> <button class='ghost' onclick='tsnCmd(\"cmd_relay_on\",$(\"tsn_relaychk\").checked?1:0)'>Set</button></div>"+
+       "<div class='row'><label style='width:150px'>beep (ms)</label><input id='tsn_beep' type='number' min=0 value=300 style='width:80px'> <button class='ghost' onclick='tsnCmd(\"cmd_beep_ms\",$(\"tsn_beep\").value)'>Beep</button></div>"+
+       "<div class='row'><label style='width:150px'>sonar</label><button class='ghost' onclick='tsnCmd(\"cmd_sonar_trigger\",1)'>Trigger sweep</button></div>"+
+       "<div class='row'><label style='width:150px'>system</label><button class='ghost' style='color:var(--err)' onclick='if(confirm(\"Reboot the TSN endpoint?\"))tsnCmd(\"cmd_reboot\",1)'>Reboot</button></div>"+
+     "</div></div>";
+}
+function tsnCmd(node,value){api("tsn_cmd",{node:node,value:value})}
+function tsnRender(){
+  const e=D.tsn_endpoint,set=(id,v)=>{const el=$(id);if(el)el.innerHTML=v};
+  if(!e||!e.ok){set("tsn_ts","(waiting &mdash; OPC UA server warming up or offline)");return}
+  if(!e.online)set("tsn_ts","(stale &mdash; no data in "+(e.stale_after||20)+"s)");
+  set("tsn_servo",e.servo_angle==null?"&ndash;":e.servo_angle);
+  set("tsn_relay",e.relay_on?"ON":"off");
+  set("tsn_buzzer",(e.buzzer_hz||0)+" Hz / "+(e.buzzer_ms||0)+" ms");
+  const sw=e.sonar_sweep||[];
+  set("tsn_sonar",sw.length?("n="+sw.length+", min="+Math.min.apply(null,sw)+", max="+Math.max.apply(null,sw)):"&ndash; (no sweep yet)");
+  set("tsn_btns",["btn1","btn2","btn3","btn4"].map(b=>(e[b]?"&#9679;":"&#183;")).join("  "));
+  let ptp=(e.ptp_state==null?"&ndash;":("state "+e.ptp_state));
+  if(e.ptp_locked)ptp+=" (locked)";
+  if(e.ptp_offset_ns)ptp+=" offset "+e.ptp_offset_ns+" ns";
+  set("tsn_ptp",ptp);
+}
+function aiClipUrl(id,path){
+  const f=String(path||"").replace(/^\/ai\//,"");
+  return "/clip/"+encodeURIComponent(id)+"/"+encodeURIComponent(f);
+}
+function playLatestClip(id,title){
+  // The vision service keeps a stable latest clip (last.mp4 for browsers,
+  // last.mjpeg fallback); always playable even when numbered clips are pruned.
+  playClip(id,"/ai/last.mp4",title||"Latest recording","last.mjpeg");
+}
+function playClip(id,path,title,fallback){
+  const old=document.getElementById("replayOv");
+  if(old)old.remove();
+  const ov=document.createElement("div");
+  ov.id="replayOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px";
+  const url=aiClipUrl(id,path);
+  const isMp4=/\.mp4$/i.test(path);
+  let el;
+  if(isMp4){
+    const v=document.createElement("video");
+    v.controls=true;v.autoplay=true;
+    v.style.cssText="max-width:90vw;max-height:70vh;border-radius:8px;background:#000";
+    const src=document.createElement("source");
+    src.src=url;
+    src.type="video/mp4";
+    v.appendChild(src);
+    el=v;
+    // MJPEG-in-<img> doesn't render in Chrome/Edge; if the mp4 is missing fall
+    // back to the stable last.mjpeg (renders in Firefox) via an <img>.
+    v.addEventListener("error",function(){
+      if(fallback){
+        const nv=document.createElement("video");nv.controls=true;nv.autoplay=true;
+        nv.style.cssText=v.style.cssText;
+        nv.innerHTML="<source src='/clip/"+encodeURIComponent(id)+"/"+encodeURIComponent(fallback)+"' type='video/mjpeg'>";
+        ov.replaceChild(nv,v);
+      }
+    });
+  } else {
+    const img=document.createElement("img");
+    img.src=url;
+    img.style.cssText="max-width:90vw;max-height:70vh;border-radius:8px;background:#000";
+    img.onerror=function(){
+      img.onerror=null;
+      img.src="/clip/"+encodeURIComponent(id)+"/last.mjpeg";
+    };
+    el=img;
+  }
+  ov.innerHTML="<div style='color:var(--text);font-weight:600'>"+(title||"AI clip")+"</div>";
+  ov.appendChild(el);
+  ov.appendChild((function(){const b=document.createElement("button");b.className="ghost";b.textContent="Close";b.onclick=()=>ov.remove();return b})());
+  document.body.appendChild(ov);
+}
+function playReplay(host){
+  const ov=document.createElement("div");
+  ov.id="replayOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px";
+  ov.innerHTML="<div style='color:var(--text);font-weight:600'>Last recording (from the camera)</div>"+
+   "<video controls autoplay style='max-width:90vw;max-height:70vh;border-radius:8px;background:#000'><source src='/cam/"+host+"/replay.mjpeg' type='video/mjpeg'></video>"+
+   "<button class='ghost' onclick='document.getElementById(\"replayOv\").remove()'>Close</button>";
+  document.body.appendChild(ov);
+}
+function camCell(d){
+  const isCam=d.is_cam||false;
+  const rec=(D.recordings||[]).filter(r=>r.device_id===d.id).length;
+  let s="";
+  if(rec>0)s=" <span class='chip' data-dev='"+esc(d.id)+"' onclick='showRec(\""+esc(d.id)+"\")' style='cursor:pointer;color:var(--sec)'>"+rec+" clips</span>";
+  const aiRecs=(D.recordings||[]).filter(r=>r.device_id===d.id&&(r.path||"").startsWith("/ai/"))
+    .sort((a,b)=>(b.recorded_at||0)-(a.recorded_at||0));
+  if(aiRecs.length){
+    const last=aiRecs[0];
+    let lastPath=last.path;
+    // Prefer the mp4 edition of the newest clip (all browsers can play it).
+    if(!/\.mp4$/i.test(lastPath)){
+      const mp4=(D.recordings||[]).filter(r=>r.device_id===d.id&&/\.mp4$/i.test(r.path||"")).sort((a,b)=>(b.recorded_at||0)-(a.recorded_at||0))[0];
+      if(mp4)lastPath=mp4.path;
+    }
+    return "<div style='text-align:center;line-height:1.2'>"+
+     "<div><img src='/clip/"+esc(d.id)+"/last.jpg' style='width:96px;height:54px;object-fit:cover;border-radius:4px;border:1px solid var(--border)' title='last AI detection (recorded on the edge)' onerror=\"this.outerHTML='<span class=muted>no clip yet</span>'\"></div>"+
+     "<div style='margin-top:3px'><button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playLatestClip(\""+esc(d.id)+"\",\"Last AI clip\")'>▶ Watch latest</button> "+
+     "<button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playClip(\""+esc(d.id)+"\",\""+esc(lastPath)+"\",\"AI clip · \"+new Date((\""+(last.recorded_at||0)+")*1000).toLocaleString())'>▶ AI clip</button></div>"+
+     "</div>"+s;
+  }
+  // A real camera records to its own microSD. The cam's HTTP (last.jpg /
+  // replay.mjpeg / stream) is proxied through the CNC server so the browser
+  // never needs to reach <cam-ip> directly (works over Tailscale / remote).
+  if(isCam&&d.ip){
+    const host=validHost(d.ip);
+    if(host){
+      return "<div style='text-align:center;line-height:1.2'>"+
+       "<div><img src='/cam/"+host+"/last.jpg' style='width:96px;height:54px;object-fit:cover;border-radius:4px;border:1px solid var(--border)' title='last recording (from the camera)' onerror=\"this.outerHTML='<span class=muted>no recording yet</span>'\"></div>"+
+       "<div style='margin-top:3px'><button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playReplay(\""+host+"\")'>▶ Play</button> "+
+       "<button class='ghost' style='font-size:11px;padding:2px 8px' onclick='showRec(\""+esc(d.id)+"\")'>Recordings</button></div>"+
+       "</div>"+s;
+    }
+  }
+  return "<span class='muted'>-</span>"}
+function validHost(ip){
+  const m=String(ip).match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if(!m)return null;
+  const parts=m.slice(1).map(x=>{const n=parseInt(x,10);return n>=0&&n<=255?n:null});
+  if(parts.some(p=>p===null))return null;
+  return parts.join(".");
+}
+function playReplay(host){
+  const ov=document.createElement("div");
+  ov.id="replayOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px";
+  ov.innerHTML="<div style='color:var(--text);font-weight:600'>Last recording (replayed from the camera)</div>"+
+   "<img src='/cam/"+host+"/replay.mjpeg' style='max-width:90vw;max-height:70vh;border-radius:8px;background:#000'>"+
+   "<button class='ghost' onclick='document.getElementById(\"replayOv\").remove()'>Close</button>";
+  document.body.appendChild(ov);
+}
+function showRec(id){
+  const rows=(D.recordings||[]).filter(r=>r.device_id===id).sort((a,b)=>(b.recorded_at||0)-(a.recorded_at||0));
+  if(!rows.length){toast("no recordings yet",false);return}
+  const cam=D.devices.find(d=>d.id===id&&d.is_cam);
+  const host=cam&&cam.ip?validHost(cam.ip):null;
+  $("main").innerHTML="<h2>Recordings: "+esc(id)+"</h2><div class='card'>"+
+    (host?"<div class='row'><span>Last frame (from the camera, via CNC):</span><img src='/cam/"+host+"/last.jpg' style='width:160px;height:90px;object-fit:cover;border-radius:4px;border:1px solid var(--border)' onerror=\"this.style.display='none'\"></div>":"")+
+   rows.map(r=>{
+     const isAi=(r.path||"").startsWith("/ai/");
+      const play=isAi?" <button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playClip(\""+esc(id)+"\",\""+esc(r.path)+"\")'>▶ Play</button>"
+                    :(host?" <button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playReplay(\""+host+"\")'>▶ Play (replay.mjpeg)</button>":"");
+      return "<div class='row'><span>"+esc(r.path)+(isAi?" <span class='muted'>(AI)</span>":" <span class='muted'>(on-cam SD)</span>")+"</span><span class='muted'>"+new Date((r.recorded_at||0)*1000).toLocaleString()+play+"</span></div>";
+   }).join("")+
+   "</div><button class='ghost' onclick='go(\"devices\")'>Back</button>"
+}
+function devRow(d){
+  const eid=esc(d.real_id||d.id);
+  const now=Math.floor(Date.now()/1000);
+  const aiActive=(D.ai_decisions||[]).some(r=>r.device_id===d.id&&r.source!=="user"&&now-r.ts<600);
+  const rssi=(d.rssi||d.rssi===0)&&d.rssi!==0?(d.rssi+" dBm"):"-";
+  const domOpts=(D.domains||[]).map(x=>"<option value='"+esc(x.id)+"'"+(d.domain===x.id?" selected":"")+">"+esc(x.name)+"</option>").join("");
+  return "<tr><td>"+esc(d.id)+(aiActive?" <span class='chip' style='color:var(--warn)' title='AI is actively configuring this device'>AI</span>":"")+"</td>"+
+    "<td>"+esc(d.name)+"</td><td>"+stBadge(d.status)+"</td><td>"+deployCell(d)+"</td><td>"+esc(d.ip)+"</td>"+
+   "<td><code>"+esc(d.usb||"")+"</code></td>"+
+   "<td><select onchange='assignDomRow(\""+eid+"\",this.value)' style='max-width:120px'><option value='default'"+(d.domain==="default"?" selected":"")+">default</option>"+domOpts+"</select></td>"+
+    "<td>"+rssi+"</td><td>"+esc(d.firmware||"")+"</td><td>"+camCell(d)+"</td><td style='max-width:170px'>"+esc(tsnFor(d.id))+"</td>"+
+    "<td>"+fwCell(d)+"</td>"+
+   "<td><button onclick='api(\"ping_device\",{id:\""+eid+"\"})'>Ping</button>"+
+   (d.is_cam?"":" <button class='ghost' onclick='dlgDisplay(\""+eid+"\")'>Display</button>")+
+   "</td>"+
+   "<td><button class='ghost' onclick='avReset(\""+eid+"\")'>Reset</button> <button class='danger' onclick='api(\"save_devices\",{delete:[\""+eid+"\"]}).then(load)'>Del</button></td></tr>"}
+function deployCell(d){
+  if(!d.last_deploy_at)return "<span class='muted'>never</span>";
+  const t=new Date(d.last_deploy_at*1000).toLocaleTimeString();
+  return d.last_deploy_ok?"<span class='badge ok' style='font-size:11px' title='last deploy acked by device'>✓ "+t+"</span>"
+                         :"<span class='badge warn' style='font-size:11px' title='deploy sent, waiting for ack'>… "+t+"</span>";
+}
+function fwCell(d){
+   const eid=esc(d.id);
+   return "<button class='ghost' title='Firmware manager: upload, check, flash' onclick='fwMgmt(\""+eid+"\")'>Firmware</button>";
+}
+async function fwMgmt(id){
+   const d=(D.devices||[]).find(x=>x.id===id);
+   if(!d)return;
+   let lib=[];
+   try{const j=await (await fetch("/api/firmware")).json();lib=j.firmware||[]}catch(e){}
+   const rows=lib.map(f=>{
+    const compat=(f.kind===-1||f.kind===d.kind);
+    return "<tr><td>"+esc(f.version||"-")+"</td><td><code>"+esc(f.file)+"</code></td>"+
+     "<td>"+f.size+" B</td><td><code>"+esc(f.crc32||"")+"</code></td>"+
+     "<td>"+(f.kind===-1?"any":"kind "+f.kind)+"</td>"+
+     "<td>"+new Date((f.uploaded_at||0)*1000).toLocaleString()+"</td><td>"+
+     (compat?"<button onclick='fwFlash(\""+esc(id)+"\",\""+esc(f.file)+"\")'>Flash</button>"
+            :"<span class='muted' title='image is for a different device kind'>incompatible</span>")+"</td></tr>";
+   }).join("");
+   $("main").innerHTML="<h2>Firmware: "+esc(d.name)+"</h2>"+
+    "<div class='card'><h3>Current firmware</h3>"+
+    "<div class='row'><span>device <b>"+esc(d.id)+"</b> (kind "+d.kind+") &middot; usb <code>"+esc(d.usb||"-")+"</code></span>"+
+    "<span>running: <b>"+esc(d.firmware||"unknown")+"</b></span></div></div>"+
+    "<div class='card'><h3>Upload firmware</h3>"+
+    "<div class='muted' style='margin-bottom:8px'>.bin / .img / .hex, max 8 MB. The server rejects other types, computes the CRC32 and tags the image with this device's kind (kind "+d.kind+").</div>"+
+    "<div class='row'><input type='file' id='fw_up' accept='.bin,.img,.hex'><button onclick='fwUp(\""+esc(id)+"\")'>Upload</button></div>"+
+    "<div id='fw_up_res'></div></div>"+
+    "<div class='card'><h3>Stored firmware</h3>"+
+    (lib.length?"<table><tr><th>version</th><th>file</th><th>size</th><th>crc32</th><th>kind</th><th>uploaded</th><th></th></tr>"+rows+"</table>":"<div class='muted'>nothing stored yet</div>")+"</div>"+
+    "<button class='ghost' onclick='go(\"devices\")'>Back to Devices</button>";
+}
+async function fwUp(id){
+   const inp=$("fw_up");
+   const f=inp?inp.files[0]:null;
+   if(!f){toast("pick a .bin / .img / .hex file first",false);return}
+   const r=await fetch("/api/firmware",{method:"POST",headers:{"X-Filename":f.name,"X-Device":id},body:f});
+   const j=await r.json();
+   const m=$("fw_up_res");
+   if(m)m.innerHTML=j.ok?
+    "<div class='row'><span style='color:var(--ok)'>stored "+esc(j.file)+" &middot; "+j.size+" B &middot; crc32 "+esc(j.crc32)+(j.version?" &middot; v"+esc(j.version):"")+"</span></div>":
+    "<div class='row'><span style='color:var(--err)'>"+esc(j.msg)+"</span></div>";
+   if(j.ok){inp.value="";setTimeout(()=>fwMgmt(id),300)}
+}
+function fwFlash(id,file){
+   if(!confirm("Flash "+file+" to "+id+"?"))return;
+   api("start_ota",{id:id,file:file}).then(j=>{
+    toast(j.msg,j.ok);
+    if(j.ok)setTimeout(async()=>{await load();fwMgmt(id)},800);
+   });
+}
+function assignDomRow(id,dom){api("assign_domain",{device_id:id,domain:dom}).then(load)}
+function avReset(id){if(!confirm("Reset device "+id+"? Clears its WiFi + TSN config and reboots it."))return;api("save_devices",{reset:[id]}).then(load)}
+function devices(){
+  const rows=D.devices.map(devRow).join("");
+  const domOpts=(D.domains||[]).map(x=>"<option value='"+esc(x.id)+"'>"+esc(x.name)+"</option>").join("");
+  return "<h2>Devices</h2>"+
+   "<div class='card'><h3>Add TSN device</h3>"+
+   "<div class='row'><label>id</label><input id=did placeholder='e.g. esp32-03'></div>"+
+   "<div class='row'><label>name</label><input id=dname></div>"+
+   "<div class='row'><label>ip</label><input id=dip placeholder='192.168.1.20'></div>"+
+   "<div class='row'><label>usb / serial</label><input id=dusb placeholder='e.g. ttyUSB2 or COM5'></div>"+
+   "<div class='row'><label>domain</label><select id=ddom><option value='default'>default</option>"+domOpts+"</select></div>"+
+   "<button onclick=saveDev()>Add Device</button> <span class='muted'>In Real mode the node also provisions itself over MQTT and can report its usb/serial port.</span></div>"+
+    camAddCard()+
+     "<h3>Devices</h3><table><tr><th>id</th><th>name</th><th>status</th><th>deploy</th><th>ip</th><th>usb</th><th>domain</th><th>rssi</th><th>fw</th><th>cam</th><th>tsn</th><th>firmware</th><th>ping</th><th>manage</th></tr>"+rows+"</table>"+
+   domainCard()+
+   versionsCard();
+}
+function tsnFor(id){
+ const f=(D.device_tsn_features||[]).filter(x=>x.device_id===id).map(x=>x.feature);
+ if((D.qos_configs||[]).some(q=>q.device_id===id))f.push("802.1Q QoS");
+ if((D.vlan_members||[]).some(m=>m.device_id===id)&&(D.vlan_groups||[]).length)f.push("802.1Q VLAN");
+ if((D.tsn_stream_members||[]).some(m=>m.device_id===id))f.push("802.1Qcc Streams");
+ if((D.preemption_configs||[]).some(p=>p.device_id===id&&p.preemption==1))f.push("802.1Qbu Preemption");
+ if((D.tas_schedules||[]).some(t=>t.deploy_target===id))f.push("802.1Qbv TAS");
+ return Array.from(new Set(f)).join(", ")}
+function saveDev(){api("save_devices",{device:{id:$("did").value,name:$("dname").value,ip:$("dip").value,usb:$("dusb").value,domain:$("ddom").value,firmware:"",kind:0,status:0,tsn:[]}}).then(load)}
+function dlgDisplay(id){
+  const d=(D.devices||[]).find(x=>x.id===id);
+  if(!d)return;
+  const ov=document.createElement("div");
+  ov.id="dlgOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;display:flex;align-items:center;justify-content:center";
+  ov.innerHTML="<div class='card' style='min-width:360px;background:var(--surf2);border:1px solid var(--sec)'>"+
+    "<h3>SSD1306 Display · "+esc(id)+(d.is_cam?"":" (esp32-02 actor + K1..K4)")+"</h3>"+
+    "<div class='row'><label>line 1</label><input id=dl1 maxlength=20 placeholder='status text'></div>"+
+    "<div class='row'><label>line 2</label><input id=dl2 maxlength=20 placeholder='status text'></div>"+
+    "<div class='row'><button onclick='api(\"send_mqtt\",{topic:\"tsn/cmd/"+esc(id)+"/display\",payload:JSON.stringify({line1:$(\"dl1\").value,line2:$(\"dl2\").value})}).then(()=>ov.remove())'>Send to display</button> "+
+    "<button class='ghost' onclick='ov.remove()'>Close</button></div>"+
+    "<div class='muted' style='font-size:11px;margin-top:6px'>Buttons K1-K4 publish on <code>tsn/button/"+esc(id)+"/K1..K4</code> and appear as <code>btn1..btn4</code> sensors (see Sensors page).</div></div>";
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove()});
+  document.body.appendChild(ov);
+}
+function camAddCard(){
+  // If no camera is present yet, offer a one-click way to add the single
+  // canonical ESP32-CAM row (id esp32-cam) with the camera's LAN IP.
+  const has=(D.devices||[]).some(d=>d.is_cam);
+  if(has)return "";
+  return "<div class='card'><h3>ESP32-CAM</h3>"+
+   "<div class='muted' style='margin-bottom:8px'>You have one camera. Add it once (id shows as <b>esp32-cam</b>), give it its IP, then Ping checks reachability and Recordings lists its clips.</div>"+
+   "<div class='row'><label>ip</label><input id=cam_ip placeholder='192.168.1.60'></div>"+
+   "<button onclick='api(\"save_devices\",{device:{id:\"esp32-cam\",name:\"ESP32-CAM\",ip:$(\"cam_ip\").value,kind:5,status:0,tsn:[]}}).then(load)'>Add Camera</button></div>";
+}
+function domainCard(){
+  const rows=(D.domains||[]).map(g=>{
+    const members=(D.devices||[]).filter(d=>d.domain===g.id).length;
+    return "<div class='row'><span><b>"+esc(g.name)+"</b> <span class='muted'>("+esc(g.id)+" &middot; "+members+" devices"+(g.description?" &middot; "+esc(g.description):"")+")</span></span>"+
+      "<button class='ghost' onclick='execDomain(\""+esc(g.id)+"\")'>Deploy</button>"+
+      (g.id!=="default"?"<button class='danger' onclick='api(\"delete_domain\",{id:\""+esc(g.id)+"\"}).then(load)'>Delete</button>":"<span class='muted'>built-in</span>")+"</div>";
+  }).join("");
+  return "<div class='card'><h3>Domains</h3>"+
+   "<div class='muted' style='margin-bottom:8px'>Physical 802.11 cells each form their own collision/time domain. Assign a domain per device in the table above, then deploy one cell at a time with <b>Deploy</b> (scoped to that domain), or use the header's Execute button with the scope selector.</div>"+
+   rows+
+   "<div class='row'><label>id</label><input id=nv_id placeholder='e.g. shopfloor'><label>name</label><input id=nv_name placeholder='Shop Floor'><label>description</label><input id=nv_desc placeholder='optional'></div>"+
+   "<button onclick='api(\"save_domain\",{id:$(\"nv_id\").value,name:$(\"nv_name\").value,description:$(\"nv_desc\").value}).then(load)'>Add domain</button></div>";
+}
+function recDet(r){
+  let o=null;
+  try{o=r&&r.detections?JSON.parse(r.detections):null}catch(e){}
+  if(!o||!Object.keys(o).length)return"";
+  return Object.keys(o).map(k=>"<span class='chip' style='color:var(--warn)' title='detected'>"+esc(k)+" <b>"+fmtAxis(o[k])+"</b></span>").join("");
+}
+function recordings(){
+  const cams=(D.devices||[]).filter(d=>d.is_cam);
+  // Historical MQTT announcements can accumulate thousands of rows, but the
+  // vision service only keeps the ~10 newest clips on the Pi and the cam's
+  // own SD clips are replayed (not fetched) — so list the newest finite set.
+  let recs=(D.recordings||[]).slice().sort((a,b)=>(b.recorded_at||0)-(a.recorded_at||0));
+  const ai=recs.filter(r=>(r.path||"").startsWith("/ai/"));
+  const rest=recs.filter(r=>!(r.path||"").startsWith("/ai/"));
+  recs=rest.concat(ai.slice(0,10));
+  const cards=cams.map(cam=>{
+    const host=cam.ip?validHost(cam.ip):null;
+    const rows=recs.filter(r=>r.device_id===cam.id);
+    const list=rows.map(r=>{
+      const isAi=(r.path||"").startsWith("/ai/");
+      const isMp4=/\.mp4$/i.test(r.path||"");
+      const dl=isMp4?"video/mp4":"video/mjpeg";
+      const play=isAi?" <button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playClip(\""+esc(cam.id)+"\",\""+esc(r.path)+"\")'>▶ Play</button>"
+                     :(host?" <button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playReplay(\""+host+"\")'>▶ Play (camera replay)</button>":"");
+      return "<div class='row'><span>"+esc(r.path)+(isAi?" <span class='muted'>(AI)</span>":" <span class='muted'>(on-cam SD)</span>")+"</span>"+
+        recDet(r)+
+        "<span class='muted'>"+new Date((r.recorded_at||0)*1000).toLocaleString()+play+"</span></div>";
+    }).join("");
+    return "<div class='card'><h3>"+esc(cam.id)+" <span class='muted'>· "+esc(cam.ip||"no ip")+"</span></h3>"+
+      "<div class='row'><span>Last AI frame:</span><img src='/clip/"+esc(cam.id)+"/last.jpg' style='width:160px;height:90px;object-fit:cover;border-radius:4px;border:1px solid var(--border)' onerror=\"this.style.display='none'\"></div>"+
+      "<button class='ghost' style='font-size:11px;padding:2px 8px' onclick='playLatestClip(\""+esc(cam.id)+"\",\"Latest recording\")'>▶ Watch latest</button>"+
+      (host?"<div class='row'><span><a href='/cam/"+host+"/stream' target='_blank' rel='noopener'>Live MJPEG stream</a> · <a href='/cam/"+host+"/replay.mjpeg' target='_blank' rel='noopener'>Replay last clip</a></span></div>":"")+
+      (list||"<div class='muted'>No recording announcements yet — the camera publishes <b>tsn/cam/recordings</b> after it saves a clip triggered by motion/PIR.</div>")+
+      "</div>";
+  }).join("");
+  return "<h2>Camera Recordings</h2>"+
+   "<div class='muted' style='margin-bottom:10px'>What the ESP32-CAM recorded. The AI service detects objects (e.g. <code>person</code>) and annotates each clip; <b>Watch latest</b> always plays the newest recording as MP4 (works in every browser).</div>"+
+   (cards||"<div class='card' class='muted'>No camera added yet — add it on the Devices page (ESP32-CAM row with its IP), or switch to Real mode so the camera announces itself.</div>");
+}
+function versionsCard(){
+  const devOpts="<option value=''>global (all devices)</option>"+D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("");
+  return "<div class='card'><h3>Config Versions / Rollback</h3>"+
+    "<div class='muted' style='margin-bottom:8px'>Snapshot the current configuration so you can diff and roll back after a deploy. Scope = global (whole config) or a single device.</div>"+
+   "<div class='row'><label>scope</label><select id=cv_scope onchange=rvLoad()>"+devOpts+"</select><label>name</label><input id=cv_name placeholder='pre-deploy'></div>"+
+   "<button onclick='cvSnap()'>Save snapshot</button> <button class='ghost' onclick='rvLoad()'>List versions</button></div>"+
+   "<div id=cv_list></div>";
+}
+function cvSnap(){api("create_version",{name:$("cv_name").value||"snapshot",device_id:$("cv_scope").value}).then(load)}
+function rvLoad(){
+  const m=$("cv_list");if(!m)return;
+  const scope=$("cv_scope")?$("cv_scope").value:"";
+  m.innerHTML="<div class='muted'>loading...</div>";
+  fetch("/api/actions/list_versions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:scope})}).then(r=>r.json()).then(j=>{
+    if(!j.ok){m.innerHTML="<div class='muted'>"+esc(j.msg)+"</div>";return}
+    const vl=(j.versions||[]).map(v=>"<div class='card'><div class='row'><span>"+esc(v.name)+"</span><span class='muted'>v"+v.id+" &middot; "+new Date(v.created_at*1000).toLocaleString()+" &middot; "+(v.device_id||"global")+"</span></div><div class='row'><button class='danger' onclick='rollback("+v.id+")'>Rollback</button> <button class='ghost' onclick='diffV("+v.id+")'>Diff vs latest</button></div></div>").join("");
+    m.innerHTML=vl||"<div class='muted'>no versions yet</div>"});
+}
+function rollback(id){if(!confirm("Roll back configuration to this version?"))return;api("rollback_version",{id:id}).then(load)}
+function diffV(id){fetch("/api/actions/diff_versions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({a:id})}).then(r=>r.json()).then(j=>toast(j.diff||j.msg,j.ok))}
+
+function devices_render(){const hdr=[].slice.call(document.querySelectorAll("h3")).find(h=>h.textContent==="Devices");const tbl=hdr?hdr.nextElementSibling:null;if(tbl&&tbl.tagName==="TABLE"){const rows=D.devices.map(devRow).join("");tbl.innerHTML="<tr><th>id</th><th>name</th><th>status</th><th>deploy</th><th>ip</th><th>usb</th><th>domain</th><th>rssi</th><th>fw</th><th>cam</th><th>tsn</th><th>firmware</th><th>ping</th><th>manage</th></tr>"+rows}}
+const PRIOS=[[0,"Background (background data)"],[1,"Best effort"],[2,"Excellent effort"],[3,"Critical application"],[4,"Video (latency and jitter below 100 ms)"],[5,"Voice (latency and jitter below 10 ms)"],[6,"Internetwork control (network control)"],[7,"Control data traffic (data traffic control)"]];
+function qos(){const def=(D.qos_configs[0]||{}).priority;
+ let rows=D.qos_configs.map(q=>"<tr><td>"+esc(q.device_id)+"</td><td>Priority "+q.priority+" — "+(PRIOS.find(p=>p[0]==q.priority)||["",q.priority])[1]+"</td><td>"+q.latency_ms+" ms</td><td><button class='danger' onclick='api(\"delete_qos\",{device_id:\""+esc(q.device_id)+"\"}).then(load)'>Clear</button></td></tr>").join("");
+ const opts=D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("");
+ const prio=PRIOS.map(p=>"<option value='"+p[0]+"' "+(String(def)==String(p[0])?"selected":"")+">Priority "+p[0]+" — "+esc(p[1])+"</option>").join("");
+ return "<h2>IEEE 802.1Q — QoS Priority</h2><div class='card'>"+
+  "<div class='row'><label>device</label><select id=q_dev><option value=''>-</option>"+opts+"</select></div>"+
+  "<div class='row'><label>priority</label><select id=q_prio>"+prio+"</select></div>"+
+  "<div class='row'><label>latency ms</label><input id=q_lat type=number value=2></div>"+
+  "<button onclick=saveQ()>Save QoS</button></div>"+
+  "<h3>Current settings</h3>"+
+  "<table><tr><th>device</th><th>priority</th><th>latency ms</th><th></th></tr>"+rows+"</table>"}
+function saveQ(){const d=$("q_dev").value;const p=parseInt($("q_prio").value);api("save_qos",{device_id:d,priority:p,traffic_class:p,latency_ms:parseInt($("q_lat").value),preemption:(D.qos_configs.find(q=>q.device_id==d)||{}).preemption||0}).then(load)}
+function vlan(){let cards=D.vlan_groups.map(g=>{const members=(D.vlan_members||[]).filter(x=>x.group_id==g.id).map(x=>x.device_id);
+  const all=D.devices.map(d=>"<option value='"+esc(d.id)+"' "+(members.includes(d.id)?"selected":"")+">"+esc(d.id)+"</option>").join("");
+  return "<div class='card' style='width:100%' data-gid='"+esc(g.id)+"'><h3>"+esc(g.name)+" (vlan ID "+g.vlan_id+")</h3>"+
+   "<table><tr><th>device</th><th>role</th></tr>"+members.map(m=>"<tr><td>"+esc(m)+"</td><td>member</td></tr>").join("")+"</table>"+
+   "<div class='row'><label>member(s)</label><select multiple size=6>"+all+"</select></div>"+
+   "<div class='row'><span class=muted>Ctrl+click to select multiple, then Apply</span></div>"+
+   "<button onclick='vlanApply(this)'>Apply members</button> <button class='danger' onclick='api(\"delete_vlan\",{id:\""+esc(g.id)+"\"}).then(load)'>Clear group</button></div>"}).join("");
+ return "<h2>WVLAN ID (IEEE 802.1Q)</h2><div class='card'><h3>Add WVLAN group</h3><div class='row'><label>name</label><input id=v_name></div><div class='row'><label>WVLAN ID 1-4094</label><input id=v_id type=number value=100></div><button onclick='api(\"save_vlan\",{id:\"v_\"+Math.random().toString(36).slice(2,6),name:$(\"v_name\").value,vlan_id:parseInt($(\"v_id\").value)}).then(load)'>Add group</button></div>"+cards}
+function vlanApply(btn){const card=btn.closest(".card");const sel=card.querySelector("select");const picked=[].slice.call(sel.options).filter(o=>o.selected).map(o=>o.value);api("save_member",{group_id:card.dataset.gid,set_members:picked}).then(load)}
+function gclBlock(s){const entries=(D.gcl_entries||[]).filter(e=>e.schedule_id==s.id);
+ if(!entries.length)return "<div class='muted'>no GCL entries</div>";
+ const cycle=Math.max(1,s.cycle_time_ns||1);
+ const total=entries.reduce((a,e)=>a+(e.duration_ns||0),0);
+ const scale=Math.min(900,total?total:1)/Math.max(1,entries.length);
+ let bars="";let acc=0;
+ entries.forEach((e,i)=>{const w=e.duration_ns?e.duration_ns*Math.min(600,total)/Math.max(1,total):20;
+  const col=e.gate_state?"var(--ok)":"var(--err)";
+  bars+="<div class='gclrow'><span class='gq'>Q"+(Math.log2(e.gate_state||0)|0)+"</span>"+
+   "<div style='background:"+col+";height:16px;width:"+Math.max(8,w)+"px;border-radius:4px' title='gate "+e.gate_state+" · "+e.duration_ns+" ns'></div>"+
+   "<span class='gcllegend'>"+e.duration_ns+" ns</span></div>";});
+ const legend=entries.map((e,i)=>"Q"+(Math.log2(e.gate_state||0)|0)+"="+esc(e.duration_ns)+"ns").join(" · ");
+ return "<div class='gclbox'><div style='font-size:12px;color:var(--dim);margin-bottom:6px'>Gate Control List — "+cycle+" ns cycle</div>"+bars+"<div class='gcllegend'>"+legend+"</div></div>"}
+function tas(){let bl=D.tas_schedules.map(s=>{const g=(D.gcl_entries||[]).filter(e=>e.schedule_id==s.id).map(e=>e.gate_state+":"+e.duration_ns).join(", ");const repr=gclBlock(s);return "<div class='card'><h3>"+esc(s.name)+"</h3><div class='row'><label>id</label><span>"+esc(s.id)+"</span></div><div class='row'><label>cycle</label><span>"+s.cycle_time_ns+" ns</span></div><div class='row'><label>deploy</label><span>"+esc(s.deploy_target)+"</span></div>"+repr+"<div class='row'><label>GCL</label><span>"+esc(g)+"</span></div><button class='danger' onclick='api(\"delete_tas\",{id:\""+esc(s.id)+"\"}).then(load)'>Clear</button></div>"}).join("");
+ const opts=D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("");
+ return "<h2>TAS (IEEE 802.1Qbv) — Gate Control List</h2><div class='card'><div class='row'><label>name</label><input id=t_name></div><div class='row'><label>cycle ns</label><input id=t_cyc type=number value=1000000></div><div class='row'><label>deploy target</label><select id=t_dev>"+opts+"</select></div><div class='row'><label>GCL</label><input id=t_gcl value='1:300000,3:200000,0:500000'></div><button onclick=tSave()>Save / Deploy</button></div>"+bl}
+function tSave(){const g=$("t_gcl").value.split(",").map(x=>{const[a,b]=x.split(":");return{gate_state:parseInt(a),duration_ns:parseInt(b)}});api("save_tas",{id:"s",name:$("t_name").value||"schedule",cycle_time_ns:parseInt($("t_cyc").value),deploy_target:$("t_dev").value,gcl:g}).then(load)}
+function preemption(){
+ const rows=(D.preemption_configs||[]).map(p=>"<tr><td>"+esc(p.device_id)+"</td><td>"+(["off","on","on"][p.preemption]||p.preemption)+"</td><td>"+esc(p.emac)+"</td><td>"+esc(p.pmac)+"</td><td><button class='danger' onclick='api(\"delete_preemption\",{device_id:\""+esc(p.device_id)+"\"}).then(load)'>Clear</button></td></tr>").join("");
+ const opts=D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("");
+ return "<h2>IEEE 802.1Qbu — Frame Preemption</h2>"+
+  "<div class='card'><div class='row'><label>device</label><select id=pr_dev><option value=''>-</option>"+opts+"</select></div>"+
+  "<div class='row'><label>mode</label><select id=pr_mode onchange=prMode()><option value=0>off (no preemption)</option><option value=1>on</option></select></div>"+
+  "<div id=pr_mac style='display:none'>"+
+  "<div class='row'><label>eMAC priorities</label><input id=pr_emac placeholder='e.g. 7,6,5'></div>"+
+  "<div class='row'><label>pMAC priorities</label><input id=pr_pmac placeholder='e.g. 3,2,1,0'></div></div>"+
+  "<button onclick=savePre()>Save Preemption</button></div>"+
+  "<h3>Current settings</h3><table><tr><th>device</th><th>mode</th><th>eMAC prios</th><th>pMAC prios</th><th></th></tr>"+rows+"</table>"}
+function prMode(){const on=$("pr_mode").value=="1";$("pr_mac").style.display=on?"block":"none"}
+function savePre(){const d=$("pr_dev").value;if(!d)return;api("save_preemption",{device_id:d,preemption:parseInt($("pr_mode").value),emac:$("pr_emac").value,pmac:$("pr_pmac").value}).then(load)}
+function timesync(){const t=(D.timesync_status||[])[0]||{};
+ const gm=t.grandmaster||"PC";
+ const slaveNodes=(D.settings||[]).find(s=>s.key==="sync_nodes")||{};
+ const chosen=(slaveNodes.value||"").split(",").filter(Boolean);
+ const nodes=D.devices.map(d=>"<option value='"+esc(d.id)+"' "+(chosen.includes(d.id)?"selected":"")+">"+esc(d.id)+" (ID "+esc(nodeId(d))+")</option>").join("");
+ const slaveRows=(chosen.length?chosen:[]).map(n=>"<tr><td>Slave</td><td>"+esc(n)+"</td><td>"+esc(nodeId({id:n}))+"</td><td><button class='ghost' onclick=delSlave(\""+esc(n)+"\")>Remove</button></td></tr>").join("");
+  const gmSel="<select id=ts_gm onchange=gmChanged()><option value='PC' "+(gm==='PC'?'selected':'')+">"+esc(D.host||"PC")+" (configurator)</option>"+
+  D.devices.map(d=>"<option value='"+esc(d.id)+"' "+(gm===d.id?'selected':'')+">"+esc(d.id)+"</option>").join("")+"</select>";
+ const usePc=gm==='PC';
+ const setupTable=("<div class='card'><table><tr><th>role</th><th>node</th><th>identity</th><th></th></tr>"+
+   "<tr><td>Master</td><td>"+(usePc?esc(D.host||"PC")+" (configurator)":esc(gm))+"</td><td>"+esc(nodeId(usePc?{id:"PC"}:{id:gm}))+"</td><td>"+(usePc?"":"<button class='dangergm' onclick='delGM()'>Clear</button>")+"</td></tr>"+
+   slaveRows+"</table></div>");
+ return "<h2>IEEE 802.1AS — gPTP Time Synchronization</h2>"+
+  "<div class='card'><h3>Grandmaster (Sync Master)</h3><div class='row'><label>GM</label>"+gmSel+"</div>"+
+  "<div class='row'><label>identity</label><span id=gm_id>"+esc(nodeId(usePc?{id:"PC"}:{id:gm}))+"</span></div></div>"+
+  "<div class='card'><h3>Sync Slave Nodes (follow the GM)</h3><select id=ts_slaves multiple size=6>"+nodes+"</select>"+
+  "<div class='row'><span class=muted>Ctrl+click to select multiple</span></div></div>"+
+  "<div class='card'><button class=big onclick=saveTimeSync()>Save 802.1AS Sync</button></div>"+
+  "<h3>Current setup</h3><div id=setupDraw>"+setupTable+"</div>"}
+function gmChanged(){const g=$("ts_gm").value;const isPC=g==="PC";$("gm_id").textContent=nodeId(isPC?{id:"PC"}:{id:g});
+ // if an ESP device is chosen as GM, keep it highlighted but don't save until Save pressed
+ api("save_timesync",{mode:1,grandmaster:g,nodes:[]}).then(()=>{setSyncNodesLocal([]);redrawSetup()})}
+function nodeData(id){const dv=(D.devices||[]).find(d=>d.id===id);return dv||{id:id}}
+function syncNodeId(id){const dv=nodeData(id);return (dv.mac||"").replace(/:|\./g,"")||("0000"+String(id||"").split("").map(c=>(c.charCodeAt(0)).toString(16)).join("")).slice(-16)}
+function nodeId(d){const id=(d&&d.id)||"PC";if(id==="PC")return "80:00:11:ff:fe:00:00:01";const dv=nodeData(id);if(dv&&dv.mac){const m=dv.mac.split(":").filter(Boolean);if(m.length===4)return "80:00:11:ff:fe:"+m.map(x=>x.padStart(2,"0")).join(":")}return "80:00:11:ff:fe:"+[0,0,2,3].map(()=>Math.floor(Math.random()*256).toString(16).padStart(2,"0")).join(":")}
+function redrawSetup(){const el=$("setupDraw");if(!el)return;const ts=(D.timesync_status||[])[0]||{};const gm=ts.grandmaster||"PC";
+ const slaveNodes=(D.settings||[]).find(s=>s.key==="sync_nodes")||{};const chosen=(slaveNodes.value||"").split(",").filter(Boolean);
+ const isPC=gm==="PC";const rows=chosen.map(n=>"<tr><td>Slave</td><td>"+esc(n)+"</td><td>"+esc(nodeId({id:n}))+"</td><td><button class='ghost' onclick=delSlave(\""+esc(n)+"\")>Remove</button></td></tr>").join("");
+  const setupTable="<table><tr><th>role</th><th>node</th><th>identity</th><th></th></tr><tr><td>Master</td><td>"+(isPC?esc(D.host||"PC")+" (configurator)":esc(gm))+"</td><td>"+esc(nodeId(isPC?{id:"PC"}:{id:gm}))+"</td><td>"+(isPC?"":"<button class='dangergm' onclick='delGM()'>Clear</button>")+"</td></tr>"+rows+"</table>";
+ el.innerHTML=setupTable}
+function setSyncNodesLocal(nodes){let sv=(D.settings||[]).find(s=>s.key==="sync_nodes");if(!sv){if(!D.settings)return;sv={key:"sync_nodes",value:""};D.settings.push(sv)}sv.value=(nodes||[]).join(",")}
+function gmNodeList(){return (D.timesync_status||[])[0]?D.timesync_status[0].grandmaster||"PC":"PC"}
+function delGM(){api("save_timesync",{mode:1,grandmaster:"PC",nodes:[]}).then(()=>{setSyncNodesLocal([]);redrawSetup()})}
+function delSlave(n){const cur=(D.settings||[]).find(s=>s.key==="sync_nodes")||{};
+ const rest=(cur.value||"").split(",").filter(Boolean).filter(x=>x!==n);
+ api("save_timesync",{mode:1,grandmaster:(D.timesync_status||[])[0]?D.timesync_status[0].grandmaster||"PC":"PC",nodes:rest}).then(()=>{setSyncNodesLocal(rest);redrawSetup()})}
+function saveTimeSync(){const n=[].slice.call(document.querySelectorAll("#ts_slaves option:checked")).map(o=>o.value);
+ const g=$("ts_gm").value;
+ api("save_timesync",{grandmaster:g,offset_ns:(D.timesync_status||[])[0]?D.timesync_status[0].offset_ns||0:0,quality:0,mode:1,nodes:n}).then(()=>{setSyncNodesLocal(n);redrawSetup()})}
+function fxmqtt(){
+ const srv=(D.settings||[]).find(s=>s.key==="server_type")||{};
+ const srvid=(D.settings||[]).find(s=>s.key==="server_id")||{};
+ const brk=(D.settings||[]).find(s=>s.key==="broker")||{};
+ const isPc=(srv.value||"pc")==="pc";
+ const opts=D.devices.map(d=>"<option value='"+esc(d.id)+"' "+(srvid.value==d.id?"selected":"")+">"+esc(d.id)+"</option>").join("");
+ return "<h2>IEEE 802.1FX — FXMQTT Config</h2><div class='card'><h3>Field Server / Participant</h3>"+
+  "<div class='row'><label>server</label><select id=fs_type onchange=fsMode()><option value='pc' "+(isPc?"selected":"")+">"+esc(D.host||"PC")+" (configurator)</option><option value='node' "+(isPc?"":"selected")+">Node (device)</option></select></div>"+
+  "<div class='row' id=fs_node_row><label>node</label><select id=fs_node "+(isPc?"disabled":"")+">"+opts+"</select></div>"+
+  "<div class='row'><label>broker</label><input id=fs_broker placeholder='host:port' value='"+esc(brk.value||"127.0.0.1:1883")+"'></div>"+
+  "<button onclick=fsSave()>Save / Deploy</button></div>"+
+  "<div class='card'><h3>Live FX data (C2C field exchange)</h3>"+
+  "<div class='muted' style='margin-bottom:8px'>Values exchanged on <code>tsn/fx/data</code> — "+(D.mode==="sim"?"simulated field-server samples from the devices":"from real participants via the broker")+". Updates every 2 s.</div>"+
+  "<div class='row'><input id=fx_msg placeholder='e.g. pressure=1013' style='width:200px'><select id=fx_src>"+D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("")+"<option value='cnc'>"+esc(D.host||"cnc")+" (configurator)</option></select><button class='ghost' onclick=fxSendNow()>Send test value</button></div>"+
+  "<div id='fx_live'><div class='muted'>loading...</div></div></div>";
+ setTimeout(fxLiveStart,50);
+}
+let fxLiveTimer=null;
+function fxLiveStart(){
+ if(fxLiveTimer)clearInterval(fxLiveTimer);
+ fxLiveLoad();
+ fxLiveTimer=setInterval(fxLiveLoad,2000);
+}
+function fxLiveLoad(){
+ const el=$("fx_live");
+ if(!el){if(fxLiveTimer){clearInterval(fxLiveTimer);fxLiveTimer=null}return}
+ fetch("/api/actions/fx_recent",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.json()).then(j=>{
+  const m=$("fx_live");if(!m)return;
+  const rows=(j.data||[]).map(r=>"<tr><td>"+new Date((r.ts||0)*1000).toLocaleTimeString()+"</td><td>"+esc(r.src)+"</td><td><code>"+esc(r.data_id)+"</code></td><td>"+(r.text?"<i>"+esc(r.text)+"</i>":(r.value==null?"-":esc(r.value)))+"</td></tr>").join("");
+  m.innerHTML=rows?"<table><tr><th>time</th><th>source</th><th>data id</th><th>value</th></tr>"+rows+"</table>":"<div class='muted'>no FX data yet — it appears within a few seconds</div>";
+ }).catch(()=>{});
+}
+function fxSendNow(){
+ const src=$("fx_src").value||"cnc",msg=$("fx_msg").value||"test=1";
+ api("fx_send",{source:src,msg:msg}).then(j=>{toast(j.msg,j.ok);if(j.ok){$("fx_msg").value="";fxLiveLoad()}});
+}
+function fsMode(){const pc=$("fs_type").value==="pc";$("fs_node").disabled=pc;if(pc)$("fs_node").value=""}
+function fsSave(){const type=$("fs_type").value;api("set_server",{type:type,id:(type==="node"?$("fs_node").value:""),broker:$("fs_broker").value||"127.0.0.1:1883"}).then(load)}
+function monitor(){return "<h2>Network / Frame Monitor</h2><div class='card'><div class='row'><span>"+(D.mode==="sim"?"Live simulated flow (MQTT, FX over MQTT, raw frames)":"Real traffic — waiting for real nodes")+"</span><input id=mon_filter placeholder='filter...' style='width:160px;margin-left:10px' oninput='monFilter()'>"+"<span class='spacer'></span><button class='ghost' onclick='api(\"clear_events\",{}).then(load)'>Clear</button><button id=mon_toggle class='ghost' onclick='toggleMon()'>"+(MON_RUNNING?"Pause":"Start")+"</button><span id=mon_state class='muted'></span></div><div class='monrow'><span class='t'>time</span><span class='s'>source</span><span class='ip'>src IP</span><span class='s'>destination</span><span class='ip'>dst IP</span><span class='pro'>protocol</span><span>message</span></div><div id=mon></div></div>"}
+function toggleMon(){MON_RUNNING=!MON_RUNNING;const b=$("mon_toggle");if(b){b.textContent=MON_RUNNING?"Pause":"Start"}const s=$("mon_state");if(s){s.textContent=MON_RUNNING?"":"PAUSED — new frames are kept and shown on Start"};refreshMon()}
+function monFilter(){refreshMon()}
+function refreshMon(){if($("mon")){const keep=$("mon").innerHTML;const going=MON_RUNNING||cur!=="monitor";const src=D.events||[];if(!going){$("mon").innerHTML=keep;if($("mon_state")&&$("mon_state").textContent.indexOf("beeen")<0)$("mon_state").textContent="PAUSED — new frames are kept and shown on Start";return}
+ const f=($("mon_filter")?$("mon_filter").value:"").trim().toLowerCase();
+ let list=src.slice(0,120);if(f){list=list.filter(e=>((e.source||"")+(e.dest||"")+(e.proto||"")+(e.msg||"")+(e.ts||"")).toLowerCase().indexOf(f)>=0)}
+ const ev=list.map(e=>"<div class='monrow'><span class='t'>"+esc(e.ts)+"</span><span class='s'>"+esc(e.source)+"</span><span class='ip'>"+esc(e.src_ip||"-")+"</span><span class='s'>"+esc(e.dest||"-")+"</span><span class='ip'>"+esc(e.dst_ip||"-")+"</span><span class='pro'>"+esc(e.proto||"-")+"</span><span>"+esc(e.msg||e.data||"")+"</span></div>").join("");$("mon").innerHTML=ev||"<div class='monrow'><span>no traffic yet</span></div>"}}
+function spark(pts){
+  if(!pts||pts.length<2)return "<span class='muted'>-</span>";
+  const w=120,h=28;
+  let mn=Infinity,mx=-Infinity;
+  pts.forEach(p=>{mn=Math.min(mn,p[1]);mx=Math.max(mx,p[1])});
+  const rng=(mx-mn)||1;
+  const step=(w-4)/Math.max(1,pts.length-1);
+  const path=pts.map((p,i)=>(i?"L":"M")+(2+i*step).toFixed(1)+","+(h-2-((p[1]-mn)/rng)*(h-6)).toFixed(1)).join(" ");
+  return "<svg width='"+w+"' height='"+h+"' style='background:var(--surf2);border-radius:4px'><path d='"+path+"' fill='none' stroke='var(--sec)' stroke-width='1.5'/></svg>"}
+function loadSpark(dev){
+  fetch("/api/actions/get_history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:dev})}).then(r=>r.json()).then(j=>{
+   if(!j.ok)return;
+   const hist=j.history||{};
+   document.querySelectorAll("[data-spark]").forEach(td=>{
+    const key=td.dataset.spark.split(":")[1];
+    if(hist[key])td.innerHTML=spark(hist[key])})})}
+ function decisionsTable(){
+  const rows=(D.ai_decisions||[]).slice().reverse();
+  const badge=s=>s==="ai"?"<span class='chip' style='color:var(--warn)'>AI</span>":(s==="llm"?"<span class='chip' style='color:var(--pri)'>LLM</span>":"<span class='chip'>user</span>");
+  const tr=rows.map(r=>{
+    let p="";
+    try{p=Object.entries(JSON.parse(r.params||"{}")).filter(([k])=>!["source","reason"].includes(k)).map(([k,v])=>k+"="+v).join(", ")}catch(e){p=r.params||""}
+    const t=new Date(r.ts*1000);
+    return "<tr><td>"+t.toLocaleTimeString()+"</td><td><b>"+esc(r.device_id||"-")+"</b></td>"+
+      "<td><code>"+esc(r.action)+"</code></td><td>"+badge(r.source)+"</td>"+
+      "<td class='muted' style='font-size:12px'>"+esc(r.reason||"")+"</td>"+
+      "<td class='muted' style='font-size:11px;max-width:260px;overflow:hidden;text-overflow:ellipsis' title='"+esc(p)+"'>"+esc(p)+"</td>"+
+      "<td>"+(r.status==="ok"?"<span style='color:var(--ok)'>ok</span>":"<span style='color:var(--err)' title='"+esc(r.status)+"'>err</span>")+"</td></tr>";
+  }).join("");
+  return "<div class='card' style='overflow:auto'><table style='width:100%;border-collapse:collapse'>"+
+    "<thead><tr style='text-align:left;color:var(--dim);font-size:11px'><th style='padding:4px'>Time</th><th>Device</th><th>Action</th><th>Source</th><th>Reason</th><th>Params</th><th>Status</th></tr></thead>"+
+    "<tbody style='font-size:13px'>"+(tr||"<tr><td colspan='7' class='muted'>no decisions recorded yet</td></tr>")+"</tbody></table></div>"+
+    "<button class='ghost' onclick='api(\"clear_decisions\",{}).then(load)'>Clear decisions</button>";
+ }
+/* ================= AI Assistant (local LLM) ================= */
+let LLM_HIST=[];
+function assistant(){
+  const now=Math.floor(Date.now()/1000);
+  const aiCount=(D.ai_decisions||[]).filter(r=>r.source!=="user"&&now-r.ts<3600).length;
+  return "<h2>AI Assistant <span class='badge' style='font-size:12px'>local LLM</span></h2>"+
+    "<div class='muted' style='margin-bottom:10px'>The local LLM (Raspberry Pi) either <b>does it for you</b> — proposes a TSN action, validated against an allowlist and executed with provenance <b>LLM</b> — or <b>guides you step by step</b> through the whole configuration (it replaces the old Help page). Examples: <i>raise the camera priority to 6</i>, <i>open a 4 ms TAS gate for esp32-cam</i>, <i>how do I configure this network from scratch?</i></div>"+
+    "<div class='card' style='height:420px;overflow-y:auto;padding:10px' id='llm_msgs'></div>"+
+    "<div class='row' style='margin-top:8px'>"+
+    "<input id='llm_in' style='flex:1;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text)' placeholder='What should the network do? Or ask how to configure it…' onkeydown='if(event.key==\"Enter\")llmSend()'>"+
+    "<button id='llm_btn' onclick='llmSend()'>Send</button></div>"+
+    "<h3 style='margin-top:18px'>AI Decisions <span class='badge' style='font-size:12px'>"+aiCount+" last 1 h</span></h3>"+
+    "<div class='muted' style='margin-bottom:8px'>Audit trail: every configuration change with provenance. <b>AI</b> = decided by the policy engine on the RPi (person+PIR → QoS/TAS, gPTP offset → grandmaster swap, latency → stream reservation). Rollback: <b>Config Versions</b> page.</div>"+
+    decisionsTable();
+}
+function llmMsgHTML(h){
+  return "<div style='margin:4px 0;text-align:"+(h.role==="user"?"right":"left")+"'><span class='chip'>"+(h.role==="user"?"you":"AI")+"</span> <span style='font-size:13px'>"+esc(h.content).replace(/\n/g,"<br>")+"</span></div>";
+}
+function llmLoad(){$("llm_msgs").innerHTML=(LLM_HIST.length?"":"<div class='muted' style='padding:4px'>No messages yet.</div>")+LLM_HIST.map(llmMsgHTML).join("")}
+function llmSend(){
+  const inp=$("llm_in");const msg=inp.value.trim();
+  if(!msg)return;
+  inp.value="";
+  LLM_HIST.push({role:"user",content:msg});
+  $("llm_msgs").innerHTML="<div class='muted' style='padding:4px'>…thinking (local LLM, may take a few seconds)</div>"+LLM_HIST.map(llmMsgHTML).join("");
+  $("llm_btn").disabled=true;
+  api("llm_chat",{message:msg,history:LLM_HIST.slice(0,-1)}).then(j=>{
+    const txt=(j.ok?j.reply:(j.msg||"error"))+(j.executed&&j.executed.length?"\n\nExecuted:\n"+j.executed.map(e=>e.action+(e.ok?" ✓":" ✗ "+e.msg)).join("\n"):"");
+    LLM_HIST.push({role:"assistant",content:txt});
+    const m=$("llm_msgs");
+    m.innerHTML=LLM_HIST.map(llmMsgHTML).join("");
+    m.scrollTop=m.scrollHeight;
+    $("llm_btn").disabled=false;
+    load();
+  }).catch(e=>{
+    $("llm_btn").disabled=false;
+    toast("LLM error: "+e,false);
+  });
+}
+function sensors(){
+  const byDev={};(D.sensors||[]).forEach(s=>{const g=(byDev[s.device_id]=byDev[s.device_id]||{});g[s.sensor_id]=s});
+  const now=Math.floor(Date.now()/1000);
+  function age(s){if(!s||!s.last_update)return"";const a=now-(s.last_update>1000000000000?s.last_update/1000:s.last_update);return a<0?"":a<60?"updated "+Math.round(a)+"s ago":a<3600?"updated "+Math.floor(a/60)+"m ago":"updated "+Math.floor(a/3600)+"h "+Math.floor((a%3600)/60)+"m ago"}
+  let r="";
+  for(const dev in byDev){
+   const g=byDev[dev],t=g.temp1,h=g.hum1,p=g.press1;
+   const info=(n)=>{const s=g[n];if(!s)return"";const nm=sensorLabel(n);const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx"}[s.sensor_id]||"";return "<span class='chip' data-sen='"+esc(n)+"' data-val='"+esc(fmtAxis(s.value))+"'>"+esc(nm)+": <b>"+fmtAxis(s.value)+" "+un+"</b></span>"};
+   const chips=[];
+    ["temp1","hum1","press1","light1"].forEach(n=>{if(g[n])chips.push(info(n))});
+   if(g.pir1)chips.push("<span class='chip "+(g.pir1.value?"det":"")+"' data-sen='pir1' data-val='"+(g.pir1.value?"1":"0")+"'>Motion: <b>"+(g.pir1.value?"detected":"no motion")+"</b></span>");
+   if(g.wifi_motion)chips.push("<span class='chip "+(g.wifi_motion.value?"det":"")+"' data-sen='wifi_motion' data-val='"+(g.wifi_motion.value?"1":"0")+"' title='RSSI-jitter/CSI based WiFi motion (WiFiVision)'>WiFi: <b>"+(g.wifi_motion.value?"detected":"no motion")+"</b></span>");
+   if(g.ai_detect)chips.push("<span class='chip "+(g.ai_person.value?"det":"")+"' data-sen='ai_detect' data-val='"+g.ai_detect.value+"' title='AI object detection (YOLOv4-tiny on RPi)'>AI: <b>"+(g.ai_detect.value?(g.ai_person.value?"person detected":g.ai_detect.value+" objects"):"clear")+"</b></span>");
+   ["btn1","btn2","btn3","btn4"].forEach(n=>{if(g[n])chips.push("<span class='chip "+(g[n].value?"det":"")+"' data-sen='"+n+"' data-val='"+g[n].value+"' title='"+sensorLabel(n)+" (actor board)'>"+sensorLabel(n)+": <b>"+(g[n].value?"pressed":"idle")+"</b></span>")});
+     const anyLatest=[t,h,p,g.light1,g.pir1,g.wifi_motion,g.ai_detect,g.btn1,g.btn2,g.btn3,g.btn4].find(Boolean);
+   if(!chips.length)continue;
+   const mapsWrap=(dev==="esp32-01")
+     ?"<div data-map='wifi' data-mapdev='"+esc(dev)+"'></div>"
+     :((dev==="esp32-02")?"<div data-map='sonar' data-mapdev='"+esc(dev)+"'></div>":"");
+   r+="<div class='card' data-did='"+esc(dev)+"'><div class='row'><div style='font-size:16px;font-weight:700'>"+esc(dev)+"</div>"+
+      "<span class='muted' style='font-size:12px' data-age='"+esc(dev)+"'>"+age(anyLatest)+"</span>"+
+      "<span class='spacer'></span>"+chips.join(" ")+
+      "</div>"+mapsWrap+"<div style='margin-top:8px' data-big='" + esc(dev) + "'></div></div>";
+  }
+  const devs=Object.keys(byDev);
+  setTimeout(()=>devs.forEach(dev=>{const box=document.querySelector("[data-big='"+CSS.escape(dev)+"']");if(box)loadBigSensorCharts(dev) }),0);
+  setTimeout(updateMaps,0);
+   return "<h2>Sensors ("+(D.mode==="real"?"real":"simulated")+")</h2>"+
+   (r || "<div class='card'>"+(D.mode==="real"?"Connect real sensors — none identified yet.":"Waiting for simulation sensors...")+"</div>")}
+function updateMaps(){
+  document.querySelectorAll("[data-map]").forEach(el=>{
+    const kind=el.getAttribute("data-map"),dev=el.getAttribute("data-mapdev");
+    if(kind==="wifi")el.innerHTML=wifiVisionMap(dev);
+    else if(kind==="sonar")el.innerHTML=sonarMap(dev);
+  });
+}
+function bigSensorChart(sid, pts, hist, color, unit){
+  const W=860,H=200,AX=34,AY=12;
+  const lastVal=(hist[sid]&&hist[sid].length)?parseFloat(hist[sid][hist[sid].length-1][1]):NaN;
+  if(!pts||pts.length<2)return "<div class='card sensor-big'><h4>"+esc(sensorLabel(sid))+" <span class='muted'>"+esc(unit||"")+"</span></h4><div class='muted'>no history yet — waiting for samples</div></div>";
+  let mn=Infinity,mx=-Infinity;
+  pts.forEach(p=>{const v=parseFloat(p[1]);if(!isNaN(v)){mn=Math.min(mn,v);mx=Math.max(mx,v)}});
+  if(!isFinite(mn))return "<div class='card sensor-big'><h4>"+esc(sensorLabel(sid))+"</h4><div class='muted'>no numeric samples</div></div>";
+  const pad=(mx===mn)?(mx?Math.abs(mx)*0.05:1):((mx-mn)*0.08);mn-=pad;mx+=pad;
+  const t0=pts[0][0],t1=pts[pts.length-1][0];
+  const x=t=>AY+((t-t0)/((t1-t0)||1))*(W-AY-8);
+  const y=v=>H-8-((v-mn)/(mx-mn))*(H-8-AX);
+  let path="";
+  const gridY=[0,0.25,0.5,0.75,1].map(f=>{
+    const gy=y(mn+(mx-mn)*f);
+    const label=(mn+(mx-mn)*(1-f));
+    return "<line x1='"+AY+"' y1='"+gy+"' x2='"+(W-4)+"' y2='"+gy+"' stroke='var(--border)' stroke-width='1'/>"+
+      "<text x='4' y='"+(gy+3)+"' fill='var(--dim)' font-size='9'>"+fmtAxis(label)+"</text>";
+  }).join("");
+  const N=Math.min(8,Math.max(2,Math.floor((W-AY)/100)));
+  let gridX="",prev=-1;
+  for(let i=0;i<=N;i++){
+    const idx=Math.round(i*(pts.length-1)/N);
+    const gx=x(pts[idx][0]);
+    if(gx-prev<30)continue;prev=gx;
+    gridX+="<line x1='"+gx+"' y1='"+AX+"' x2='"+gx+"' y2='"+(H-4)+"' stroke='var(--border)' stroke-width='1'/>"+
+      "<text x='"+(gx-16)+"' y='"+(H-4)+"' fill='var(--dim)' font-size='9'>"+fmtTime(pts[idx][0])+"</text>";
+  }
+  pts.forEach((p,i)=>{path+=(i?"L":"M")+x(p[0]).toFixed(1)+","+y(p[1]).toFixed(1)+" "});
+  const last=pts[pts.length-1];
+  const val=isFinite(lastVal)?lastVal:parseFloat(last[1]);
+  return "<div class='card sensor-big'><h4>"+esc(sensorLabel(sid))+" <span class='muted'>("+esc(unit||"")+")</span> <span class='badge' style='font-size:12px'>"+fmtAxis(val)+" "+(unit||"")+"</span></h4>"+
+   "<svg width='"+W+"' height='"+H+"' viewBox='0 0 "+W+" "+H+"' style='background:var(--surf2);border-radius:6px;width:100%;height:auto;max-height:320px'>"+
+   gridX+gridY+
+   "<path d='"+path+"' fill='none' stroke='"+color+"' stroke-width='1.8'/>"+
+   "<circle cx='"+x(last[0]).toFixed(1)+"' cy='"+y(last[1]).toFixed(1)+"' r='3' fill='"+color+"'><title>"+esc(sensorLabel(sid))+" "+fmtAxis(val)+" "+unit+"</title></circle>"+
+   "</svg></div>"
+}
+function sensorLabel(sid){
+  return {"temp1":"Temperature","press1":"Pressure","hum1":"Humidity","light1":"Light","pir1":"Motion","wifi_motion":"WiFi Motion","wifi_rssi":"WiFi RSSI jitter","ai_detect":"AI Detect","ai_person":"AI Person","actor_mode":"Actor","btn1":"Button K1","btn2":"Button K2","btn3":"Button K3","btn4":"Button K4"}[sid]||sid;
+}
+/* ---- radar/coverage mini-maps shown inside the Sensors cards ---- */
+function sweepOf(dev){
+  const rows=(D.sonar_sweeps||[]).filter(r=>r.device_id===dev);
+  const row=rows[rows.length-1];let data=[];
+  try{data=row?JSON.parse(row.sweep):[]}catch(e){}
+  return {row:row,data:data};
+}
+function polarMapSVG(data,dev,cols){
+  const cx=110,cy=110,R=95;
+  let s="<svg width='230' height='230' viewBox='0 0 220 220' style='max-width:100%;background:var(--surf2);border-radius:6px'>";
+  for(const rr of [0.25,0.5,0.75,1])s+="<circle cx='"+cx+"' cy='"+cy+"' r='"+(R*rr)+"' fill='none' stroke='var(--border)' stroke-width='1'/>";
+  s+="<line x1='"+cx+"' y1='"+cy+"' x2='"+cx+"' y2='"+cy+"' stroke='var(--border)'/>"; /* top reference */
+  const pts=[];let hit=0;
+  data.forEach((v,i)=>{
+    if(!isFinite(v))return;
+    const a=(-i)*Math.PI/180;const r=R*(v/cols.max);
+    const x=cx+r*Math.sin(a),y=cy-r*Math.cos(a);
+    pts.push(x+","+y);if(v>cols.thr)hit++;
+    s+="<circle cx='"+x.toFixed(1)+"' cy='"+y.toFixed(1)+"' r='2.5' fill='"+(v>cols.thr?cols.on:cols.off)+"'/>";
+  });
+  if(pts.length>1)s+="<polygon points='"+pts.join(" ")+"' fill='"+(cols.fill||"rgba(140,170,255,.12)")+"' stroke='"+(cols.stroke||cols.on)+"' stroke-width='1'/>";
+  s+="<circle cx='"+cx+"' cy='"+cy+"' r='4' fill='var(--sec)'/>";
+  s+="</svg>";
+  return {svg:s,hit:hit,n:data.length};
+}
+function wifiVisionMap(dev){
+  const w=sweepOf(dev);if(!w.data.length)return "";
+  const m=polarMapSVG(w.data,dev,{max:20,thr:3,on:"var(--warn)",off:"var(--dim)",stroke:"#FFC94A",fill:"rgba(255,201,74,.10)"});
+  return "<div class='sensor-big'><h4>WiFiVision — RSSI jitter map <span class='muted'>(" + (m.hit) + " zones)</span></h4>"+
+   "<div style='text-align:center'>"+m.svg+"</div>"+
+   "<div class='muted' style='font-size:11px;text-align:center'>RSSI-jitter/CSI variance around "+esc(dev)+"; outward = stronger change. WiFiVision detects motion without a camera.</div></div>";
+}
+function sonarMap(dev){
+  const w=sweepOf(dev);if(!w.data.length)return "";
+  const m=polarMapSVG(w.data,dev,{max:400,thr:120,on:"var(--ok)",off:"var(--dim)",stroke:"#31C96B",fill:"rgba(49,201,107,.12)"});
+  return "<div class='sensor-big'><h4>Sonar — radar coverage <span class='muted'>("+esc(dev)+")</span></h4>"+
+   "<div style='text-align:center'>"+m.svg+"</div>"+
+   "<div class='muted' style='font-size:11px;text-align:center'>Panning HC-SR04 sweep 0–179°; radius = range (cm). Green = within 120 cm.</div></div>";
+}
+// Live-update the Sensors cards WITHOUT re-rendering (keeps scroll position).
+function sensorsLive(){
+  const now=Math.floor(Date.now()/1000);
+  if(!D.sensors)return;
+  const byDev={};(D.sensors||[]).forEach(s=>{const g=(byDev[s.device_id]=byDev[s.device_id]||{});g[s.sensor_id]=s});
+  document.querySelectorAll("[data-sen]").forEach(ch=>{
+    const dev=ch.closest(".card");
+    if(!dev)return;
+    const did=dev.dataset.did;
+    const sid=ch.dataset.sen;
+    const s=byDev[did]&&byDev[did][sid];
+    if(!s)return;
+    const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx"}[sid]||"";
+    const b=ch.querySelector("b");
+    if(b)b.textContent=fmtAxis(s.value)+" "+un;
+    ch.dataset.val=""+(fmtAxis(s.value));
+    if(sid==="pir1"){ch.className="chip "+(s.value?"det":"");if(b)b.textContent=s.value?"detected":"no motion"}
+    if(sid==="wifi_motion"){ch.className="chip "+(s.value?"det":"");if(b)b.textContent=s.value?"detected":"no motion"}
+    if(sid==="ai_detect"){const p=byDev[did]&&byDev[did].ai_person;ch.className="chip "+(p&&p.value?"det":"");if(b)b.textContent=s.value?(p&&p.value?"person detected":s.value+" objects"):"clear"}
+    if(sid==="wifi_rssi"){if(b)b.textContent=s.value+" (jitter)"}
+    if(sid==="btn1"||sid==="btn2"||sid==="btn3"||sid==="btn4"){ch.className="chip "+(s.value?"det":"");if(b)b.textContent=s.value?"pressed":"idle"}
+  });
+  // update "updated x ago"
+  document.querySelectorAll("[data-age]").forEach(el=>{
+    const did=el.dataset.age,dev=byDev[did];if(!dev)return;
+    const t=dev.temp1||dev.hum1||dev.press1||dev.light1||dev.pir1||dev.wifi_motion||dev.ai_detect||dev.btn1||dev.btn2||dev.btn3||dev.btn4;
+    if(t&&t.last_update){let a=now-(t.last_update>1000000000000?t.last_update/1000:t.last_update);el.textContent=a<0?"":a<60?"updated "+Math.round(a)+"s ago":a<3600?"updated "+Math.floor(a/60)+"m ago":"updated "+Math.floor(a/3600)+"h "+Math.floor((a%3600)/60)+"m ago"}
+  });
+}
+function fmtAxis(v){if(Math.abs(v)>=1000)return (Math.round(v)).toLocaleString();if(v===Math.round(v))return String(v);return v.toFixed(1)}
+const ARCH={nodes:[],edges:[],meta:null,hot:{}};
+const ARCH_LBL={
+ "mqtt":{"t":"MQTT / FXMQTT","c":"#2f9ee6"},
+ "fx":{"t":"OPC UA FX over MQTT","c":"#31C96B"},
+ "radio":{"t":"802.11 data plane","c":"#FFC94A"},
+ "ptp":{"t":"IEEE 802.1AS gPTP","c":"#b45cff"},
+ "tsn-stream":{"t":"IEEE 802.1Qcc stream","c":"#ff9d5c"},
+ "i2c":{"t":"I2C","c":"#8a8aa0"},
+ "adc":{"t":"ADC","c":"#8a8aa0"},
+ "gpio":{"t":"GPIO","c":"#8a8aa0"},
+ "uart":{"t":"UART","c":"#8a8aa0"},
+ "dvp":{"t":"DVP","c":"#8a8aa0"},
+  "rf":{"t":"RF","c":"#8a8aa0"},
+  "bus":{"t":"bus","c":"#8a8aa0"},
+  "opcua":{"t":"OPC UA opc.tcp:// (wired TSN)","c":"#19c9b0"}
+ };
+function adotcol(n){return n.status==="offline"?"var(--err)":({cnc:"var(--pri)",broker:"var(--sec)",radio:"var(--warn)",esp:"var(--ok)",cam:"var(--warn)",host:"var(--dim)",sensor:"var(--sec)",stm32:"#19c9b0"}[n.type]||"var(--dim)")}
+function asensorVals(n){
+  const un={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","wifi_motion":"","wifi_rssi":"dBm","actor_mode":"","imu1":"g","gpio1":"V"};
+ const v=n.values||{};
+ return Object.keys(v).map(k=>"<span class='achip'>"+esc(k)+" = "+esc(fmtAxis(v[k].value))+" "+(un[k]||v[k].unit||"")+"</span>").join("");
+}
+function archInfo(id){
+ const n=ARCH.nodes.find(x=>x.id===id);if(!n){toast("node not found",false);return}
+ const parent=ARCH.nodes.find(x=>x.id===n.parent);
+ const ills=ARCH.edges.filter(e=>e.from===id||e.to===id);
+ let html="<h3>"+esc(n.label)+" <span class='muted' style='font-size:12px'>("+esc(n.type)+")</span></h3>";
+ html+="<div class='kv'><b>id</b><span>"+esc(id)+"</span></div>";
+ if(parent)html+="<div class='kv'><b>wired to</b><span>"+esc(parent.label)+"</span></div>";
+ if(n.ip)html+="<div class='kv'><b>ip</b><span>"+esc(n.ip)+"</span></div>";
+ if(n.power&&n.power!=="-")html+="<div class='kv'><b>power</b><span>"+esc(n.power)+"</span></div>";
+ if(n.bus)html+="<div class='kv'><b>bus</b><span>"+esc(n.bus)+"</span></div>";
+ if(n.sub)html+="<div class='kv'><b>pins/wiring</b><span>"+esc(n.sub)+"</span></div>";
+ if((n.tsn||[]).length)html+="<div class='kv'><b>TSN features</b><span>"+esc((n.tsn||[]).join(", "))+"</span></div>";
+ const v=n.values||{};
+ if(Object.keys(v).length)html+="<div class='kv'><b>latest</b><span>"+Object.keys(v).map(k=>esc(k)+"="+esc(fmtAxis(v[k].value))+" "+(v[k].unit||"")).join(", ")+"</span></div>";
+ const rows=ills.map(e=>{
+   const L=ARCH_LBL[e.type]||{t:e.type,c:"var(--dim)"};
+   return "<span style='color:"+L.c+"'>◆</span> "+esc(e.from)+" → "+esc(e.to)+": "+esc(e.label||L.t);
+ }).join("<br>");
+ html+="<div class='kv'><b>links</b><span>"+(rows||"—")+"</span></div>";
+ const ov=document.createElement("div");ov.id="archOv";
+  ov.innerHTML="<div class='box'>"+html+"<button onclick='document.getElementById(\"archOv\").remove()' style='margin-top:10px'>Close</button></div>";
+
+ ov.addEventListener("click",e=>{if(e.target===ov)ov.remove()});
+ document.body.appendChild(ov);
+}
+function archSvgDraw(){
+ const svg=$("archSvg");if(!svg)return;
+ svg.setAttribute("width",ARCH.w);
+ svg.setAttribute("height",ARCH.h);
+ let path="",lbl="";const seen={};
+ ARCH.edges.forEach(e=>{
+   const a=ARCH.nodes.find(n=>n.id===e.from),b=ARCH.nodes.find(n=>n.id===e.to);
+   if(!a||!b)return;
+   const key=e.from+"|"+e.to+"|"+(e.type||"bus");
+   if(seen[key])return;seen[key]=1;
+   const type=e.type||"bus";
+   const col=(ARCH_LBL[type]||{c:"#8a8aa0"}).c;
+   const ax=a.x+a.w/2,ay=a.y+a.h/2,bx=b.x+b.w/2,by=b.y+b.h/2;
+   const hot=ARCH.hot[key]&&ARCH.hot[key]>Date.now();
+   // sensor plug -> parent device : straight vertical from bottom of plug to top of device
+   let mx,my,cx1,cy1,cx2,cy2;
+   if(a.parent===b.id){            // plug -> device (up)
+     cx1=ax;cy1=a.y+a.h;cx2=bx;cy2=b.y;
+     mx=(ax+bx)/2;my=(cy1+cy2)/2;
+   } else if(b.parent===a.id){     // device -> plug (down)
+     cx1=ax;cy1=a.y+a.h;cx2=bx;cy2=b.y;
+     mx=(ax+bx)/2;my=(cy1+cy2)/2;
+   } else {                          // general: gentle curve with slight offset per type
+     const dx=bx-ax,dy=by-ay,L=Math.max(1,Math.sqrt(dx*dx+dy*dy));
+     const off=((Object.keys(seen).length-1)*16)-16;
+     mx=(ax+bx)/2+(-dy/L)*off;my=(ay+by)/2+(dx/L)*off;
+     cx1=ax+(mx-ax)*0.4;cy1=ay+(my-ay)*0.4;
+     cx2=bx+(mx-bx)*0.4;cy2=by+(my-by)*0.4;
+     cx1=ax;cy1=ay;cx2=bx;cy2=by;     // straight-ish line between centres
+   }
+   const sw=hot?2.8:(type==="tsn-stream"?2.4:1.6);
+   path+="<path data-e='"+CSS.escape(key)+"' d='M"+ax+" "+ay+" C"+cx1+" "+cy1+" "+cx2+" "+cy2+" "+bx+" "+by+"' class='arch-link x"+(type)+(hot?" active anim":"")+"' style='stroke:"+col+";stroke-width:"+sw+";'/>";
+ });
+ svg.innerHTML=path;
+}
+function archLayout(){
+ const cw=Math.max(520,ARCH.w||980);
+ const core=ARCH.nodes.filter(n=>!n.parent&&(n.type==="cnc"||n.type==="broker"||n.type==="radio"));
+ const devs=ARCH.nodes.filter(n=>!n.parent&&!(n.type==="cnc"||n.type==="broker"||n.type==="radio"));
+ const plugs=ARCH.nodes.filter(n=>n.parent);
+ const boxW=190,boxH=48;
+ ARCH.nodes.forEach(n=>{delete n.x;delete n.y;delete n.w;delete n.h});
+ // ---- ROW 1: CNC, MQTT broker, WiFi AP (top, centered) ----
+ const coreGap=70;
+ const coreTotal=core.reduce((s,n)=>s+boxW+coreGap,0)-coreGap;
+ let x=Math.max(30,(cw-coreTotal)/2);
+ core.forEach(n=>{n.x=x;n.y=20;n.w=boxW;n.h=boxH;x+=boxW+coreGap});
+ // ---- ROW 2: devices (middle, centered, one per column) ----
+ const devGap=120,devY=120;
+ const devTotal=devs.reduce((s,d)=>s+boxW+devGap,0)-devGap;
+ x=Math.max(30,(cw-devTotal)/2);
+ devs.forEach(d=>{d.x=x;d.y=devY;d.w=boxW;d.h=64;x+=boxW+devGap});
+ // ---- ROW 3: sensors directly UNDER each device, single vertical column ----
+  const byP={};plugs.forEach(p=>{(byP[p.parent]=byP[p.parent]||[]).push(p)});
+  const plugW=170,plugH=34,plugGap=16;
+  const perDev={};
+  devs.forEach(d=>{perDev[d.id]=d});
+  Object.keys(byP).forEach(pid=>{
+    const dev=perDev[pid];if(!dev)return;
+    const list=byP[pid];
+    list.forEach((p,i)=>{
+      p.w=plugW;p.h=plugH;
+      p.x=dev.x+dev.w/2-plugW/2;            // centered under the device
+      p.y=dev.y+dev.h+16+i*(plugH+plugGap);  // stacked straight down (wider gap)
+    });
+  });
+ // ---- canvas size from real content + margins ----
+ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+ ARCH.nodes.forEach(n=>{
+   minX=Math.min(minX,n.x);minY=Math.min(minY,n.y);
+   maxX=Math.max(maxX,n.x+n.w);maxY=Math.max(maxY,n.y+n.h);
+ });
+ if(!isFinite(minX)){minX=0;minY=0;maxX=1200;maxY=800}
+ ARCH.w=Math.max(900,maxX-minX+240);
+ ARCH.h=Math.max(620,maxY-minY+140);
+ const sx=minX<0? -minX+60 : 60;
+ const sy=minY<0? -minY+60 : 60;
+ ARCH.nodes.forEach(n=>{n.x=Math.round(n.x+sx);n.y=Math.round(n.y+sy)});
+ // centre horizontally on cw once
+ const bnd=ARCH.nodes.reduce((o,n)=>({minX:Math.min(o.minX,n.x),maxX:Math.max(o.maxX,n.x+n.w)}),{minX:Infinity,maxX:-Infinity});
+ const contentW=bnd.maxX-bnd.minX;
+ const shift=Math.max(0,(cw-contentW)/2-bnd.minX);
+ ARCH.nodes.forEach(n=>{n.x=Math.round(n.x+shift)});
+}
+function architecture(){
+ ARCH.nodes=[];ARCH.edges=[];ARCH.hot={};
+ ARCH.z=1;ARCH.px=0;ARCH.py=0;
+ return "<h2>Architecture</h2>"+
+  "<div class='muted' style='margin-bottom:6px'>Node-RED-style wiring diagram — sensors and actuators are connected to specific GPIOs / pins with their supply voltage shown; management runs over MQTT / FXMQTT (control plane), data rides WiFi / 802.11 (TSN data plane). A pulsing link = live traffic.</div>"+
+  "<div id='archLegend' style='display:flex;align-items:center;gap:10px'></div>"+
+  "<div id='archBrkStatus' style='margin-bottom:6px;font-size:11px'></div>"+
+  "<div class='arch-toolbar'><button onclick='archZoom(1.25)'>＋</button><button onclick='archZoom(0.8)'>−</button><button onclick='archZoomFit()'>Fit</button><button onclick='archPanHome()'>Reset</button><span class='muted' style='font-size:11px'>scroll = zoom · drag = move</span></div>"+
+  "<div class='arch-viewport' id='archViewport'><div class='arch-canvas' id='archCanvas'><svg id='archSvg' style='position:absolute;top:0;left:0'></svg><div id='archNodes' style='position:absolute;top:0;left:0'></div></div></div>"+
+  "<div class='muted' style='font-size:11px;margin-top:4px'>Click a node for details (GPIO, power, links, TSN). Green dot = online, red = offline.</div>"+
+  "<div id='archFlow'></div>";
+}
+function archBuild(){
+ const canvas=$("archCanvas"),box=$("archNodes");
+ if(!canvas||!box)return;
+ canvas.style.width=ARCH.w+"px";canvas.style.height=ARCH.h+"px";
+ let h="";
+ ARCH.nodes.forEach(n=>{
+   const tsn=(n.tsn||[]).slice(0,4).map(t=>"<span class='achip'>"+esc(t)+"</span>").join("");
+   const av=asensorVals(n);
+   const pwr=(n.power&&n.power!=="-")?"<div class='apwr'><span style='color:var(--warn)'>⏚ "+esc(n.power)+"</span>"+(n.bus?" · "+esc(n.bus):"")+"</div>":"";
+   h+="<div class='arch-node "+esc(n.type)+(n.status==="offline"?" offline":"")+(n.parent?" plug":"")+"' id='n_"+CSS.escape(n.id)+"' onclick='archInfo(\""+esc(n.id)+"\")' style='left:"+n.x+"px;top:"+n.y+"px;width:"+n.w+"px'>"+
+      "<div class='ah'><span class='dot' style='background:"+adotcol(n)+"'></span><span>"+esc(n.label)+"</span></div>"+
+      (n.sub?"<div class='asub'>"+esc(n.sub)+"</div>":"")+
+      (n.parent?"":(pwr+(tsn?"<div class='atsn'>"+tsn+"</div>":"")+av))+
+      "</div>";
+ });
+ box.innerHTML=h;
+ archSvgDraw();
+}
+
+function archFlowHtml(){
+ const flows=ARCH.meta&&ARCH.meta.flows||[];
+ if(!flows.length)return "";
+ return "<div class='arch-flow'>"+flows.map(f=>"<div class='card'><h3>"+esc(f.title)+"</h3><ol>"+f.steps.map(s=>"<li>"+esc(s)+"</li>").join("")+"</ol></div>").join("")+"</div>";
+}
+function archLoad(cb){
+ fetch("/api/actions/topology",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:D.mode})}).then(r=>r.json()).then(j=>{
+   if(!j.ok){toast(j.msg||"topology error",false);if(cb)cb();return}
+   ARCH.nodes=j.nodes||[];ARCH.edges=j.edges||[];ARCH.meta=j;
+   ARCH.nodes.forEach(n=>{n.values=n.values||{}});
+   if(cb)cb();
+ }).catch(()=>{toast("topology fetch failed",false);if(cb)cb()});
+}
+function archGo(){
+ archLoad(()=>{
+   const leg=$("archLegend");if(leg){
+     leg.innerHTML="<div class='legend'>"+Object.keys(ARCH_LBL).filter(k=>["mqtt","fx","radio","ptp","tsn-stream"].includes(k)).map(k=>"<span class='l'><span class='sw' style='background:"+ARCH_LBL[k].c+"'></span>"+ARCH_LBL[k].t+"</span>").join("")+"</div>";
+   }
+   const brkStatus=$("archBrkStatus");
+   if(brkStatus){
+     const ok=ARCH.meta&&ARCH.meta.broker_ok;
+     brkStatus.innerHTML="<span class='badge "+(ok?"ok":"err")+"' style='font-size:11px'>broker "+(ok?"reachable":"unreachable")+"</span> "+
+       "<span class='muted' style='font-size:11px'>"+(ARCH.meta&&ARCH.meta.broker||"")+"</span>";
+   }
+   archLayout();
+   if($("archNodes"))archBuild();
+   if($("archFlow"))$("archFlow").innerHTML=archFlowHtml();
+   archInitPanZoom();
+ });
+}
+function archZoom(f){
+ ARCH.z=Math.min(4,Math.max(0.15,ARCH.z*f));
+ archApplyTransform();
+}
+function archApplyTransform(){
+ const c=$("archCanvas");if(!c)return;
+ c.style.transform="translate("+ARCH.px+"px,"+ARCH.py+"px) scale("+ARCH.z+")";
+}
+function archPanHome(){
+ ARCH.px=0;ARCH.py=0;ARCH.z=1;
+ archApplyTransform();
+}
+function archZoomFit(){
+ const vp=$("archViewport");if(!vp)return;
+ const vw=vp.clientWidth||800,vh=vp.clientHeight||600;
+ ARCH.z=Math.min(1.5,Math.max(0.1,Math.min(vw/(ARCH.w||1200),vh/(ARCH.h||800))));
+ ARCH.px=Math.max(0,(vw-(ARCH.w||1200)*ARCH.z)/2);
+ ARCH.py=Math.max(0,(vh-(ARCH.h||800)*ARCH.z)/2);
+ archApplyTransform();
+}
+function archInitPanZoom(){
+ const vp=$("archViewport");if(!vp)return;
+ const c=$("archCanvas");if(!c)return;
+ vp._handlers=vp._handlers||{};
+ const add=(name,fn)=>{vp.removeEventListener(name,vp._handlers[name]);vp.addEventListener(name,vp._handlers[name]=fn)};
+ add("wheel",e=>{
+   e.preventDefault();
+   const f=e.deltaY<0?1.12:0.89;
+   ARCH.z=Math.min(4,Math.max(0.15,ARCH.z*f));
+   // zoom toward cursor
+   const r=vp.getBoundingClientRect();
+   const mx=e.clientX-r.left,my=e.clientY-r.top;
+   const wx=(mx-ARCH.px)/ (ARCH.z/f),wy=(my-ARCH.py)/(ARCH.z/f);
+   ARCH.px=mx-wx*ARCH.z;ARCH.py=my-wy*ARCH.z;
+   archApplyTransform();
+ },{passive:false});
+ add("mousedown",e=>{
+   if(e.button!==0)return;
+   vp.classList.add("grabbing");
+   vp._sx=e.clientX;vp._sy=e.clientY;vp._ox=ARCH.px;vp._oy=ARCH.py;
+ });
+ add("mousemove",e=>{
+   if(!vp.classList.contains("grabbing"))return;
+   ARCH.px=vp._ox+(e.clientX-vp._sx);
+   ARCH.py=vp._oy+(e.clientY-vp._sy);
+   archApplyTransform();
+ });
+ add("mouseup",e=>{vp.classList.remove("grabbing")});
+ add("mouseleave",e=>{vp.classList.remove("grabbing")});
+ archZoomFit();
+}
+function archKey(e){return e.from+"|"+e.to+"|"+(e.type||"bus")}
+function archFlashMatches(){
+ if(cur!=="architecture")return;
+ // look at recent events, map protocol/source/dest onto edges and pulse them
+ const ev=(D.events||[]).slice(0,40);
+ const now=Date.now();
+ ev.forEach(em=>{
+   if(!em||!em.proto)return;
+   const pr=(em.proto||"").toLowerCase();
+   let type=null;
+   if(pr.indexOf("mqtt")>=0)type="mqtt";
+   else if(pr.indexOf("fx")>=0)type="fx";
+   else if(pr.indexOf("802.1as")>=0||pr.indexOf("ptp")>=0)type="ptp";
+   else if(pr.indexOf("stream")>=0||pr.indexOf("qcc")>=0)type="tsn-stream";
+   else if(pr.indexOf("802.1q ")>-1||pr.indexOf("qbv")>-1||pr.indexOf("qbu")>-1)type="mqtt";
+   else if(pr.indexOf("motion")>=0||pr.indexOf("sensor")>-1)type="mqtt";
+   const sr=em.source,dst=em.dest||em.dest_ip;
+   // find edges involving source or dest device and matching type
+   ARCH.edges.forEach(e=>{
+     if(type===null)return;
+     if(e.type!==type)return;
+     if((sr&&sr!==e.from&&sr!==e.to))return;
+     if(dst&&dst!==e.from&&dst!==e.to&&dst!=="cnc"&&dst!=="broker")return;
+     ARCH.hot[archKey(e)]=now+(type==="fx"?900:600);
+   });
+ });
+ // prune stale
+ Object.keys(ARCH.hot).forEach(k=>{if(ARCH.hot[k]<now-2000)delete ARCH.hot[k]});
+}
+function archTick(){
+ if(cur!=="architecture")return;
+ // live: detect topology changes (new devices/sensors announced over MQTT) and
+ // redraw so freshly connected hardware appears automatically in the diagram.
+ fetch("/api/actions/topology",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:D.mode})}).then(r=>r.json()).then(j=>{
+   if(!j.ok)return;
+   const ids=(j.nodes||[]).map(n=>n.id).sort().join("|");
+   const curIds=ARCH.nodes.map(n=>n.id).sort().join("|");
+   const changed=(j.broker||"")!==(ARCH.meta&&ARCH.meta.broker||"")||ids!==curIds;
+   if(changed){
+     // preserve zoom/pan across the rebuild
+     const z=ARCH.z,px=ARCH.px,py=ARCH.py;
+     ARCH.nodes=j.nodes||[];ARCH.edges=j.edges||[];ARCH.meta=j;
+     ARCH.nodes.forEach(n=>{n.values=n.values||{}});
+     archLayout();
+     if($("archNodes"))archBuild();
+     if($("archFlow"))$("archFlow").innerHTML=archFlowHtml();
+     ARCH.z=z;ARCH.px=px;ARCH.py=py;archApplyTransform();
+   }
+   archFlashMatches();
+   archSvgDraw();
+ });
+}
+function loadBigSensorCharts(dev){
+  fetch("/api/actions/get_history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:dev})}).then(r=>r.json()).then(j=>{
+    if(!j.ok)return;
+    const hist=j.history||{};
+    const box=document.querySelector("[data-big='"+CSS.escape(dev)+"']");
+    if(!box)return;
+    const cols={"temp1":"var(--err)","press1":"var(--pri)","hum1":"var(--ok)","light1":"var(--warn)","pir1":"var(--sec)","actor_mode":"var(--dim)"};
+    const units={"temp1":"°C","press1":"hPa","hum1":"%","light1":"lx","pir1":"","actor_mode":""};
+    const order=["temp1","press1","hum1","light1","pir1"];
+    let html="<div class='sensor-grid'>";
+    order.forEach(sid=>{ if(hist[sid]&&hist[sid].length>=2){ html+=bigSensorChart(sid,hist[sid],hist,cols[sid]||"var(--sec)",units[sid]||"") } });
+    html+="</div>";
+    box.innerHTML=html;
+  })}
+  const CHART_COLS=["var(--sec)","var(--ok)","var(--warn)","var(--err)"];
+  function metricChart(pts,{w=560,h=150,unit=""}={}){
+   if(!pts||!pts.length)return "<div class='muted'>no samples yet — Ping a device (Devices) for latency, or wait for gPTP reports</div>";
+   const now=Math.floor(Date.now()/1000);
+   let t0=pts[0].ts||now,t1=pts[pts.length-1].ts||now;
+   if(t1<=t0){t0=now-300;t1=now}
+   let mn=Infinity,mx=-Infinity;
+   pts.forEach(p=>{const v=parseFloat(p.v);if(!isNaN(v)){mn=Math.min(mn,v);mx=Math.max(mx,v)}});
+   if(!isFinite(mn))return "<div class='muted'>no numeric samples</div>";
+   const pad=(mx===mn)?1:((mx-mn)*0.08);
+   mn-=pad;mx+=pad;
+   const W=w,H=h;
+   const x=t=>4+Math.max(0,Math.min(1,(t-t0)/((t1-t0)||1)))*(W-8);
+   const y=v=>10+((mx-v)/(mx-mn))*(H-34);
+   let path="",last="";
+   const perDev={};
+   pts.forEach(k=>{
+     const v=parseFloat(k.v);if(isNaN(v))return;
+     (perDev[k.device_id]=perDev[k.device_id]||[]).push({ts:k.ts,v:v})});
+   const series=Object.keys(perDev);
+   series.forEach((dev,di)=>{
+     const col=CHART_COLS[di%4];
+     const ps=perDev[dev];
+     path+="<path d='"+ps.map((p,i)=>(i?"L":"M")+x(p.ts).toFixed(1)+","+y(p.v).toFixed(1)).join(" ")+"' fill='none' stroke='"+col+"' stroke-width='1.5'/>";
+     const lp=ps[ps.length-1];
+     last+="<circle cx='"+x(lp.ts).toFixed(1)+"' cy='"+y(lp.v).toFixed(1)+"' r='2.5' fill='"+col+"'><title>"+esc(dev)+" "+lp.v+" "+unit+"</title></circle>"});
+   const grid=[0,0.25,0.5,0.75,1].map(f=>"<line x1='4' y1='"+(10+f*(H-34)).toFixed(1)+"' x2='"+(W-4)+"' y2='"+(10+f*(H-34)).toFixed(1)+"' stroke='var(--border)' stroke-width='1'/>").join("");
+   const vlab="<text x='8' y='15' fill='var(--dim)' font-size='9'>"+fmtAxis(mx)+" "+unit+"</text>"+
+    "<text x='8' y='"+(H-22)+"' fill='var(--dim)' font-size='9'>"+fmtAxis(mn)+" "+unit+"</text>";
+   const tlbl="<text x='4' y='"+(H-8)+"' fill='var(--dim)' font-size='9'>"+fmtTime(t0)+"</text>"+
+    "<text x='"+(W-4)+"' y='"+(H-8)+"' fill='var(--dim)' font-size='9' text-anchor='end'>"+fmtTime(t1)+"</text>";
+   const leg=series.map((dev,di)=>"<span style='display:inline-flex;align-items:center;gap:5px;margin-right:16px;color:var(--text)'><span style='width:10px;height:10px;border-radius:2px;background:"+CHART_COLS[di%4]+"'></span>"+esc(dev)+"</span>").join("");
+   return "<svg viewBox='0 0 "+W+" "+H+"' style='width:100%;max-width:"+W+"px;aspect-ratio:"+W+"/"+H+";background:var(--surf2);border-radius:6px'>"+grid+path+last+vlab+tlbl+"</svg>"+
+    "<div class='gcllegend' style='margin-top:4px'>"+leg+"</div>"}
+function metrics(){
+  return "<h2>TSN Metrics</h2>"+
+   "<div class='muted' style='margin-bottom:10px'>Control-plane E2E latency (RTT per <b>Ping</b>, stored in <code>latency_log</code>) and gPTP clock offset from <code>timesync_reports</code>. In Simulation, synthetic samples are generated so you can see how the page behaves; in Real mode they come from real device Ping/acks and gPTP reports.</div>"+
+   "<div class='card'><div class='row'><span class='muted'>Aggregate window</span>"+
+   "<select id=mt_win onchange='mtLoad()'><option value=300>last 5 min</option><option value=900>last 15 min</option><option value=3600 selected>last 1 h</option><option value=7200>last 2 h</option></select>"+
+   "<span class='muted'>Summary window</span>"+
+   "<select id=mt_win2 onchange='mtLoad()'><option value=3600>1 h totals</option><option value=86400 selected>24 h totals</option><option value=604800>7 d totals</option></select>"+
+   "<span class='spacer'></span><button class='ghost' onclick='api(\"clear_metrics\",{}).then(load)'>Clear history</button></div><div id=mt_body><div class='muted'>loading...</div></div></div>"}
+function mtLoad(){
+ const w1=parseInt($("mt_win").value)||300,w2=parseInt($("mt_win2").value)||86400;
+ fetch("/api/actions/metrics",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({window:w1,window2:w2})}).then(r=>r.json()).then(j=>{
+   const b=$("mt_body");if(!b)return;
+   if(!j.ok){b.innerHTML="<div class='muted'>"+esc(j.msg)+"</div>";return}
+   const L=j.latency||{};const T=j.timesync||{};
+   const wpx=Math.max(360,Math.min(1240,(b.clientWidth||760)-8));
+   const wlab=s=>s===300?"5 min":s===900?"15 min":s===3600?"1 h":s===7200?"2 h":"custom";
+   const wlab2=s=>s===3600?"1 h":s===86400?"24 h":s===604800?"7 d":"custom";
+   const latSum=(L.summary||[]).map(s=>"<tr><td>"+esc(s.device_id)+"</td><td>"+fmtMs(s.avg)+"</td><td>"+fmtMs(s.mn)+"</td><td>"+fmtMs(s.mx)+"</td><td>"+s.n+"</td></tr>").join("");
+   const synSum=(T.summary||[]).map(s=>"<tr><td>"+esc(s.device_id)+"</td><td>"+fmtNs(s.avg)+"</td><td>"+fmtNs(s.mn)+"</td><td>"+fmtNs(s.mx)+"</td><td>"+fmtNs(s.jitter)+"</td><td>"+s.n+"</td></tr>").join("");
+   const latAll=(L.points||[]).length;
+   const synAll=(T.points||[]).length;
+   b.innerHTML=
+    "<h3>End-to-end latency (control plane ping RTT)</h3>"+
+    "<div class='row'><span class='muted'>Per-device summary — last "+wlab2(w2)+". avg/min/max of all Ping RTTs in that window; 'pings' = sample count.</span></div>"+
+    "<table><tr><th>device</th><th>avg (ms)</th><th>min (ms)</th><th>max (ms)</th><th>pings</th></tr>"+(latSum||"<tr><td colspan=5 class='muted'>no latency samples</td></tr>")+"</table>"+
+    "<div class='row' style='margin-top:10px'><span class='muted'>Samples — last "+wlab(w1)+". One line per device; the legend below the chart shows which color is which device.</span></div>"+
+    "<div style='margin-top:4px'>"+metricChart(L.points,{w:wpx,unit:"ms"})+"</div>"+
+    "<h3 style='margin-top:22px'>gPTP clock offset / jitter</h3>"+
+    "<div class='row'><span class='muted'>Per-device summary — last "+wlab2(w2)+". avg/min/max clock offset vs grandmaster and mean jitter; 'reports' = gPTP report count.</span></div>"+
+    "<table><tr><th>device</th><th>avg offset (ns)</th><th>min (ns)</th><th>max (ns)</th><th>avg jitter (ns)</th><th>reports</th></tr>"+(synSum||"<tr><td colspan=6 class='muted'>no sync reports</td></tr>")+"</table>"+
+    "<div class='row' style='margin-top:10px'><span class='muted'>Samples — last "+wlab(w1)+". One line per device; the legend below the chart shows which color is which device.</span></div>"+
+    "<div style='margin-top:4px'>"+metricChart(T.points,{w:wpx,unit:"ns"})+"</div>"+
+   "<h3 style='margin-top:22px'>Sync status</h3>"+
+   "<table><tr><th>device</th><th>status</th><th>reports</th></tr>"+((T.status||[]).map(s=>"<tr><td>"+esc(s.device_id)+"</td><td><span class='badge "+syncBadge(s.status)+"'>"+esc(s.status)+"</span></td><td>"+s.n+"</td></tr>").join("")||"<tr><td colspan=3 class='muted'>no reports</td></tr>")+"</table>"+
+   "<div class='muted' style='margin-top:8px'>"+fmtTime(j.now)+" — points shown: "+latAll+" latency · "+synAll+" sync</div>"})
+}
+function fmtMs(n){return (n==null?"-":(Math.round(n*10)/10)+" ms")}
+function fmtNs(n){return (n==null?"-":(Math.round(n*10)/10)+" ns")}
+function fmtTime(ts){try{return new Date(ts*1000).toLocaleTimeString()}catch(e){return ts||""}}
+function syncBadge(s){return s==="in_sync"?"ok":(s==="holdover"?"warn":"err")}
+function streams(){
+ const rows=(D.tsn_streams||[]).map(s=>{const memb=(D.tsn_stream_members||[]).filter(x=>x.stream_id==s.stream_id);
+  const talker=(memb.find(x=>x.role==="talker")||{}).device_id||s.talker||"";
+  const lsn=memb.filter(x=>x.role==="listener").map(x=>x.device_id).join(", ");
+  return "<tr><td>"+esc(s.stream_id)+"</td><td>"+esc(s.name)+"</td><td>"+esc(talker)+"</td><td>"+esc(lsn)+"</td><td>"+(s.vlan_id||0)+"</td><td>"+(["configured","ready","failed","standby"][s.status]||s.status)+"</td>"+
+  "<td><button class='ghost' onclick='api(\"deploy_stream\",{stream_id:\""+esc(s.stream_id)+"\"}).then(load)'>Deploy</button>"+
+  "<button class='danger' onclick='api(\"delete_stream\",{stream_id:\""+esc(s.stream_id)+"\"}).then(load)'>Del</button></td></tr>"
+ }).join("");
+ const opts=D.devices.map(d=>"<option value='"+esc(d.id)+"'>"+esc(d.id)+"</option>").join("");
+ const vopts=D.vlan_groups.map(g=>"<option value='"+g.vlan_id+"'>"+esc(g.name)+" (VLAN "+g.vlan_id+")</option>").join("");
+ return "<h2>IEEE 802.1Qcc — TSN Streams</h2>"+
+  "<div class='card'><h3>Talker / Listener stream reservation</h3>"+
+  "<div class='row'><label>name</label><input id=s_name></div>"+
+  "<div class='row'><label>talker</label><select id=s_talker><option value=''>-</option>"+opts+"</select></div>"+
+  "<div class='row'><label>listeners</label><select id=s_lsn multiple size=5>"+opts+"</select><span class='muted'>Ctrl+click to select multiple</span></div>"+
+  "<div class='row'><label>vlan</label><select id=s_vlan><option value='0'>- none -</option>"+vopts+"</select></div>"+
+  "<div class='row'><button onclick=saveStream()>Save Stream</button>"+
+  "<button class='ghost' onclick='api(\"deploy_all_streams\",{domain:$(\"sd_scope\")?$(\"sd_scope\").value:\"\"}).then(load)'>Deploy All</button>"+
+  "<span class='muted'>scope:</span><select id=sd_scope><option value=''>all</option>"+(D.domains||[]).map(x=>"<option value='"+esc(x.id)+"'>"+esc(x.name)+"</option>").join("")+"</select></div></div>"+
+  "<h3>Streams</h3><table><tr><th>id</th><th>name</th><th>talker</th><th>listeners</th><th>vlan</th><th>status</th><th></th></tr>"+rows+"</table>"}
+function saveStream(){const lsn=[].slice.call(document.querySelectorAll("#s_lsn option:checked")).map(o=>o.value);
+ api("save_stream",{name:$("s_name").value,talker:$("s_talker").value,listeners:lsn,
+  vlan_id:parseInt($("s_vlan")?$("s_vlan").value:0)||0,max_latency_ns:parseInt($("s_lat")?$("s_lat").value:1000000)||1000000,
+  max_interval_ns:parseInt($("s_itv")?$("s_itv").value:100000)||100000,
+  priority:parseInt($("s_prio")?$("s_prio").value:5)||5,data_frame_prio:parseInt($("s_prio")?$("s_prio").value:5)||5}).then(load)}
+function settings(){
+ const brk=(D.settings||[]).find(s=>s.key==="broker")||{};
+ return "<h2>Settings</h2><div class='card'><div class='row'><label>mode</label><span>"+D.mode+"</span></div>"+
+  "<div class='row'><label>MQTT broker</label><input id=broker_in value='"+esc(brk.value||"127.0.0.1:1883")+"'></div>"+
+  "<button onclick=saveBroker()>Apply broker</button></div>"+
+  "<div class='card'><div class='row'><label>db</label><span>"+esc(D.db||"htsn_gui.db")+"</span></div>"+
+  "<div class='row'><label>push</label><span>in <b>Real</b> mode /apply is sent over MQTT to devices</span></div></div>"+
+  "<div class='card'><div class='row'><span class='muted'>Backup the whole configuration to JSON, or restore it from a previous export.</span></div>"+
+  "<div class='row'><button onclick='exportConfig()'>Export config</button>"+
+  "<button class='ghost' onclick='$(\"imp_file\").click()'>Restore from file</button>"+
+  "<input type=file id=imp_file accept='.json,application/json' style='display:none' onchange='importConfig(this)'></div></div>"}
+function saveBroker(){api("set_server",{type:((D.settings||[]).find(s=>s.key==="server_type")||{}).value||"node",id:"",broker:$("broker_in").value}).then(load)}
+function dl(name,content,type){const b=new Blob([content],{type:type||"application/json"});if(window.navigator&&navigator.msSaveBlob)return navigator.msSaveBlob(b,name);const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(u),1000)}
+function exportConfig(){const config=["devices","qos_configs","preemption_configs","vlan_groups","vlan_members","tas_schedules","gcl_entries","timesync_status","tsn_streams","tsn_stream_members","settings"].reduce((o,t)=>{o[t]=(D[t]||[]).map(r=>({...r}));return o},{meta:{mode:D.mode,exported:new Date().toISOString()}});dl("htsn-config-"+D.mode+"-"+new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")+".json",JSON.stringify(config,null,2));toast("config exported",true)}
+function importConfig(inp){const file=inp.files&&inp.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const json=JSON.parse(reader.result);restoreBackup(json)}catch(e){toast("invalid file: "+e.message,false)}};reader.readAsText(file);inp.value=""}
+async function restoreBackup(json){if(!json||typeof json!=="object"){toast("invalid backup",false);return}const r=await fetch("/api/actions/restore_backup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(json)});const res=await r.json();toast(res.msg,res.ok);load()}
+async function pollEvents(){const r=await fetch("/api/events");const j=await r.json();if(j.mode){D.mode=j.mode}
+ // refresh device list so newly discovered nodes appear without a manual page refresh
+ const dr=await fetch("/api/data");const dj=await dr.json();
+ const added=D.devices.filter(d=>!dj.devices.some(n=>n.id===d.id));
+ const removed=D.devices.some(d=>!dj.devices.some(n=>n.id===d.id));
+ const statusChanged=D.devices.length!==dj.devices.length||D.devices.some((d,i)=>dj.devices[i]&&d.status!==dj.devices[i].status);
+ if((added.length||removed||statusChanged)&&cur==="devices"){D.devices=dj.devices;if($("main"))devices_render()}
+  if($("mon") && MON_RUNNING){const f=($("mon_filter")?$("mon_filter").value:"").trim().toLowerCase();let list=(dj.events||[]).slice(0,120);if(f){list=list.filter(e=>((e.source||"")+(e.dest||"")+(e.proto||"")+(e.msg||"")+(e.ts||"")).toLowerCase().indexOf(f)>=0)}const ev=list.map(e=>"<div class='monrow'><span class='t'>"+esc(e.ts)+"</span><span class='s'>"+esc(e.source)+"</span><span class='ip'>"+esc(e.src_ip||"-")+"</span><span class='s'>"+esc(e.dest||"-")+"</span><span class='ip'>"+esc(e.dst_ip||"-")+"</span><span class='pro'>"+esc(e.proto||"-")+"</span><span>"+esc(e.msg||e.data||"")+"</span></div>").join("");$("mon").innerHTML=ev||""}
+  D.events=dj.events;D.devices=dj.devices;
+  const tsnChanged=JSON.stringify(D.tsn_endpoint)!==JSON.stringify(dj.tsn_endpoint);
+  D.tsn_endpoint=dj.tsn_endpoint;
+  if(tsnChanged&&cur==="tsn"&&$("main"))tsnRender();
+  if(JSON.stringify(D.sonar_sweeps)!==JSON.stringify(dj.sonar_sweeps)){D.sonar_sweeps=dj.sonar_sweeps;if(cur==="sensors"&&$("main"))updateMaps()}
+  // refresh sensor values live so the Sensors page updates in real time
+  if(JSON.stringify(D.sensors)!==JSON.stringify(dj.sensors)){D.sensors=dj.sensors;if(cur==="sensors"&&$("main")){sensorsLive();document.querySelectorAll("[data-big]").forEach(b=>{const d=b.getAttribute("data-big");if(d)loadBigSensorCharts(d)})}}
+  if(JSON.stringify(D.sonar_sweeps)!==JSON.stringify(dj.sonar_sweeps)&&cur==="sensors"&&$("main"))updateMaps();
+  D.sonar_sweeps=dj.sonar_sweeps;
+ // live refresh of configuration tables without losing in-progress form input
+ const dataChanged=JSON.stringify(D.qos_configs)!==JSON.stringify(dj.qos_configs)||JSON.stringify(D.vlan_groups)!==JSON.stringify(dj.vlan_groups)||JSON.stringify(D.tas_schedules)!==JSON.stringify(dj.tas_schedules)||JSON.stringify(D.preemption_configs)!==JSON.stringify(dj.preemption_configs)||JSON.stringify(D.tsn_streams)!==JSON.stringify(dj.tsn_streams)||JSON.stringify(D.gcl_entries)!==JSON.stringify(dj.gcl_entries);
+ D.qos_configs=dj.qos_configs;D.vlan_groups=dj.vlan_groups;D.tas_schedules=dj.tas_schedules;D.preemption_configs=dj.preemption_configs;D.tsn_streams=dj.tsn_streams;D.tsn_stream_members=dj.tsn_stream_members;D.gcl_entries=dj.gcl_entries;
+ if(dataChanged){if(cur==="qos"&&$("main"))$("main").innerHTML=qos();else if(cur==="vlan"&&$("main"))$("main").innerHTML=vlan();else if(cur==="tas"&&$("main"))$("main").innerHTML=tas();else if(cur==="preemption"&&$("main"))$("main").innerHTML=preemption();else if(cur==="streams"&&$("main"))$("main").innerHTML=streams();}
+ if(cur==="architecture")archTick();
+}
+let pollTimer=null,wsConn=null;
+function startPolling(){if(!pollTimer)pollTimer=setInterval(pollEvents,2000)}
+function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null}}
+function wsConnect(){
+  try{
+   wsConn=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+   wsConn.onopen=()=>{stopPolling()};
+   wsConn.onmessage=()=>{pollEvents()};
+   wsConn.onclose=()=>{wsConn=null;startPolling();setTimeout(wsConnect,2000)};
+   wsConn.onerror=()=>{try{wsConn.close()}catch(e){}}
+  }catch(e){startPolling()}}
+startPolling();
+wsConnect();
+</script></body></html>

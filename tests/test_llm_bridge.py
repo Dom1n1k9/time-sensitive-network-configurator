@@ -1,4 +1,4 @@
-"""Tests for the WTSN LLM bridge (rpi-ai/llm_bridge.py).
+"""Tests for the HTSN LLM bridge (rpi-ai/llm_bridge.py).
 
 Only the deterministic parts are tested here: JSON proposal parsing, allowlist
 validation, and the chat dispatch (guide/none never executes, a valid action
@@ -13,7 +13,7 @@ import unittest
 def _load_bridge():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(root, "rpi-ai", "llm_bridge.py")
-    spec = importlib.util.spec_from_file_location("wtsn_llm_bridge", path)
+    spec = importlib.util.spec_from_file_location("htsn_llm_bridge", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

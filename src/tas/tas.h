@@ -1,18 +1,18 @@
-#ifndef WTSN_TAS_H
-#define WTSN_TAS_H
+#ifndef HTSN_TAS_H
+#define HTSN_TAS_H
 
 #include "common/common.h"
 #include "tas/gcl.h"
 
 typedef struct {
-    char id[WTSN_MAX_STR];
-    char name[WTSN_MAX_STR];
+    char id[HTSN_MAX_STR];
+    char name[HTSN_MAX_STR];
     int64_t cycle_time_ns;
-    char deploy_target[WTSN_MAX_STR];
-    wtsn_gcl gcl;
-} wtsn_tas_schedule_model;
+    char deploy_target[HTSN_MAX_STR];
+    htsn_gcl gcl;
+} htsn_tas_schedule_model;
 
-wtsn_error wtsn_tas_validate(const wtsn_tas_schedule_model *s);
-wtsn_error wtsn_tas_generate_helper(wtsn_tas_schedule_model *s);
+htsn_error htsn_tas_validate(const htsn_tas_schedule_model *s);
+htsn_error htsn_tas_generate_helper(htsn_tas_schedule_model *s);
 
 #endif

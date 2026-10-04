@@ -9,47 +9,47 @@
 #define MAX_SUBSCRIBERS 64
 
 typedef struct {
-    char topic[WTSN_MAX_STR];
-    wtsn_event_handler cb;
+    char topic[HTSN_MAX_STR];
+    htsn_event_handler cb;
     void *userdata;
 } subscription;
 
-struct wtsn_event_bus {
+struct htsn_event_bus {
     subscription subs[MAX_SUBSCRIBERS];
     int num_subs;
     pthread_mutex_t lock;
 };
 
-wtsn_event_bus *wtsn_event_bus_create(void) {
-    wtsn_event_bus *bus = calloc(1, sizeof(wtsn_event_bus));
+htsn_event_bus *htsn_event_bus_create(void) {
+    htsn_event_bus *bus = calloc(1, sizeof(htsn_event_bus));
     if (!bus) return NULL;
     pthread_mutex_init(&bus->lock, NULL);
     return bus;
 }
 
-void wtsn_event_bus_destroy(wtsn_event_bus *bus) {
+void htsn_event_bus_destroy(htsn_event_bus *bus) {
     if (!bus) return;
     pthread_mutex_destroy(&bus->lock);
     free(bus);
 }
 
-int wtsn_event_bus_subscribe(wtsn_event_bus *bus, const char *topic,
-                             wtsn_event_handler cb, void *userdata) {
-    if (!bus || !topic || !cb) return WTSN_ERR_INVALID_ARG;
+int htsn_event_bus_subscribe(htsn_event_bus *bus, const char *topic,
+                             htsn_event_handler cb, void *userdata) {
+    if (!bus || !topic || !cb) return HTSN_ERR_INVALID_ARG;
     pthread_mutex_lock(&bus->lock);
     if (bus->num_subs >= MAX_SUBSCRIBERS) {
         pthread_mutex_unlock(&bus->lock);
-        return WTSN_ERR_BUSY;
+        return HTSN_ERR_BUSY;
     }
     int i = bus->num_subs++;
-    wtsn_strlcpy(bus->subs[i].topic, topic, sizeof(bus->subs[i].topic));
+    htsn_strlcpy(bus->subs[i].topic, topic, sizeof(bus->subs[i].topic));
     bus->subs[i].cb = cb;
     bus->subs[i].userdata = userdata;
     pthread_mutex_unlock(&bus->lock);
-    return WTSN_OK;
+    return HTSN_OK;
 }
 
-void wtsn_event_bus_publish(wtsn_event_bus *bus, const char *topic, void *data) {
+void htsn_event_bus_publish(htsn_event_bus *bus, const char *topic, void *data) {
     if (!bus || !topic) return;
     /* copy subscribers list to avoid holding lock while calling callbacks */
     subscription local[MAX_SUBSCRIBERS];

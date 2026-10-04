@@ -8,7 +8,7 @@
 #include <open62541/client_highlevel.h>
 #include <open62541/types.h>
 #include <open62541/types_generated.h>
-#include "wtsn_opcua_ids.h"
+#include "htsn_opcua_ids.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -25,7 +25,7 @@ int main(void) {
     /* read servo_angle (expect initial 90) */
     UA_Variant v; UA_Variant_init(&v);
     rv = UA_Client_readValueAttribute(c,
-        UA_NODEID_NUMERIC(WTSN_OPCUA_NS, WTSN_ID_SERVO_ANGLE), &v);
+        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_SERVO_ANGLE), &v);
     int16_t servo = -1;
     if (rv == UA_STATUSCODE_GOOD && UA_Variant_isScalar(&v))
         servo = *(UA_Int16 *)v.data;
@@ -36,14 +36,14 @@ int main(void) {
     /* write servo_angle = 45, read back */
     UA_Int16 ang = 45;
     rv = UA_Client_writeValueAttribute_scalar(c,
-        UA_NODEID_NUMERIC(WTSN_OPCUA_NS, WTSN_ID_SERVO_ANGLE), &ang,
+        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_SERVO_ANGLE), &ang,
         &UA_TYPES[UA_TYPES_INT16]);
     printf("write servo_angle=45 -> %s\n", UA_StatusCode_name(rv));
     ok &= (rv == UA_STATUSCODE_GOOD);
 
     UA_Variant_init(&v);
     UA_Client_readValueAttribute(c,
-        UA_NODEID_NUMERIC(WTSN_OPCUA_NS, WTSN_ID_SERVO_ANGLE), &v);
+        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_SERVO_ANGLE), &v);
     if (UA_Variant_isScalar(&v)) servo = *(UA_Int16 *)v.data;
     printf("read back servo_angle = %d (expect 45)\n", (int)servo);
     ok &= (servo == 45);
@@ -54,13 +54,13 @@ int main(void) {
     UA_Variant sv; UA_Variant_init(&sv);
     UA_Variant_setArrayCopy(&sv, sweep, 8, &UA_TYPES[UA_TYPES_INT16]);
     rv = UA_Client_writeValueAttribute(c,
-        UA_NODEID_NUMERIC(WTSN_OPCUA_NS, WTSN_ID_SONAR_SWEEP), &sv);
+        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_SONAR_SWEEP), &sv);
     printf("write sonar_sweep[8] -> %s\n", UA_StatusCode_name(rv));
     ok &= (rv == UA_STATUSCODE_GOOD);
 
     UA_Variant rv2; UA_Variant_init(&rv2);
     UA_Client_readValueAttribute(c,
-        UA_NODEID_NUMERIC(WTSN_OPCUA_NS, WTSN_ID_SONAR_SWEEP), &rv2);
+        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_SONAR_SWEEP), &rv2);
     int first = rv2.data ? (int)((const UA_Int16 *)rv2.data)[0] : -1;
     printf("read back sonar_sweep len=%u first=%d (expect 8, 0)\n",
            (unsigned)rv2.arrayLength, first);
@@ -71,7 +71,7 @@ int main(void) {
     /* read a command var (cmd_servo_angle, expect 90) */
     UA_Variant_init(&v);
     UA_Client_readValueAttribute(c,
-        UA_NODEID_NUMERIC(WTSN_OPCUA_NS, WTSN_ID_CMD_SERVO_ANGLE), &v);
+        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_CMD_SERVO_ANGLE), &v);
     int16_t cmd = -1;
     if (UA_Variant_isScalar(&v)) cmd = *(UA_Int16 *)v.data;
     printf("read cmd_servo_angle = %d (expect 90)\n", (int)cmd);

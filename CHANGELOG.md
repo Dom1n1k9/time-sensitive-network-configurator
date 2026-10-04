@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to the WTSN Configurator. Firmware releases bump
-`WTSN_FW_VERSION` in `shared/wtsn_version/wtsn_version.h`; host releases are
+All notable changes to the HTSN Configurator. Firmware releases bump
+`HTSN_FW_VERSION` in `shared/htsn_version/htsn_version.h`; host releases are
 tagged the same way.
 
 ## [Unreleased]
@@ -34,13 +34,13 @@ tagged the same way.
   layout, FAQ) with a table of contents.
 - Rewrote `docs/ARCHITECTURE.md` (removed the dead GUI controller/view, fixed
   the FX topic map, added the web GUI package structure and threading model).
-- Rewrote `docs/BUILD.md` (dropped the non-existent `WTSN_DB_PATH` option,
-  documented `WTSN_TLS_*`, CTest incl. `test_json_host`, ASan/cppcheck as
+- Rewrote `docs/BUILD.md` (dropped the non-existent `HTSN_DB_PATH` option,
+  documented `HTSN_TLS_*`, CTest incl. `test_json_host`, ASan/cppcheck as
   blocking, action-handler development).
 - Updated `esp32-agent/README.md` to match the actual firmware: NVS
   `ap_pass`/broker-auth keys, the real FX (`tsn/fx/cmd`, `tsn/fx/data`) and
   telemetry topic table, UART CRC-16/CCITT framing, default
-  `wtsn-broker.local` broker, `WTSN_DEVICE_ID` override.
+  `htsn-broker.local` broker, `HTSN_DEVICE_ID` override.
 
 ### Changed (UI)
 - The web GUI *Domains* page is now clearly labelled as **organizational**:
@@ -65,17 +65,17 @@ tagged the same way.
 
 ### Added
 - **Shared ESP-IDF components** (`shared/`):
-  - `wtsn_prov` — one provisioning implementation (SoftAP + HTTP portal,
-    per-board SSID `WTSN-Setup-<id>`, re-provision fallback) used by both
+  - `htsn_prov` — one provisioning implementation (SoftAP + HTTP portal,
+    per-board SSID `HTSN-Setup-<id>`, re-provision fallback) used by both
     `esp32-agent` and `esp32-cam`; removes ~250 lines of duplicated code.
-  - `wtsn_version` — single `WTSN_FW_VERSION` constant; both firmwares now
+  - `htsn_version` — single `HTSN_FW_VERSION` constant; both firmwares now
     report `"fw"` in `tsn/discover` and `tsn/status` payloads.
 - **Windows launcher** `run.ps1` (mirror of `run.sh`): LAN IP detection,
   optional mosquitto startup, GUI auto-start with a self-healing health
   monitor, browser launch. `-Headless` for services only.
 - **Python tests** (`tests/test_webgui.py`): 22 unit + HTTP smoke tests.
 - **C tests**: `str_util`, `event_bus` and `config version` coverage added to
-  `wtsn-tests` (now 82 tests).
+  `htsn-tests` (now 82 tests).
 - **CI** (`.github/workflows/ci.yml`): Python job (ruff + unittest),
   AddressSanitizer/UBSan build job, cppcheck job, alongside the existing
   build/test/package job.
@@ -88,15 +88,15 @@ tagged the same way.
 
 ### Changed
 - `webgui.py` (1,700-line single file) is now a thin shim over the
-  `wtsn_webgui/` package (state, MQTT broker, DB, MQTT link, simulator,
+  `htsn_webgui/` package (state, MQTT broker, DB, MQTT link, simulator,
   actions, HTTP server, static UI split out).
 - Simulator log/string helpers now shim over the shared `common/log.h` and
   `common/str_util.h` (duplicate implementations removed).
-- Web GUI static UI moved to `wtsn_webgui/static/index.html`.
+- Web GUI static UI moved to `htsn_webgui/static/index.html`.
 
 ### Removed
 - Dead `src/app/main_gui.c` (never built, superseded by `webgui.py`).
-- Duplicated provisioning code in `esp32-cam` (see shared `wtsn_prov`).
+- Duplicated provisioning code in `esp32-cam` (see shared `htsn_prov`).
 - 157 vendored files under `esp32-cam/managed_components/` and the generated
   `esp32-cam/sdkconfig` are no longer tracked in git (ESP-IDF manages them at
   build time); both are gitignored.

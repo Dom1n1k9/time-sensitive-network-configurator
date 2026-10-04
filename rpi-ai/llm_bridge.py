@@ -1,4 +1,4 @@
-"""WTSN LLM Bridge (runs on the Raspberry Pi edge node).
+"""HTSN LLM Bridge (runs on the Raspberry Pi edge node).
 
 HTTP service on 127.0.0.1:8081 that turns natural-language requests into
 validated TSN actions. Flow:
@@ -11,9 +11,9 @@ parameters; anything else is refused. It never touches the network/MQTT
 directly.
 
 Env:
-  WTSN_OLLAMA_MODEL   (default qwen2.5:1.5b)
-  WTSN_OLLAMA_URL     (default http://127.0.0.1:11434)
-  WTSN_WEB_USER / WTSN_WEB_PASS  (GUI basic auth, from /etc/wtsn/env)
+  HTSN_OLLAMA_MODEL   (default qwen2.5:1.5b)
+  HTSN_OLLAMA_URL     (default http://127.0.0.1:11434)
+  HTSN_WEB_USER / HTSN_WEB_PASS  (GUI basic auth, from /etc/htsn/env)
 """
 import base64
 import json
@@ -24,18 +24,18 @@ import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-MODEL = os.environ.get("WTSN_OLLAMA_MODEL", "qwen2.5:1.5b")
-OLLAMA_URL = os.environ.get("WTSN_OLLAMA_URL", "http://127.0.0.1:11434")
-GUI_URL = os.environ.get("WTSN_AI_GUI", "http://127.0.0.1:8000")
-GUI_USER = os.environ.get("WTSN_WEB_USER", "")
-GUI_PASS = os.environ.get("WTSN_WEB_PASS", "")
+MODEL = os.environ.get("HTSN_OLLAMA_MODEL", "qwen2.5:1.5b")
+OLLAMA_URL = os.environ.get("HTSN_OLLAMA_URL", "http://127.0.0.1:11434")
+GUI_URL = os.environ.get("HTSN_AI_GUI", "http://127.0.0.1:8000")
+GUI_USER = os.environ.get("HTSN_WEB_USER", "")
+GUI_PASS = os.environ.get("HTSN_WEB_PASS", "")
 
 log_lock = threading.Lock()
 
 
 def log(msg):
     with log_lock:
-        print("[wtsn-llm] %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
+        print("[htsn-llm] %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
 
 
 def gui_headers():
@@ -130,7 +130,7 @@ def validate(action, params, devices):
     return cleaned, None
 
 
-SYSTEM_PROMPT = """You are the TSN configuration assistant of the WTSN Configurator (web GUI for a wireless TSN network: ESP32 nodes, cameras, sensors on an RPi edge).
+SYSTEM_PROMPT = """You are the TSN configuration assistant of the HTSN Configurator (web GUI for a heterogeneous TSN network: ESP32 nodes, cameras, sensors on an RPi edge).
 You have TWO jobs, and you ALWAYS answer in English (even if the user writes in another language). Decide which job applies BEFORE choosing an action:
 
 1. DO -- execute a change ONLY when the user imperatively orders a SPECIFIC change:

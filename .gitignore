@@ -23,4 +23,4 @@ webgui_*.log
 rpi-tsn/cnc_opcua
 rpi-tsn/tsn_opcua_link
 rpi-tsn/test_opcua_client
-rpi-tsn/wtsn_opcua_cli
+rpi-tsn/htsn_opcua_cli
