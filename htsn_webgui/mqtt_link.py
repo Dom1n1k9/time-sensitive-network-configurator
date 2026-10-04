@@ -318,6 +318,7 @@ def mqtt_listener_loop():
                     break
                 idle_since = time.time()
                 parse_listener_msg(cons, r[0], r[1])
+                state.WS_NOTIFY.set()
                 # re-evaluate mode / broker after each message; switch DB if changed
                 cur_db = state.DB_REAL if state.MODE["mode"] == "real" else state.DB_SIM
                 if cur_db != prev_db:
