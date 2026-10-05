@@ -1,131 +1,73 @@
-/* htsn_tsn CNC OPC UA server — runs on the RPi (the CNC).
+/* htsn_tsn CNC OPC UA server — runs on the RPi (the CNC / Controller).
  *
- * The wired RPi<->STM32 link is **OPC UA only** (opc.tcp://). This process hosts
- * the open62541 server that the STM32 endpoint connects to as a client:
- *   - the STM32 (client) WRITES its telemetry variables;
- *   - the STM32 (client) MONITORS the command variables (cmd_*);
- *   - the GUI / SCADA (client, also on the RPi) reads telemetry and writes
- *     command_* to drive the endpoint.
+ * Two data paths, both on this process:
  *
- * The ESP32 (wireless) side is separate and uses MQTT directly — nothing on
- * that path touches this OPC UA server. NodeIds are defined in htsn_opcua_ids.h.
+ *  1) OPC UA client-server (opc.tcp://:4840) — the management plane. The GUI,
+ *     the read-only poller (tsn_opcua_link) and the one-shot CLI (htsn_opcua_cli)
+ *     read telemetry and write command_* here.
+ *
+ *  2) OPC UA FX field-level PubSub (UDP-UADP) — the RPi<->STM32 data plane.
+ *     Replaces the raw-UDP htsn_frame bridge. This server PUBLISHES the command
+ *     dataset (C2D) to the STM and SUBSCRIBES the telemetry dataset (D2C) back
+ *     into the same telemetry nodes the poller reads, so the GUI is unchanged.
+ *
+ * NodeIds / the node model live in htsn_opcua_ids.h + htsn_nodes.c. The PubSub
+ * wire contract (ids, dataset field order, defaults) lives in htsn_pubsub.h.
+ *
+ * PubSub env (all optional):
+ *   HTSN_PUBSUB_ENABLE   1/0  enable the PubSub plane (default 1)
+ *   HTSN_PUBSUB_PUB_ADDR opc.udp://<stm-ip>:<port>/  publish commands here
+ *   HTSN_PUBSUB_SUB_PORT int  local UDP port to receive telemetry (default 8898)
+ *   HTSN_PUBSUB_IFACE    eth0  network interface (default: OS routing)
  */
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
 #include <open62541/types_generated.h>
 #include <open62541/nodeids.h>
 #include "htsn_opcua_ids.h"
+#include "htsn_nodes.h"
+#include "htsn_pubsub.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 
 static UA_Server *server;
 static volatile UA_Boolean running = UA_TRUE;
-static UA_UInt16 ns = HTSN_OPCUA_NS;
-static UA_NodeId obj;
+static UA_Boolean pubsub_up = UA_FALSE;
 
 static void on_signal(int s) { (void)s; running = UA_FALSE; }
 
-static UA_StatusCode add_scalar(UA_UInt32 id, const char *name, size_t typeIdx,
-                                const void *val) {
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
-    attr.description = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
-    attr.displayName = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
-    attr.dataType = UA_TYPES[typeIdx].typeId;
-    attr.valueRank = -1;
-    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-    UA_Variant_setScalarCopy(&attr.value, val, &UA_TYPES[typeIdx]);
-    return UA_Server_addVariableNode(server, UA_NODEID_NUMERIC(HTSN_OPCUA_NS, id), obj,
-        UA_NS0ID(HASCOMPONENT), UA_QUALIFIEDNAME(ns, (char *)name),
-        UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
+static const char *env_or(const char *k, const char *d) {
+    const char *v = getenv(k);
+    return (v && *v) ? v : d;
 }
 
-static UA_StatusCode add_sweep(UA_UInt32 id, const char *name) {
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
-    attr.description = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
-    attr.displayName = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
-    attr.dataType = UA_TYPES[UA_TYPES_INT16].typeId;
-    attr.valueRank = 1;
-    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-    UA_UInt32 dims[1] = { 0 };
-    attr.arrayDimensionsSize = 1;
-    attr.arrayDimensions = dims;
-    UA_Variant_setArrayCopy(&attr.value, (const void *)NULL, 0, &UA_TYPES[UA_TYPES_INT16]);
-    return UA_Server_addVariableNode(server, UA_NODEID_NUMERIC(HTSN_OPCUA_NS, id), obj,
-        UA_NS0ID(HASCOMPONENT), UA_QUALIFIEDNAME(ns, (char *)name),
-        UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
-}
+static UA_UInt16 ns_index;   /* set in main from htsn_build_address_space */
 
-static UA_StatusCode add_string(UA_UInt32 id, const char *name) {
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
-    attr.description = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
-    attr.displayName = UA_LOCALIZEDTEXT((char *)"en-US", (char *)name);
-    attr.dataType = UA_TYPES[UA_TYPES_STRING].typeId;
-    attr.valueRank = -1;
-    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-    const UA_String s = UA_STRING_NULL;
-    UA_Variant_setScalarCopy(&attr.value, &s, &UA_TYPES[UA_TYPES_STRING]);
-    return UA_Server_addVariableNode(server, UA_NODEID_NUMERIC(HTSN_OPCUA_NS, id), obj,
-        UA_NS0ID(HASCOMPONENT), UA_QUALIFIEDNAME(ns, (char *)name),
-        UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
-}
+static UA_StatusCode setup_pubsub(void) {
+    const char *enable = env_or("HTSN_PUBSUB_ENABLE", "1");
+    if (strcmp(enable, "0") == 0 || strcmp(enable, "false") == 0 ||
+        strcmp(enable, "off") == 0 || strcmp(enable, "no") == 0) {
+        printf("pubsub: disabled (HTSN_PUBSUB_ENABLE=0)\n");
+        return UA_STATUSCODE_GOOD;
+    }
+    const char *pub_addr = env_or("HTSN_PUBSUB_PUB_ADDR", HTSN_PUBSUB_PUB_ADDR_DEF);
+    const char *port_s   = env_or("HTSN_PUBSUB_SUB_PORT", "8898");
+    const char *iface    = env_or("HTSN_PUBSUB_IFACE", "");
+    int sub_port = (int)atol(port_s);
+    if (sub_port <= 0) sub_port = HTSN_PUBSUB_SUB_PORT_DEF;
 
-static UA_StatusCode build_address_space(void) {
-    ns = UA_Server_addNamespace(server, "urn:htsn:stm32");
-
-    UA_ObjectAttributes oattr;
-    UA_ObjectAttributes_init(&oattr);
-    oattr.description = UA_LOCALIZEDTEXT((char *)"en-US", (char *)"htsn_tsn endpoint");
-    oattr.displayName = UA_LOCALIZEDTEXT((char *)"en-US", (char *)"stm32-tsn-01");
-    UA_StatusCode res = UA_Server_addObjectNode(server,
-        UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_OBJ),
-        UA_NS0ID(OBJECTSFOLDER), UA_NS0ID(HASCOMPONENT),
-        UA_QUALIFIEDNAME(ns, (char *)"stm32-tsn-01"),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE), oattr, NULL, &obj);
-    if (res != UA_STATUSCODE_GOOD) return res;
-
-    UA_NodeId tmp;
-    int16_t i16 = 90; int32_t i32 = 0; int64_t i64 = 0;
-    uint16_t u16 = 0; uint8_t u8 = 2; bool b = false;
-    (void)tmp;
-
-    add_sweep(HTSN_ID_SONAR_SWEEP, "sonar_sweep");
-    add_scalar(HTSN_ID_SONAR_SWEEP_ID, "sonar_sweep_id", UA_TYPES_INT32,  &i32);
-    add_scalar(HTSN_ID_SERVO_ANGLE,    "servo_angle",    UA_TYPES_INT16,   &i16);
-    add_scalar(HTSN_ID_RELAY_ON,       "relay_on",       UA_TYPES_BOOLEAN, &b);
-    add_scalar(HTSN_ID_BUZZER_HZ,      "buzzer_hz",      UA_TYPES_UINT16,  &u16);
-    add_scalar(HTSN_ID_BUZZER_MS,      "buzzer_ms",      UA_TYPES_UINT16,  &u16);
-    add_scalar(HTSN_ID_BTN1, "btn1", UA_TYPES_BOOLEAN, &b);
-    add_scalar(HTSN_ID_BTN2, "btn2", UA_TYPES_BOOLEAN, &b);
-    add_scalar(HTSN_ID_BTN3, "btn3", UA_TYPES_BOOLEAN, &b);
-    add_scalar(HTSN_ID_BTN4, "btn4", UA_TYPES_BOOLEAN, &b);
-    add_scalar(HTSN_ID_PTP_OFFSET_NS, "ptp_offset_ns",  UA_TYPES_INT64,    &i64);
-    add_scalar(HTSN_ID_PTP_STATE,     "ptp_state",      UA_TYPES_BYTE,     &u8);
-    add_scalar(HTSN_ID_PTP_LOCKED,    "ptp_locked",     UA_TYPES_BOOLEAN,  &b);
-    add_scalar(HTSN_ID_LAST_SEEN,     "last_seen",      UA_TYPES_INT64,    &i64);
-
-    i16 = 0; u8 = 0;
-    add_scalar(HTSN_ID_TSN_APP_VLAN,    "tsn_app_vlan",    UA_TYPES_INT16, &i16);
-    add_scalar(HTSN_ID_TSN_APP_PRIO,    "tsn_app_prio",    UA_TYPES_BYTE,  &u8);
-    add_scalar(HTSN_ID_TSN_APP_PREEMPT, "tsn_app_preempt", UA_TYPES_BYTE,  &u8);
-    add_scalar(HTSN_ID_TSN_APP_TIMESYNC,"tsn_app_timesync",UA_TYPES_BYTE,  &u8);
-    add_scalar(HTSN_ID_TSN_APP_STROLE,  "tsn_app_strole",  UA_TYPES_BYTE,  &u8);
-    add_scalar(HTSN_ID_TSN_APP_STVLAN,  "tsn_app_stvlan",  UA_TYPES_INT16, &i16);
-    add_scalar(HTSN_ID_TSN_APP_TASCYC,  "tsn_app_tascyc",  UA_TYPES_INT64, &i64);
-    add_scalar(HTSN_ID_TSN_FEATURES,    "tsn_features",    UA_TYPES_INT32, &i32);
-
-    i16 = 90;
-    add_scalar(HTSN_ID_CMD_SERVO_ANGLE, "cmd_servo_angle",   UA_TYPES_INT16,   &i16);
-    add_scalar(HTSN_ID_CMD_RELAY_ON,    "cmd_relay_on",      UA_TYPES_BOOLEAN, &b);
-    i16 = 0;
-    add_scalar(HTSN_ID_CMD_BEEP_MS,     "cmd_beep_ms",       UA_TYPES_INT16,   &i16);
-    add_scalar(HTSN_ID_CMD_SONAR_TRIG,  "cmd_sonar_trigger", UA_TYPES_BOOLEAN, &b);
-    add_scalar(HTSN_ID_CMD_REBOOT,      "cmd_reboot",        UA_TYPES_BOOLEAN, &b);
-    add_string(HTSN_ID_CMD_TSN_CONFIG,  "cmd_tsn_config");
+    UA_StatusCode rv = htsn_ps_attach_controller(server, ns_index, pub_addr, sub_port, iface);
+    if (rv != UA_STATUSCODE_GOOD) {
+        fprintf(stderr, "pubsub: attach failed (%s) — continuing client-server only\n",
+                UA_StatusCode_name(rv));
+        return rv;
+    }
+    pubsub_up = UA_TRUE;
+    printf("pubsub: controller plane up (cmd -> %s, telem <- :%d%s)\n",
+           pub_addr, sub_port, (*iface ? " on " : ""));
     return UA_STATUSCODE_GOOD;
 }
 
@@ -133,28 +75,53 @@ int main(void) {
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
 
-    server = UA_Server_new();                       /* default config: opc.tcp :4840 */
+    /* Default opc.tcp config on :4840, but with PubSub delta-frames disabled:
+     * the datasets are small and fixed, so every publish is a keyframe (the
+     * endpoint's reader only consumes keyframes). UA_Server_new() == setMinimal(4840).
+     *
+     * CRITICAL: pin the application URI to "urn:htsn:stm32" so open62541 registers
+     * it as namespace 1 (the app URI is always reserved as ns1). This is what makes
+     * the whole system's hardcoded ns==1 (GUI / poller / CLI / endpoint) line up,
+     * regardless of how many other built-in namespaces a build registers. */
+    UA_ServerConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    UA_ServerConfig_setMinimal(&cfg, 4840, NULL);
+    cfg.applicationDescription.applicationUri = UA_STRING("urn:htsn:stm32");
+    cfg.pubSubConfig.enableDeltaFrames = UA_FALSE;
+    server = UA_Server_newWithConfig(&cfg);
 
-    if (build_address_space() != UA_STATUSCODE_GOOD) {
+    ns_index = htsn_build_address_space(server);
+    if (ns_index == 0) {
         fprintf(stderr, "failed to build address space\n");
         return 1;
     }
 
+    /* PubSub components are added disabled; they start after run_startup. */
+    setup_pubsub();
+
     UA_Server_run_startup(server);
-    {
-        UA_Variant sv;
-        UA_Variant_init(&sv);
-        UA_StatusCode s = UA_Server_readValue(server,
-            UA_NODEID_NUMERIC(HTSN_OPCUA_NS, HTSN_ID_SERVO_ANGLE), &sv);
-        printf("SELFTEST servo_angle: %s scalar=%d data=%p val=%d\n",
-               UA_StatusCode_name(s), (int)UA_Variant_isScalar(&sv), sv.data,
-               (UA_Variant_isScalar(&sv) && sv.data) ? (int)*(UA_Int16 *)sv.data : -1);
-        UA_Variant_clear(&sv);
+    if (pubsub_up) {
+        UA_StatusCode rv = UA_Server_enableAllPubSubComponents(server);
+        if (rv != UA_STATUSCODE_GOOD)
+            fprintf(stderr, "pubsub: enableAll -> %s\n", UA_StatusCode_name(rv));
     }
-    printf("htsn_tsn OPC UA server on opc.tcp://0.0.0.0:4840 (ns %d = urn:htsn:stm32)\n",
-           (int)HTSN_OPCUA_NS);
+
+    UA_Variant sv;
+    UA_Variant_init(&sv);
+    UA_StatusCode s = UA_Server_readValue(server,
+        UA_NODEID_NUMERIC(ns_index, HTSN_ID_SERVO_ANGLE), &sv);
+    printf("SELFTEST servo_angle: %s scalar=%d data=%p val=%d\n",
+           UA_StatusCode_name(s), (int)UA_Variant_isScalar(&sv), sv.data,
+           (UA_Variant_isScalar(&sv) && sv.data) ? (int)*(UA_Int16 *)sv.data : -1);
+    UA_Variant_clear(&sv);
+    printf("htsn_tsn OPC UA server on opc.tcp://0.0.0.0:4840 (ns %d = urn:htsn:stm32)%s\n",
+           (int)ns_index, pubsub_up ? "  [+ OPC UA FX PubSub]" : "");
+
     while (running)
         UA_Server_run_iterate(server, UA_TRUE);
+
+    if (pubsub_up)
+        UA_Server_disableAllPubSubComponents(server);
     UA_Server_run_shutdown(server);
     UA_Server_delete(server);
     return 0;

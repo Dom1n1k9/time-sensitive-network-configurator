@@ -27,13 +27,15 @@ fi
 
 # 2) configure + build + install (skip if the shared lib is already there)
 if [ ! -e "$PFX/lib/libopen62541.so" ]; then
-    echo "==> configuring open62541 (Release, subscribers ON, encryption OFF, ns0 REDUCED)"
+    echo "==> configuring open62541 (Release, subscribers ON, pubsub ON, encryption OFF, ns0 REDUCED)"
     cmake -S "$SRC" -B "$BUILD" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$PFX" \
         -DUA_ARCHITECTURE=posix \
         -DUA_ENABLE_ENCRYPTION=OFF \
         -DUA_ENABLE_SUBSCRIBERS=ON \
+        -DUA_ENABLE_PUBSUB=ON \
+        -DUA_ENABLE_DISCOVERY=OFF \
         -DUA_NAMESPACE_ZERO=REDUCED \
         -DBUILD_SHARED_LIBS=ON
     echo "==> building open62541 (slow on the RPi; this is the long step)"

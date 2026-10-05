@@ -25,3 +25,4 @@ rpi-tsn/tsn_opcua_link
 rpi-tsn/tsn_opcua_bridge
 rpi-tsn/test_opcua_client
 rpi-tsn/htsn_opcua_cli
+rpi-tsn/htsn_pubsub_test

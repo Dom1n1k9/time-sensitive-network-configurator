@@ -256,12 +256,22 @@ start_tsn_cnc() {
     local bin="$PROJ_DIR/rpi-tsn/cnc_opcua"
     local poller="$PROJ_DIR/rpi-tsn/tsn_opcua_link"
     if [ ! -x "$bin" ]; then
-        log "cnc_opcua not built - build on the RPi:  cd rpi-tsn && make PFX=\$HTSN_O62541_PFX   (open62541 v1.5, -DUA_ENABLE_SUBSCRIBERS=ON)"
+        log "cnc_opcua not built - build on the RPi:  cd rpi-tsn && make PFX=\$HTSN_O62541_PFX   (open62541 v1.5, -DUA_ENABLE_SUBSCRIBERS=ON -DUA_ENABLE_PUBSUB=ON)"
     else
+        # OPC UA FX PubSub plane (the RPi<->STM32 data plane). The server
+        # PUBLISHES the command dataset to the endpoint and SUBSCRIBES its
+        # telemetry back into the same OPC UA nodes the poller/GUI read. All
+        # values are env-overridable; HTSN_PUBSUB_PUB_ADDR must be the STM32's
+        # TSN-LAN address (the endpoint listens for commands on :8899 there).
+        export HTSN_PUBSUB_ENABLE="${HTSN_PUBSUB_ENABLE:-1}"
+        export HTSN_PUBSUB_PUB_ADDR="${HTSN_PUBSUB_PUB_ADDR:-opc.udp://192.168.1.11:8899/}"
+        export HTSN_PUBSUB_SUB_PORT="${HTSN_PUBSUB_SUB_PORT:-8898}"
+        export HTSN_PUBSUB_IFACE="${HTSN_PUBSUB_IFACE:-${HTSN_TSN_IFACE:-}}"
         pkill -x cnc_opcua 2>/dev/null || true
         "$bin" < /dev/null > /tmp/htsn_tsn_cnc.log 2>&1 &
         disown
         log "TSN CNC OPC UA server on opc.tcp://$LAN_IP:4840 (log /tmp/htsn_tsn_cnc.log)"
+        log "OPC UA FX PubSub plane: cmd -> $HTSN_PUBSUB_PUB_ADDR, telem <- :$HTSN_PUBSUB_SUB_PORT"
         # Poller: one persistent OPC UA client -> JSON file the GUI reads
         # (rpi-tsn/tsn_opcua_link). Default out/url match the GUI's defaults.
         if [ -x "$poller" ]; then
@@ -270,11 +280,13 @@ start_tsn_cnc() {
             disown
             log "TSN OPC UA poller -> ${HTSN_OPCUA_OUT:-/tmp/htsn_tsn_opcua.json} (log /tmp/htsn_tsn_poller.log)"
         fi
-        # Bridge: the STM32 endpoint speaks the deterministic UDP protocol, not
-        # OPC UA. It writes endpoint telemetry (from UDP :4001) into the OPC UA
-        # nodes and forwards command-node changes (incl. TSN config) back to the
-        # endpoint (UDP :4000). It retries the OPC UA connect, so start it right
-        # after the server (no need to wait for warmup).
+        # Bridge: LEGACY raw-UDP data plane (htsn_frame protocol). The OPC UA FX
+        # PubSub plane above supersedes it once the STM32 firmware speaks PubSub.
+        # Kept for now: it is inert without a UDP peer, uses different ports
+        # (:4000/:4001 vs :8898/:8899), and coexists safely with PubSub. It writes
+        # endpoint telemetry (from UDP :4001) into the OPC UA nodes and forwards
+        # command-node changes (incl. TSN config) back to the endpoint (UDP :4000).
+        # Remove this block once the endpoint runs the PubSub firmware.
         local bridge="$PROJ_DIR/rpi-tsn/tsn_opcua_bridge"
         if [ -x "$bridge" ]; then
             pkill -x tsn_opcua_bridge 2>/dev/null || true
