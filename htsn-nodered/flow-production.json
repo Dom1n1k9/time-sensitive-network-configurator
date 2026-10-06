@@ -1,0 +1,4561 @@
+[
+  {
+    "id": "FLOWTAB",
+    "type": "tab",
+    "label": "HTSN",
+    "disabled": false,
+    "info": "HTSN data-plane visualisation (OPC UA PubSub-fed + MQTT + TSN)"
+  },
+  {
+    "id": "TAB1",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "HTSN",
+    "icon": "dashboard",
+    "order": 0
+  },
+  {
+    "id": "GRP1",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Live",
+    "tab": "TAB1",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "GRP2",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Telemetry & TSN",
+    "tab": "TAB1",
+    "width": "12",
+    "order": 1
+  },
+  {
+    "id": "BRK1",
+    "type": "mqtt-broker",
+    "z": "FLOWTAB",
+    "name": "HTSN Broker (local loopback 1884)",
+    "broker": "127.0.0.1",
+    "port": "1884",
+    "clientId": "htsn-rpi-nodered",
+    "protocolVersion": "5",
+    "usetls": false,
+    "clean": true,
+    "x": 220,
+    "y": 40
+  },
+  {
+    "id": "EP1",
+    "type": "OpcUa-Endpoint",
+    "z": "FLOWTAB",
+    "name": "HTSN OPC UA (local RPi)",
+    "endpoint": "opc.tcp://127.0.0.1:4840",
+    "secpol": "None",
+    "secmode": "None",
+    "login": false,
+    "none": true,
+    "usercert": "",
+    "usercertificate": "",
+    "userprivatekey": "",
+    "x": 300,
+    "y": 40
+  },
+  {
+    "id": "CLI1",
+    "type": "OpcUa-Client",
+    "z": "FLOWTAB",
+    "name": "telemetry read",
+    "action": "readmultiple",
+    "endpoint": "EP1",
+    "time": "1000",
+    "timeUnit": "msecs",
+    "deadbandtype": "abs",
+    "deadbandvalue": "0",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "useTransport": false,
+    "maxChunkCount": "0",
+    "maxMessageSize": "0",
+    "receiveBufferSize": "0",
+    "sendBufferSize": "0",
+    "setstatusandtime": true,
+    "keepsessionalive": false,
+    "applicationName": "",
+    "applicationUri": "",
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [],
+      [],
+      [
+        "AGG1"
+      ]
+    ]
+  },
+  {
+    "id": "INJ1",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 0.5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "0.5",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 120,
+    "wires": [
+      [
+        "FN_READ"
+      ]
+    ]
+  },
+  {
+    "id": "FN_READ",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build readmultiple",
+    "func": "msg.action = \"readmultiple\";\nmsg.topic = \"readmultiple\";\nmsg.payload = [\"ns=1;i=1\",\"ns=1;i=2\",\"ns=1;i=3\",\"ns=1;i=4\",\"ns=1;i=5\",\"ns=1;i=6\",\"ns=1;i=7\",\"ns=1;i=8\",\"ns=1;i=9\",\"ns=1;i=10\",\"ns=1;i=11\",\"ns=1;i=12\",\"ns=1;i=13\",\"ns=1;i=14\",\"ns=1;i=31\",\"ns=1;i=32\",\"ns=1;i=33\",\"ns=1;i=34\",\"ns=1;i=35\",\"ns=1;i=36\",\"ns=1;i=37\",\"ns=1;i=38\"];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 240,
+    "y": 120,
+    "wires": [
+      [
+        "CLI1"
+      ]
+    ]
+  },
+  {
+    "id": "AGG1",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "aggregate telemetry",
+    "func": "var NAMES=[\"sonar_sweep\",\"sonar_sweep_id\",\"servo_angle\",\"relay_on\",\"buzzer_hz\",\"buzzer_ms\",\"btn1\",\"btn2\",\"btn3\",\"btn4\",\"ptp_offset_ns\",\"ptp_state\",\"ptp_locked\",\"last_seen\",\"tsn_app_vlan\",\"tsn_app_prio\",\"tsn_app_preempt\",\"tsn_app_timesync\",\"tsn_app_strole\",\"tsn_app_stvlan\",\"tsn_app_tascyc\",\"tsn_features\"];\nvar dv=(msg.payload||[]);\nvar tele={};\nfor(var i=0;i<NAMES.length;i++){var d=dv[i];tele[NAMES[i]]=(d&&d.value)?d.value.value:null;}\nglobal.set(\"HTSN_TELE\",tele);\nvar b=[tele.btn1,tele.btn2,tele.btn3,tele.btn4].join(\",\");\nreturn [\n {payload:(typeof tele.servo_angle===\"number\")?tele.servo_angle:0},\n {payload:\"state=\"+tele.ptp_state+\" locked=\"+tele.ptp_locked+\" off=\"+(tele.ptp_offset_ns||0)+\"ns lastseen=\"+(tele.last_seen||0)},\n {payload:\"vlan=\"+tele.tsn_app_vlan+\" prio=\"+tele.tsn_app_prio+\" ts=\"+tele.tsn_app_timesync+\" role=\"+tele.tsn_app_strole+\" feat=\"+tele.tsn_features+\" tasns=\"+(tele.tsn_app_tascyc||0)},\n {payload:\"relay=\"+tele.relay_on+\" buzz=\"+(tele.buzzer_hz||0)+\"Hz sonar#=\"+tele.sonar_sweep_id+\" btns=[\"+b+\"]\"},\n {payload:\"servo=\"+tele.servo_angle+\" ptp=\"+tele.ptp_state+\" feat=\"+tele.tsn_features+\" vlan=\"+tele.tsn_app_vlan+\" @ \"+new Date().toLocaleTimeString()}\n];",
+    "outputs": 5,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 560,
+    "y": 120,
+    "wires": [
+      [
+        "G_SERVO"
+      ],
+      [
+        "T_PTP"
+      ],
+      [
+        "T_TSN"
+      ],
+      [
+        "T_RELAY"
+      ],
+      [
+        "T_OP"
+      ]
+    ]
+  },
+  {
+    "id": "MQIN1",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/#",
+    "topic": "tsn/#",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 320,
+    "wires": [
+      [
+        "FN_MQ"
+      ]
+    ]
+  },
+  {
+    "id": "FN_MQ",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt mqtt",
+    "func": "var p=msg.payload;\nif(p===null||p===undefined){p=\"\";}\nmsg.payload=\"[\"+msg.topic+\"] \"+p;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 260,
+    "y": 320,
+    "wires": [
+      [
+        "T_MQ"
+      ]
+    ]
+  },
+  {
+    "id": "T_MQ",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP1",
+    "label": "MQTT  (tsn/#)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "16",
+    "color": "#000000",
+    "x": 460,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "T_OP",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP1",
+    "label": "OPC UA (PubSub-fed server)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "16",
+    "color": "#000000",
+    "x": 780,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "G_SERVO",
+    "type": "ui_gauge",
+    "z": "FLOWTAB",
+    "group": "GRP2",
+    "name": "servo",
+    "title": "Servo angle",
+    "label": "deg",
+    "gtype": "gage",
+    "min": "0",
+    "max": "180",
+    "seg1": "90",
+    "seg2": "180",
+    "format": "{{value}}",
+    "diff": false,
+    "colors": [
+      "#00b500",
+      "#e6e600",
+      "#ca3838"
+    ],
+    "x": 780,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "T_PTP",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP2",
+    "label": "PTP / gPTP",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 780,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "T_TSN",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP2",
+    "label": "TSN applied state",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 780,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "T_RELAY",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP2",
+    "label": "Relay / Buzzer / Sonar / Btns",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 780,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "TABCFG",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "TSN Config",
+    "icon": "cog",
+    "order": 1
+  },
+  {
+    "id": "GRP_CFG",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Apply config",
+    "tab": "TABCFG",
+    "width": "6",
+    "order": 0
+  },
+  {
+    "id": "GRP_APPLY",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Applied state (from endpoint)",
+    "tab": "TABCFG",
+    "width": "6",
+    "order": 1
+  },
+  {
+    "id": "FORM_TSN",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_CFG",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "tsn form",
+    "label": "TSN endpoint configuration",
+    "topic": "tsn_config",
+    "topicType": "str",
+    "submit": "Apply to endpoint",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "VLAN ID (0-4094)",
+        "type": "number",
+        "name": "vlan_id",
+        "value": "100"
+      },
+      {
+        "label": "Priority / PCP (0-7)",
+        "type": "number",
+        "name": "priority",
+        "value": "5"
+      },
+      {
+        "label": "Traffic class (0-7)",
+        "type": "number",
+        "name": "traffic_class",
+        "value": "5"
+      },
+      {
+        "label": "Preemption 802.1Qbb (0-2)",
+        "type": "number",
+        "name": "preemption",
+        "value": "0"
+      },
+      {
+        "label": "Timesync mode",
+        "type": "select",
+        "name": "timesync_mode",
+        "value": "slave",
+        "options": [
+          "none",
+          "GM",
+          "slave"
+        ]
+      },
+      {
+        "label": "Stream role",
+        "type": "select",
+        "name": "st_role",
+        "value": "talker",
+        "options": [
+          "talker",
+          "listener"
+        ]
+      },
+      {
+        "label": "Stream VLAN (0-4094)",
+        "type": "number",
+        "name": "st_vlan",
+        "value": "100"
+      },
+      {
+        "label": "Stream PCP (0-7)",
+        "type": "number",
+        "name": "st_prio",
+        "value": "5"
+      },
+      {
+        "label": "TAS cycle (ns)",
+        "type": "number",
+        "name": "tas_cycle_ns",
+        "value": "500000000"
+      },
+      {
+        "label": "GCL schedule (open:ns closed:ns ...)",
+        "type": "text",
+        "name": "gcl",
+        "value": "1:250000000 0:250000000"
+      }
+    ],
+    "x": 220,
+    "y": 420,
+    "wires": [
+      [
+        "FN_CFG"
+      ]
+    ]
+  },
+  {
+    "id": "FN_CFG",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build flat TSN snapshot",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 420,
+    "y": 420,
+    "wires": [
+      [
+        "CLI_WRITE"
+      ]
+    ],
+    "func": "var f=msg.payload||{};\nfunction N(v,d){var n=parseInt(v,10);return isNaN(n)?d:n;}\nvar gs=[],dur=[];\n(String(f.gcl||\"\")).trim().split(/\\s+/).forEach(function(p){var a=p.split(\":\");if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});\nvar TM={\"none\":0,\"GM\":1,\"slave\":2},SR={\"talker\":1,\"listener\":2};\nvar tm=(TM[f.timesync_mode]!==undefined)?TM[f.timesync_mode]:N(f.timesync_mode,0);\nvar sr=(SR[f.st_role]!==undefined)?SR[f.st_role]:N(f.st_role,0);\nvar flat={priority:N(f.priority,0),traffic_class:N(f.traffic_class,0),vlan_id:N(f.vlan_id,0),preemption:N(f.preemption,0),timesync_mode:tm,st_role:sr,st_vlan:N(f.st_vlan,0),st_prio:N(f.st_prio,0),tas_cycle_ns:N(f.tas_cycle_ns,0),gcl_gs:gs,gcl_dur:dur};\nmsg.datatype=\"String\";msg.topic=\"ns=1;i=51\";\nmsg.payload=JSON.stringify(flat);\nglobal.set(\"HTSN_LAST_CFG\",flat);\nnode.status({fill:\"green\",shape:\"dot\",text:\"apply \"+msg.payload.length+\"B\"});\nreturn msg;"
+  },
+  {
+    "id": "CLI_WRITE",
+    "type": "OpcUa-Client",
+    "z": "FLOWTAB",
+    "name": "write cmd_tsn_config",
+    "action": "write",
+    "endpoint": "EP1",
+    "time": "1000",
+    "timeUnit": "msecs",
+    "deadbandtype": "abs",
+    "deadbandvalue": "0",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "useTransport": false,
+    "maxChunkCount": "0",
+    "maxMessageSize": "0",
+    "receiveBufferSize": "0",
+    "sendBufferSize": "0",
+    "setstatusandtime": true,
+    "keepsessionalive": false,
+    "applicationName": "",
+    "applicationUri": "",
+    "x": 640,
+    "y": 420,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "INJ_POLL",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 1s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "1",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 560,
+    "wires": [
+      [
+        "FN_READBACK"
+      ]
+    ]
+  },
+  {
+    "id": "FN_READBACK",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "applied state",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 560,
+    "wires": [
+      [
+        "T_APPLIED"
+      ]
+    ],
+    "func": "var t=global.get(\"HTSN_TELE\")||{};\nfunction g(v){return (v===null||v===undefined)?\"-\":v;}\nmsg.payload=\"vlan=\"+g(t.tsn_app_vlan)+\" prio=\"+g(t.tsn_app_prio)+\" pre=\"+g(t.tsn_app_preempt)+\" ts=\"+g(t.tsn_app_timesync)+\" role=\"+g(t.tsn_app_strole)+\" sval=\"+g(t.tsn_app_stvlan)+\" tasns=\"+g(t.tsn_app_tascyc)+\" feat=0x\"+(g(t.tsn_features|0)).toString(16);\nreturn msg;"
+  },
+  {
+    "id": "T_APPLIED",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_APPLY",
+    "name": "applied",
+    "label": "Endpoint applied state (telemetry 31-38)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 500,
+    "y": 560,
+    "wires": []
+  },
+  {
+    "id": "SQLCFG",
+    "type": "sqlite",
+    "z": "",
+    "mydb": "/home/wtsn/wtsn-configurator/build/htsn_gui.db",
+    "pass": "",
+    "mode": "0",
+    "x": 300,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "TABDEV",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Devices",
+    "icon": "book",
+    "order": 2
+  },
+  {
+    "id": "GRP_DEV",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Device list",
+    "tab": "TABDEV",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "GRP_ADD",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Add / manage",
+    "tab": "TABDEV",
+    "width": "6",
+    "order": 1
+  },
+  {
+    "id": "GRP_VER",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Config versions",
+    "tab": "TABDEV",
+    "width": "12",
+    "order": 2
+  },
+  {
+    "id": "INJ_DEV",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 2s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "2",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 820,
+    "wires": [
+      [
+        "SQL_DEV"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_DEV",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read devices",
+    "operation": "query",
+    "query": "SELECT id,name,ip,mac,kind,firmware,status,last_seen,domain,usb FROM devices ORDER BY id",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 820,
+    "wires": [
+      [
+        "FN_DEVFMT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_DEVFMT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt devices",
+    "func": "var rows=msg.payload||[];var out=rows.map(function(r){var st=(r.status===0)?'online':'offline';return{id:r.id||'',name:r.name||'',ip:r.ip||'',st:st,dom:r.domain||'default',fw:r.firmware||'',usb:r.usb||''};});global.set('HTSN_DEVICES',out);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 820,
+    "wires": [
+      [
+        "T_DEV"
+      ]
+    ]
+  },
+  {
+    "id": "T_DEV",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_DEV",
+    "name": "devices",
+    "width": "12",
+    "height": "10",
+    "collapse": false,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "id",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "alias": "id",
+        "property": "id",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "name",
+        "property": "name",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "ip",
+        "property": "ip",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "status",
+        "property": "st",
+        "type": "text",
+        "width": "10%",
+        "layout": "center"
+      },
+      {
+        "alias": "domain",
+        "property": "dom",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "firmware",
+        "property": "fw",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "usb",
+        "property": "usb",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 820,
+    "wires": []
+  },
+  {
+    "id": "FORM_ADD",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "add form",
+    "label": "Add / update device",
+    "topic": "add_dev",
+    "topicType": "str",
+    "submit": "Save",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Device ID",
+        "type": "text",
+        "name": "id",
+        "value": "esp32-01"
+      },
+      {
+        "label": "Name",
+        "type": "text",
+        "name": "name",
+        "value": ""
+      },
+      {
+        "label": "IP address",
+        "type": "text",
+        "name": "ip",
+        "value": "192.168.0.100"
+      },
+      {
+        "label": "USB port",
+        "type": "text",
+        "name": "usb",
+        "value": ""
+      },
+      {
+        "label": "Domain",
+        "type": "text",
+        "name": "domain",
+        "value": "default"
+      }
+    ],
+    "x": 100,
+    "y": 900,
+    "wires": [
+      [
+        "FN_ADD"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ADD",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build add SQL",
+    "func": "var f=msg.payload||{};var id=f.id||'';if(!id){node.status({fill:'red',text:'no id'});return null;}msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen,domain,usb) VALUES(?,?,?,?,0,?,0,strftime(\\'%s\\',\\'now\\'),?,?)';msg.params=[id,f.name||'',f.ip||'','',f.domain||'default',f.usb||''];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 900,
+    "wires": [
+      [
+        "SQL_ADD"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_ADD",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "insert device",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 900,
+    "wires": [
+      [
+        "T_ADDOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_ADDOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 1,
+    "width": "6",
+    "label": "Result",
+    "format": "Device saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 700,
+    "y": 900,
+    "wires": []
+  },
+  {
+    "id": "SEL_PING",
+    "type": "ui_dropdown",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 2,
+    "width": "6",
+    "name": "ping dev",
+    "label": "Ping device",
+    "tooltip": "",
+    "options": [
+      {
+        "name": "",
+        "value": "",
+        "type": "str"
+      }
+    ],
+    "optionType": "list",
+    "hasType": false,
+    "passthrow": true,
+    "deployOnInputChange": false,
+    "className": "",
+    "x": 100,
+    "y": 960,
+    "wires": [
+      [
+        "FN_PING"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PING",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "ping logic",
+    "func": "var devs=global.get('HTSN_DEVICES')||[];var did=msg.payload||'';if(!did||!devs.length){node.status({fill:'red',text:'no device'});return null;}var dev=devs.find(function(d){return d.id===did;});if(!dev){node.status({fill:'red',text:'not found'});return null;}var isCam=/cam/i.test(dev.id);msg.payload={id:did,ip:dev.ip||'',isCam:isCam};msg.topic=did;node.status({fill:'blue',text:'pinging '+did});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 960,
+    "wires": [
+      [
+        "SW_PING"
+      ]
+    ]
+  },
+  {
+    "id": "SW_PING",
+    "type": "switch",
+    "z": "FLOWTAB",
+    "name": "cam?",
+    "property": "payload.isCam",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "true"
+      },
+      {
+        "t": "false"
+      }
+    ],
+    "join": "",
+    "jointype": "join",
+    "customize": false,
+    "x": 480,
+    "y": 960,
+    "wires": [
+      [
+        "HTTP_PING"
+      ],
+      [
+        "MQ_PING"
+      ]
+    ]
+  },
+  {
+    "id": "HTTP_PING",
+    "type": "http request",
+    "z": "FLOWTAB",
+    "name": "cam ping",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": false,
+    "url": "http://{{msg.payload.ip}}/last.jpg",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": true,
+    "headers": [],
+    "x": 660,
+    "y": 940,
+    "wires": [
+      [
+        "FN_PINGR"
+      ]
+    ]
+  },
+  {
+    "id": "MQ_PING",
+    "type": "mqtt out",
+    "z": "FLOWTAB",
+    "name": "mqtt ping",
+    "topic": "tsn/cmd/{{msg.topic}}/ping",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "broker": "BRK1",
+    "x": 660,
+    "y": 980,
+    "wires": [
+      [
+        "FN_PINGR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PINGR",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "ping result",
+    "func": "var did=msg.topic||'';var t0=Date.now();var ok=true;var note='';if(err){ok=false;note=err.message||String(err);}else if(msg.responseCode&&msg.responseCode!==200){ok=false;note='HTTP '+msg.responseCode;}node.status({fill:ok?'green':'red',text:ok?'online':'offline'});return {payload:did+': '+(ok?'online':'offline '+(note||''))};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 860,
+    "y": 960,
+    "wires": [
+      [
+        "T_PING"
+      ]
+    ]
+  },
+  {
+    "id": "T_PING",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 3,
+    "width": "6",
+    "label": "Ping result",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 1060,
+    "y": 960,
+    "wires": []
+  },
+  {
+    "id": "BTN_VSN",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_VER",
+    "name": "save snap",
+    "label": "Save snapshot",
+    "order": 0,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "snap",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 1060,
+    "wires": [
+      [
+        "FN_VSN"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSN",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build snapshot cmd",
+    "func": "msg.topic='snapshot-'+new Date().toTimeString().substring(0,8).replace(/:/g,'');msg.command='python3 /home/wtsn/htsn-nodered/snapshot.py';return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1060,
+    "wires": [
+      [
+        "EXE_VSN"
+      ]
+    ]
+  },
+  {
+    "id": "EXE_VSN",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "dump tables",
+    "command": "python3 /home/wtsn/htsn-nodered/snapshot.py",
+    "addpay": true,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 480,
+    "y": 1060,
+    "wires": [
+      [
+        "FN_VSN2",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSN2",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "save version",
+    "func": "var data=JSON.parse(msg.payload);var name=msg.topic||'snapshot';msg.query='INSERT INTO config_versions(name,device_id,created_at,payload) VALUES(?,?,?,?)';msg.params=[name,'',Math.floor(Date.now()/1000),JSON.stringify(data)];node.status({fill:'green',text:'saved '+name});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 660,
+    "y": 1060,
+    "wires": [
+      [
+        "SQL_VSNW"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VSNW",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "save version",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 840,
+    "y": 1060,
+    "wires": [
+      [
+        "T_VSNOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_VSNOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_VER",
+    "order": 1,
+    "width": "4",
+    "label": "Versions",
+    "format": "Snapshot saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 1020,
+    "y": 1060,
+    "wires": []
+  },
+  {
+    "id": "INJ_VSL",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 1120,
+    "wires": [
+      [
+        "SQL_VSL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VSL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "list versions",
+    "operation": "query",
+    "query": "SELECT id,name,device_id,created_at FROM config_versions ORDER BY id DESC LIMIT 20",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 1120,
+    "wires": [
+      [
+        "FN_VSLF"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSLF",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt versions",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.created_at?new Date(r.created_at*1000).toLocaleString():'';return{id:r.id||'',name:r.name||'',dev:r.device_id||'',ts:ts};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 1120,
+    "wires": [
+      [
+        "T_VSL"
+      ]
+    ]
+  },
+  {
+    "id": "T_VSL",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_VER",
+    "name": "versions",
+    "width": "8",
+    "height": "8",
+    "collapse": false,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "id",
+      "direction": "desc"
+    },
+    "columns": [
+      {
+        "alias": "id",
+        "property": "id",
+        "type": "text",
+        "width": "10%",
+        "layout": "left"
+      },
+      {
+        "alias": "name",
+        "property": "name",
+        "type": "text",
+        "width": "30%",
+        "layout": "left"
+      },
+      {
+        "alias": "device",
+        "property": "dev",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      },
+      {
+        "alias": "created",
+        "property": "ts",
+        "type": "text",
+        "width": "40%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 1120,
+    "wires": []
+  },
+  {
+    "id": "TABCFG2",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "TSN Config",
+    "icon": "cog",
+    "order": 3
+  },
+  {
+    "id": "GRP_QOS",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "QoS (802.1Q)",
+    "tab": "TABCFG2",
+    "width": "6",
+    "order": 0
+  },
+  {
+    "id": "GRP_VLAN",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "VLAN (802.1Q)",
+    "tab": "TABCFG2",
+    "width": "6",
+    "order": 1
+  },
+  {
+    "id": "GRP_TAS",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "TAS/GCL (802.1Qbv)",
+    "tab": "TABCFG2",
+    "width": "6",
+    "order": 2
+  },
+  {
+    "id": "GRP_PRE",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Preemption (802.1Qbu)",
+    "tab": "TABCFG2",
+    "width": "6",
+    "order": 3
+  },
+  {
+    "id": "GRP_STM",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Streams (802.1Qcc)",
+    "tab": "TABCFG2",
+    "width": "6",
+    "order": 4
+  },
+  {
+    "id": "GRP_TSYNC",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Timesync (802.1AS)",
+    "tab": "TABCFG2",
+    "width": "6",
+    "order": 5
+  },
+  {
+    "id": "GRP_DEPLOY",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Deploy",
+    "tab": "TABCFG2",
+    "width": "12",
+    "order": 6
+  },
+  {
+    "id": "FORM_QOS",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_QOS",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "qos form",
+    "label": "QoS per device",
+    "topic": "qos_save",
+    "topicType": "str",
+    "submit": "Save QoS",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Device ID",
+        "type": "text",
+        "name": "device_id",
+        "value": "esp32-01"
+      },
+      {
+        "label": "Priority (0-7)",
+        "type": "number",
+        "name": "priority",
+        "value": "5"
+      },
+      {
+        "label": "Traffic class (0-3)",
+        "type": "number",
+        "name": "traffic_class",
+        "value": "5"
+      },
+      {
+        "label": "Bandwidth kbps",
+        "type": "number",
+        "name": "bandwidth_kbps",
+        "value": "1000"
+      },
+      {
+        "label": "Latency ms",
+        "type": "number",
+        "name": "latency_ms",
+        "value": "100"
+      },
+      {
+        "label": "Preemption (0-1)",
+        "type": "number",
+        "name": "preemption",
+        "value": "0"
+      }
+    ],
+    "x": 100,
+    "y": 1200,
+    "wires": [
+      [
+        "FN_QOS"
+      ]
+    ]
+  },
+  {
+    "id": "FN_QOS",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "qos SQL",
+    "func": "var f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.query='INSERT OR REPLACE INTO qos_configs(device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption) VALUES(?,?,?,?,?,?)';msg.params=[d,parseInt(f.priority)||0,parseInt(f.traffic_class)||0,parseInt(f.bandwidth_kbps)||0,parseInt(f.latency_ms)||0,parseInt(f.preemption)||0];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1200,
+    "wires": [
+      [
+        "SQL_QOS"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_QOS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write qos",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 1200,
+    "wires": [
+      [
+        "T_QOSOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_QOSOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_QOS",
+    "order": 1,
+    "width": "6",
+    "label": "QoS",
+    "format": "QoS saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 660,
+    "y": 1200,
+    "wires": []
+  },
+  {
+    "id": "INJ_QOSL",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 1260,
+    "wires": [
+      [
+        "SQL_QOSL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_QOSL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read qos",
+    "operation": "query",
+    "query": "SELECT device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption FROM qos_configs ORDER BY device_id",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 1260,
+    "wires": [
+      [
+        "T_QOSL"
+      ]
+    ]
+  },
+  {
+    "id": "T_QOSL",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_QOS",
+    "name": "qos list",
+    "width": "6",
+    "height": "6",
+    "collapse": true,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "device_id",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "alias": "device",
+        "property": "device_id",
+        "type": "text",
+        "width": "30%",
+        "layout": "left"
+      },
+      {
+        "alias": "prio",
+        "property": "priority",
+        "type": "text",
+        "width": "15%",
+        "layout": "center"
+      },
+      {
+        "alias": "tc",
+        "property": "traffic_class",
+        "type": "text",
+        "width": "15%",
+        "layout": "center"
+      },
+      {
+        "alias": "bw kbps",
+        "property": "bandwidth_kbps",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      },
+      {
+        "alias": "lat ms",
+        "property": "latency_ms",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      }
+    ],
+    "layout": "row",
+    "x": 480,
+    "y": 1260,
+    "wires": []
+  },
+  {
+    "id": "FORM_VLAN",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_VLAN",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "vlan form",
+    "label": "VLAN group",
+    "topic": "vlan_save",
+    "topicType": "str",
+    "submit": "Save group",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Group name",
+        "type": "text",
+        "name": "name",
+        "value": "grp100"
+      },
+      {
+        "label": "VLAN ID (1-4094)",
+        "type": "number",
+        "name": "vlan_id",
+        "value": "100"
+      }
+    ],
+    "x": 100,
+    "y": 1340,
+    "wires": [
+      [
+        "FN_VLAN"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VLAN",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "vlan SQL",
+    "func": "var f=msg.payload||{};var n=f.name||'';if(!n){return null;}var vid=Math.max(1,Math.min(4094,parseInt(f.vlan_id)||1));msg.query='INSERT OR REPLACE INTO vlan_groups(id,name,vlan_id) VALUES(?,?,?)';msg.params=['grp'+vid,n,vid];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1340,
+    "wires": [
+      [
+        "SQL_VLAN"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VLAN",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write vlan",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 1340,
+    "wires": [
+      [
+        "T_VLANOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_VLANOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_VLAN",
+    "order": 1,
+    "width": "6",
+    "label": "VLAN",
+    "format": "VLAN group saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 660,
+    "y": 1340,
+    "wires": []
+  },
+  {
+    "id": "INJ_VLANL",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 1400,
+    "wires": [
+      [
+        "SQL_VLANL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VLANL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read vlans",
+    "operation": "query",
+    "query": "SELECT g.id,g.name,g.vlan_id, GROUP_CONCAT(m.device_id) as members FROM vlan_groups g LEFT JOIN vlan_members m ON m.group_id=g.id GROUP BY g.id ORDER BY g.vlan_id",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 1400,
+    "wires": [
+      [
+        "T_VLANL"
+      ]
+    ]
+  },
+  {
+    "id": "T_VLANL",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_VLAN",
+    "name": "vlan list",
+    "width": "6",
+    "height": "6",
+    "collapse": true,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "vlan_id",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "alias": "id",
+        "property": "id",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      },
+      {
+        "alias": "name",
+        "property": "name",
+        "type": "text",
+        "width": "25%",
+        "layout": "left"
+      },
+      {
+        "alias": "vlan",
+        "property": "vlan_id",
+        "type": "text",
+        "width": "15%",
+        "layout": "center"
+      },
+      {
+        "alias": "members",
+        "property": "members",
+        "type": "text",
+        "width": "40%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 480,
+    "y": 1400,
+    "wires": []
+  },
+  {
+    "id": "FORM_TAS",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_TAS",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "tas form",
+    "label": "TAS schedule",
+    "topic": "tas_save",
+    "topicType": "str",
+    "submit": "Save TAS",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Schedule name",
+        "type": "text",
+        "name": "name",
+        "value": "tas1"
+      },
+      {
+        "label": "Cycle time (ns)",
+        "type": "number",
+        "name": "cycle_time_ns",
+        "value": "500000000"
+      },
+      {
+        "label": "Deploy target",
+        "type": "text",
+        "name": "deploy_target",
+        "value": ""
+      },
+      {
+        "label": "GCL (gate:ns gate:ns ...)",
+        "type": "text",
+        "name": "gcl",
+        "value": "1:250000000 0:250000000"
+      }
+    ],
+    "x": 100,
+    "y": 1480,
+    "wires": [
+      [
+        "FN_TAS"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TAS",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "tas SQL",
+    "func": "var f=msg.payload||{};var n=f.name||'';if(!n){return null;}msg.query='INSERT OR REPLACE INTO tas_schedules(id,name,cycle_time_ns,deploy_target) VALUES(?,?,?,?)';msg.params=[n,n,parseInt(f.cycle_time_ns)||0,f.deploy_target||''];var gs=[];dur=[];(String(f.gcl||'')).trim().split(/\\s+/).forEach(function(p){var a=p.split(':');if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});msg._gcl=gs;msg._dur=dur;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1480,
+    "wires": [
+      [
+        "SQL_TAS"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TAS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write tas",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 1480,
+    "wires": [
+      [
+        "FN_TASG"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TASG",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "write gcl",
+    "func": "var n=msg._name||'';var gs=msg._gcl||[];var dur=msg._dur||[];if(!gs.length){return null;}msg.query='DELETE FROM gcl_entries WHERE schedule_id=?';msg.params=[n];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 660,
+    "y": 1480,
+    "wires": [
+      [
+        "SQL_TASGD"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TASGD",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "del gcl",
+    "operation": "delete",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 840,
+    "y": 1480,
+    "wires": [
+      [
+        "T_TASOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_TASOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_TAS",
+    "order": 1,
+    "width": "6",
+    "label": "TAS",
+    "format": "TAS saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 1020,
+    "y": 1480,
+    "wires": []
+  },
+  {
+    "id": "FORM_PRE",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_PRE",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "pre form",
+    "label": "Preemption (802.1Qbu)",
+    "topic": "pre_save",
+    "topicType": "str",
+    "submit": "Save",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Device ID",
+        "type": "text",
+        "name": "device_id",
+        "value": "esp32-01"
+      },
+      {
+        "label": "Preemption (0-1)",
+        "type": "number",
+        "name": "preemption",
+        "value": "0"
+      },
+      {
+        "label": "eMAC priorities",
+        "type": "text",
+        "name": "emac",
+        "value": ""
+      },
+      {
+        "label": "pMAC priorities",
+        "type": "text",
+        "name": "pmac",
+        "value": ""
+      }
+    ],
+    "x": 100,
+    "y": 1560,
+    "wires": [
+      [
+        "FN_PRE"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PRE",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "preemption SQL",
+    "func": "var f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.query='INSERT OR REPLACE INTO preemption_configs(device_id,preemption,emac,pmac) VALUES(?,?,?,?)';msg.params=[d,parseInt(f.preemption)||0,f.emac||'',f.pmac||''];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1560,
+    "wires": [
+      [
+        "SQL_PRE"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_PRE",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write pre",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 1560,
+    "wires": [
+      [
+        "T_PREOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_PREOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_PRE",
+    "order": 1,
+    "width": "6",
+    "label": "Preemption",
+    "format": "Preemption saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 660,
+    "y": 1560,
+    "wires": []
+  },
+  {
+    "id": "FORM_STM",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_STM",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "stream form",
+    "label": "TSN stream (802.1Qcc)",
+    "topic": "stream_save",
+    "topicType": "str",
+    "submit": "Save stream",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Stream name",
+        "type": "text",
+        "name": "name",
+        "value": "stream1"
+      },
+      {
+        "label": "Talker device",
+        "type": "text",
+        "name": "talker",
+        "value": "esp32-01"
+      },
+      {
+        "label": "Listeners (comma-sep)",
+        "type": "text",
+        "name": "listeners",
+        "value": ""
+      },
+      {
+        "label": "VLAN ID",
+        "type": "number",
+        "name": "vlan_id",
+        "value": "100"
+      }
+    ],
+    "x": 100,
+    "y": 1640,
+    "wires": [
+      [
+        "FN_STM"
+      ]
+    ]
+  },
+  {
+    "id": "FN_STM",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "stream SQL",
+    "func": "var f=msg.payload||{};var n=f.name||'';var t=f.talker||'';if(!n||!t){return null;}msg.query='INSERT OR REPLACE INTO tsn_streams(stream_id,name,talker,vlan_id,max_latency_ns,max_interval_ns,priority,data_frame_prio,status,comment) VALUES(?,?,?,?,100000000,1000000,5,5,0,\\'\\')';msg.params=[n,n,t,parseInt(f.vlan_id)||0];msg._listeners=(f.listeners||'').split(',').map(function(s){return s.trim();}).filter(Boolean);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1640,
+    "wires": [
+      [
+        "SQL_STM"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_STM",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write stream",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 1640,
+    "wires": [
+      [
+        "FN_STMM"
+      ]
+    ]
+  },
+  {
+    "id": "FN_STMM",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "stream members",
+    "func": "var sid=msg._sid||'';var lsn=msg._listeners||[];msg.query='DELETE FROM tsn_stream_members WHERE stream_id=?';msg.params=[sid];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 660,
+    "y": 1640,
+    "wires": [
+      [
+        "SQL_STMD"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_STMD",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "del members",
+    "operation": "delete",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 840,
+    "y": 1640,
+    "wires": [
+      [
+        "T_STMOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_STMOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_STM",
+    "order": 1,
+    "width": "6",
+    "label": "Stream",
+    "format": "Stream saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 1020,
+    "y": 1640,
+    "wires": []
+  },
+  {
+    "id": "FORM_TSYNC",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_TSYNC",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "tsync form",
+    "label": "gPTP timesync (802.1AS)",
+    "topic": "tsync_save",
+    "topicType": "str",
+    "submit": "Save",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Mode (0=none 1=GM 2=slave)",
+        "type": "number",
+        "name": "mode",
+        "value": "2"
+      },
+      {
+        "label": "Grandmaster device",
+        "type": "text",
+        "name": "grandmaster",
+        "value": ""
+      }
+    ],
+    "x": 100,
+    "y": 1720,
+    "wires": [
+      [
+        "FN_TSYNC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TSYNC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "tsync SQL",
+    "func": "var f=msg.payload||{};msg.query='INSERT OR REPLACE INTO timesync_status(id,mode,grandmaster,offset_ns,quality) VALUES(\\'main\\',?,?,0,0)';msg.params=[parseInt(f.mode)||0,f.grandmaster||''];return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1720,
+    "wires": [
+      [
+        "SQL_TSYNC"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TSYNC",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write tsync",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 1720,
+    "wires": [
+      [
+        "T_TSYNOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_TSYNOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_TSYNC",
+    "order": 1,
+    "width": "6",
+    "label": "Timesync",
+    "format": "Timesync saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 660,
+    "y": 1720,
+    "wires": []
+  },
+  {
+    "id": "BTN_DEPLOY",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_DEPLOY",
+    "name": "deploy",
+    "label": "Execute settings on controller",
+    "order": 0,
+    "width": "6",
+    "height": "2",
+    "color": "",
+    "bgcolor": "",
+    "payload": "deploy",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 1800,
+    "wires": [
+      [
+        "FN_DEPLOY"
+      ]
+    ]
+  },
+  {
+    "id": "FN_DEPLOY",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build deploy",
+    "func": "var devs=global.get('HTSN_DEVICES')||[];if(!devs.length){node.status({fill:'red',text:'no devices'});return null;}var results=[];devs.forEach(function(d){var topic='tsn/cmd/'+d.id+'/apply';var payload={device_id:d.id};results.push({topic:topic,payload:JSON.stringify(payload)});});node.status({fill:'blue',text:'deploying '+devs.length+' devices'});msg.payload=results;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1800,
+    "wires": [
+      [
+        "MQ_DEPLOY"
+      ]
+    ]
+  },
+  {
+    "id": "MQ_DEPLOY",
+    "type": "mqtt out",
+    "z": "FLOWTAB",
+    "name": "deploy cmd",
+    "topic": "{{msg.topic}}",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "broker": "BRK1",
+    "x": 500,
+    "y": 1800,
+    "wires": [
+      [
+        "T_DEPLOYOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_DEPLOYOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_DEPLOY",
+    "order": 1,
+    "width": "6",
+    "label": "Deploy",
+    "format": "Settings deployed to all devices",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 700,
+    "y": 1800,
+    "wires": []
+  },
+  {
+    "id": "TABMON",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Monitor",
+    "icon": "dashboard",
+    "order": 4
+  },
+  {
+    "id": "GRP_EVT",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Events",
+    "tab": "TABMON",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "GRP_MET",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Metrics",
+    "tab": "TABMON",
+    "width": "12",
+    "order": 1
+  },
+  {
+    "id": "GRP_SENS",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Sensors",
+    "tab": "TABMON",
+    "width": "12",
+    "order": 2
+  },
+  {
+    "id": "GRP_REC",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Recordings",
+    "tab": "TABMON",
+    "width": "12",
+    "order": 3
+  },
+  {
+    "id": "INJ_EVT",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 2s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "2",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 2500,
+    "wires": [
+      [
+        "SQL_EVT"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_EVT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read events",
+    "operation": "query",
+    "query": "SELECT ts,kind,source,msg FROM trace_log ORDER BY id DESC LIMIT 100",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 2500,
+    "wires": [
+      [
+        "FN_EVT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_EVT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt events",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.ts?new Date(r.ts*1000).toLocaleTimeString():'';return{ts:ts,kind:r.kind||'',src:r.source||'',msg:r.msg||''};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 2500,
+    "wires": [
+      [
+        "T_EVT"
+      ]
+    ]
+  },
+  {
+    "id": "T_EVT",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_EVT",
+    "name": "events",
+    "width": "12",
+    "height": "10",
+    "collapse": false,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "ts",
+      "direction": "desc"
+    },
+    "columns": [
+      {
+        "alias": "time",
+        "property": "ts",
+        "type": "text",
+        "width": "12%",
+        "layout": "left"
+      },
+      {
+        "alias": "kind",
+        "property": "kind",
+        "type": "text",
+        "width": "12%",
+        "layout": "left"
+      },
+      {
+        "alias": "source",
+        "property": "src",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "message",
+        "property": "msg",
+        "type": "text",
+        "width": "61%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 2500,
+    "wires": []
+  },
+  {
+    "id": "BTN_CLR_EVT",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EVT",
+    "name": "clear events",
+    "label": "Clear events",
+    "order": 1,
+    "width": "3",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "clear",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 2560,
+    "wires": [
+      [
+        "SQL_CLREVT"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_CLREVT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "clear events",
+    "operation": "delete",
+    "query": "DELETE FROM trace_log",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 300,
+    "y": 2560,
+    "wires": [
+      [
+        "T_CLREVT"
+      ]
+    ]
+  },
+  {
+    "id": "T_CLREVT",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_EVT",
+    "order": 2,
+    "width": "3",
+    "label": "",
+    "format": "Cleared",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 500,
+    "y": 2560,
+    "wires": []
+  },
+  {
+    "id": "INJ_MET",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 2640,
+    "wires": [
+      [
+        "SQL_LAT"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_LAT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "latency stats",
+    "operation": "query",
+    "query": "SELECT device_id, AVG(latency_ms) as avg_ms, MAX(latency_ms) as max_ms, COUNT(*) as n FROM latency_log WHERE ts > strftime('%s','now','-300 seconds') GROUP BY device_id",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 2640,
+    "wires": [
+      [
+        "FN_MET"
+      ]
+    ]
+  },
+  {
+    "id": "FN_MET",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt metrics",
+    "func": "var rows=(msg.payload||[]).map(function(r){return{dev:r.device_id||'',avg:(r.avg_ms||0).toFixed(1),max:(r.max_ms||0).toFixed(1),n:r.n||0};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 2640,
+    "wires": [
+      [
+        "T_MET"
+      ]
+    ]
+  },
+  {
+    "id": "T_MET",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_MET",
+    "name": "latency",
+    "width": "6",
+    "height": "6",
+    "collapse": true,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "dev",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "alias": "device",
+        "property": "dev",
+        "type": "text",
+        "width": "40%",
+        "layout": "left"
+      },
+      {
+        "alias": "avg ms",
+        "property": "avg",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      },
+      {
+        "alias": "max ms",
+        "property": "max",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      },
+      {
+        "alias": "samples",
+        "property": "n",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 2640,
+    "wires": []
+  },
+  {
+    "id": "SQL_PTPM",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "ptp stats",
+    "operation": "query",
+    "query": "SELECT device_id, AVG(offset_ns) as avg_off, MAX(jitter_ns) as max_jit, COUNT(*) as n FROM timesync_reports WHERE ts > strftime('%s','now','-300 seconds') GROUP BY device_id",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 2700,
+    "wires": [
+      [
+        "FN_PTPM"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PTPM",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt ptp",
+    "func": "var rows=(msg.payload||[]).map(function(r){return{dev:r.device_id||'',off:(r.avg_off||0).toFixed(0),jit:(r.max_jit||0).toFixed(0),n:r.n||0};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 2700,
+    "wires": [
+      [
+        "T_PTPM"
+      ]
+    ]
+  },
+  {
+    "id": "T_PTPM",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_MET",
+    "name": "ptp",
+    "width": "6",
+    "height": "6",
+    "collapse": true,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "dev",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "alias": "device",
+        "property": "dev",
+        "type": "text",
+        "width": "40%",
+        "layout": "left"
+      },
+      {
+        "alias": "avg off ns",
+        "property": "off",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      },
+      {
+        "alias": "max jit ns",
+        "property": "jit",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      },
+      {
+        "alias": "samples",
+        "property": "n",
+        "type": "text",
+        "width": "20%",
+        "layout": "right"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 2700,
+    "wires": []
+  },
+  {
+    "id": "INJ_SENS",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 2s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "2",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 2780,
+    "wires": [
+      [
+        "SQL_SENSL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SENSL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read sensors",
+    "operation": "query",
+    "query": "SELECT device_id,sensor_id,name,value,unit,last_update FROM sensors ORDER BY device_id,sensor_id",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 2780,
+    "wires": [
+      [
+        "FN_SENSL"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SENSL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt sensors",
+    "func": "var rows=(msg.payload||[]).map(function(r){var age=r.last_update?Math.floor(Date.now()/1000-r.last_update)+'s':'?';return{dev:r.device_id||'',sid:r.sensor_id||'',name:r.name||r.sensor_id||'',val:(r.value||0).toFixed?String(Math.round(r.value*100)/100):String(r.value||''),unit:r.unit||'',age:age};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 2780,
+    "wires": [
+      [
+        "T_SENSL"
+      ]
+    ]
+  },
+  {
+    "id": "T_SENSL",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_SENS",
+    "name": "sensors",
+    "width": "12",
+    "height": "10",
+    "collapse": false,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "dev",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "alias": "device",
+        "property": "dev",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "sensor",
+        "property": "name",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "id",
+        "property": "sid",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "value",
+        "property": "val",
+        "type": "text",
+        "width": "15%",
+        "layout": "right"
+      },
+      {
+        "alias": "unit",
+        "property": "unit",
+        "type": "text",
+        "width": "10%",
+        "layout": "left"
+      },
+      {
+        "alias": "age",
+        "property": "age",
+        "type": "text",
+        "width": "10%",
+        "layout": "right"
+      },
+      {
+        "alias": "id2",
+        "property": "sid",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 2780,
+    "wires": []
+  },
+  {
+    "id": "INJ_REC",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 10s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "10",
+    "once": true,
+    "onceDelay": "3",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 2860,
+    "wires": [
+      [
+        "SQL_RECL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_RECL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read recordings",
+    "operation": "query",
+    "query": "SELECT device_id,path,recorded_at,detections FROM recordings ORDER BY recorded_at DESC LIMIT 30",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 2860,
+    "wires": [
+      [
+        "FN_RECL"
+      ]
+    ]
+  },
+  {
+    "id": "FN_RECL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt recordings",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.recorded_at?new Date(r.recorded_at*1000).toLocaleString():'';var det='';try{det=(JSON.parse(r.detections||'[]')||[]).length+' det';}catch(e){det=r.detections||'';}return{dev:r.device_id||'',path:r.path||'',ts:ts,det:det};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 2860,
+    "wires": [
+      [
+        "T_RECL"
+      ]
+    ]
+  },
+  {
+    "id": "T_RECL",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_REC",
+    "name": "recordings",
+    "width": "12",
+    "height": "8",
+    "collapse": true,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "ts",
+      "direction": "desc"
+    },
+    "columns": [
+      {
+        "alias": "device",
+        "property": "dev",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "path",
+        "property": "path",
+        "type": "text",
+        "width": "40%",
+        "layout": "left"
+      },
+      {
+        "alias": "recorded",
+        "property": "ts",
+        "type": "text",
+        "width": "25%",
+        "layout": "left"
+      },
+      {
+        "alias": "detections",
+        "property": "det",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 2860,
+    "wires": []
+  },
+  {
+    "id": "TABEP",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "TSN Endpoint",
+    "icon": "chip",
+    "order": 5
+  },
+  {
+    "id": "GRP_EPCMD",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Endpoint commands",
+    "tab": "TABEP",
+    "width": "6",
+    "order": 0
+  },
+  {
+    "id": "GRP_EPARCH",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Architecture",
+    "tab": "TABEP",
+    "width": "12",
+    "order": 1
+  },
+  {
+    "id": "SL_SERVO",
+    "type": "ui_slider",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "order": 0,
+    "width": "6",
+    "name": "servo",
+    "label": "Servo angle",
+    "tooltip": "",
+    "min": 0,
+    "max": 180,
+    "wrap": false,
+    "className": "",
+    "x": 100,
+    "y": 2940,
+    "wires": [
+      [
+        "FN_SERVO"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SERVO",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "servo write",
+    "func": "msg.topic='ns=1;i=21';msg.datatype='Int16';msg.payload=parseInt(msg.payload)||0;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2940,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "SW_RELAY",
+    "type": "ui_switch",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "order": 1,
+    "width": "6",
+    "name": "relay",
+    "label": "Relay",
+    "tooltip": "",
+    "decimals": 0,
+    "className": "",
+    "onvalue": "true",
+    "onvalueType": "bool",
+    "offvalue": "false",
+    "offvalueType": "bool",
+    "topic": "relay",
+    "topicType": "str",
+    "x": 100,
+    "y": 3000,
+    "wires": [
+      [
+        "FN_RELAY"
+      ]
+    ]
+  },
+  {
+    "id": "FN_RELAY",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "relay write",
+    "func": "msg.topic='ns=1;i=22';msg.datatype='Boolean';msg.payload=(msg.payload===true||msg.payload==='true');return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3000,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "BTN_BEEP",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "name": "beep",
+    "label": "Beep 500ms",
+    "order": 2,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "500",
+    "payloadType": "num",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 3060,
+    "wires": [
+      [
+        "FN_BEEP"
+      ]
+    ]
+  },
+  {
+    "id": "FN_BEEP",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "beep write",
+    "func": "msg.topic='ns=1;i=23';msg.datatype='Int16';msg.payload=parseInt(msg.payload)||500;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3060,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "BTN_SONAR",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "name": "sonar",
+    "label": "Trigger sonar",
+    "order": 3,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "true",
+    "payloadType": "bool",
+    "topic": "",
+    "topicType": "str",
+    "x": 350,
+    "y": 3060,
+    "wires": [
+      [
+        "FN_SONAR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SONAR",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "sonar write",
+    "func": "msg.topic='ns=1;i=24';msg.datatype='Boolean';msg.payload=true;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 500,
+    "y": 3060,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "BTN_REBOOT",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "name": "reboot",
+    "label": "Reboot endpoint",
+    "order": 4,
+    "width": "6",
+    "height": "1",
+    "color": "red",
+    "bgcolor": "",
+    "payload": "true",
+    "payloadType": "bool",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 3120,
+    "wires": [
+      [
+        "FN_REBOOT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_REBOOT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "reboot write",
+    "func": "msg.topic='ns=1;i=25';msg.datatype='Boolean';msg.payload=true;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3120,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "CLI_W",
+    "type": "OpcUa-Client",
+    "z": "FLOWTAB",
+    "name": "cmd write",
+    "action": "write",
+    "endpoint": "EP1",
+    "time": "1000",
+    "timeUnit": "msecs",
+    "deadbandtype": "abs",
+    "deadbandvalue": "0",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "useTransport": false,
+    "maxChunkCount": "0",
+    "maxMessageSize": "0",
+    "receiveBufferSize": "0",
+    "sendBufferSize": "0",
+    "setstatusandtime": true,
+    "keepsessionalive": false,
+    "applicationName": "",
+    "applicationUri": "",
+    "x": 600,
+    "y": 3000,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "T_ARCH",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "group": "GRP_EPARCH",
+    "order": 0,
+    "width": "12",
+    "height": "20",
+    "name": "topology",
+    "label": "Network topology",
+    "html": "<div style='width:100%;height:100%;overflow:auto'><svg id='archsvg' width='100%' height='500'></svg></div><script>function drawArch(){var svg=document.getElementById('archsvg');if(!svg)return;var devs=msg.__devices||[];var streams=msg.__streams||[];svg.innerHTML='';var W=svg.clientWidth||800,H=500;var cx=W/2,cy=50;function el(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}svg.appendChild(el('rect',{x:cx-80,y:cy-20,width:160,height:40,rx:8,fill:'#3498db',stroke:'#2980b9','stroke-width':2}));var t=el('text',{x:cx,y:cy+5,'text-anchor':'middle','font-size':'12',fill:'#fff'});t.textContent='CNC (RPi)';svg.appendChild(t);devs.forEach(function(d,i){var col=Math.floor(i/3),row=i%3;var x=80+col*200,y=150+row*120;svg.appendChild(el('line',{x1:cx,y1:cy+20,x2:x,y2:y,stroke:d.st==='online'?'#2ecc71':'#e74c3c','stroke-width':2}));svg.appendChild(el('rect',{x:x-60,y:y-15,width:120,height:30,rx:6,fill:d.st==='online'?'#2ecc71':'#e74c3c',opacity:0.8}));var txt=el('text',{x:x,y:y+4,'text-anchor':'middle','font-size':'10',fill:'#fff'});txt.textContent=d.id.substring(0,14);svg.appendChild(txt);});}</script><script>drawArch();</script>",
+    "format": "<h4>{{msg.payload}}</h4>",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": "",
+    "x": 100,
+    "y": 3200,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "INJ_ARCH",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "topology",
+    "payloadType": "str",
+    "x": 100,
+    "y": 3260,
+    "wires": [
+      [
+        "FN_ARCH"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ARCH",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build topology",
+    "func": "var devs=global.get('HTSN_DEVICES')||[];var fx=global.get('HTSN_FX')||[];msg.__devices=devs;msg.payload=devs.length+' devices, '+fx.length+' fx events';return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3260,
+    "wires": [
+      [
+        "T_ARCH"
+      ]
+    ]
+  },
+  {
+    "id": "TABFW",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Firmware",
+    "icon": "cloud",
+    "order": 6
+  },
+  {
+    "id": "GRP_FWLIST",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Firmware images",
+    "tab": "TABFW",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "GRP_FWUP",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Upload",
+    "tab": "TABFW",
+    "width": "6",
+    "order": 1
+  },
+  {
+    "id": "GRP_FWFLASH",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Flash / OTA",
+    "tab": "TABFW",
+    "width": "6",
+    "order": 2
+  },
+  {
+    "id": "INJ_FW",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 10s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "10",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 3340,
+    "wires": [
+      [
+        "SQL_FW"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_FW",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read firmware",
+    "operation": "query",
+    "query": "SELECT file,version,size,crc32,kind,uploaded_at FROM firmware ORDER BY uploaded_at DESC",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 3340,
+    "wires": [
+      [
+        "FN_FW"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FW",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt firmware",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.uploaded_at?new Date(r.uploaded_at*1000).toLocaleString():'';var kb=r.size?Math.round(r.size/1024)+'KB':'';return{file:r.file||'',ver:r.version||'',size:kb,crc:r.crc32||'',kind:r.kind>=0?r.kind:'any',ts:ts};});global.set('HTSN_FIRMWARE',rows);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 3340,
+    "wires": [
+      [
+        "T_FW"
+      ]
+    ]
+  },
+  {
+    "id": "T_FW",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_FWLIST",
+    "name": "firmware",
+    "width": "12",
+    "height": "8",
+    "collapse": false,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "ts",
+      "direction": "desc"
+    },
+    "columns": [
+      {
+        "alias": "file",
+        "property": "file",
+        "type": "text",
+        "width": "25%",
+        "layout": "left"
+      },
+      {
+        "alias": "version",
+        "property": "ver",
+        "type": "text",
+        "width": "12%",
+        "layout": "left"
+      },
+      {
+        "alias": "size",
+        "property": "size",
+        "type": "text",
+        "width": "10%",
+        "layout": "right"
+      },
+      {
+        "alias": "crc32",
+        "property": "crc",
+        "type": "text",
+        "width": "12%",
+        "layout": "left"
+      },
+      {
+        "alias": "kind",
+        "property": "kind",
+        "type": "text",
+        "width": "8%",
+        "layout": "center"
+      },
+      {
+        "alias": "uploaded",
+        "property": "ts",
+        "type": "text",
+        "width": "33%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 3340,
+    "wires": []
+  },
+  {
+    "id": "HTTP_FWUP",
+    "type": "http in",
+    "z": "FLOWTAB",
+    "name": "fw upload",
+    "url": "/api/fw-upload",
+    "method": "post",
+    "upload": true,
+    "swaggerTag": "",
+    "x": 100,
+    "y": 3420,
+    "wires": [
+      [
+        "FN_FWUP"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FWUP",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "process upload",
+    "func": "var fname=msg.req.headers['x-filename']||'firmware.bin';var fkind=msg.req.headers['x-device']||'-1';if(!msg.payload){return null;}var data=Buffer.isBuffer(msg.payload)?msg.payload:Buffer.from(msg.payload);var size=data.length;var crc=(function(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++){c^=b[i];for(var j=0;j<8;j++){c=(c>>>1)^(0xEDB88320&-(c&1));}}return('00000000'+((c^0xFFFFFFFF)>>>0).toString(16)).slice(-8);})(data);var ver=(fname.match(/v?(\\d+\\.\\d+\\.\\d+)/)||[])[1]||'';msg.query='INSERT OR REPLACE INTO firmware(file,version,size,crc32,kind,uploaded_at) VALUES(?,?,?,?,?,?)';msg.params=[fname,ver,size,crc,parseInt(fkind)||-1,Math.floor(Date.now()/1000)];msg._fname=fname;msg._data=data;msg._fwdir='/home/wtsn/wtsn-configurator/build/fw';return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3420,
+    "wires": [
+      [
+        "SQL_FWUP"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_FWUP",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "save fw meta",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 3420,
+    "wires": [
+      [
+        "EXE_FWUP"
+      ]
+    ]
+  },
+  {
+    "id": "EXE_FWUP",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "write fw file",
+    "command": "mkdir -p {{msg._fwdir}} && echo ok",
+    "addpay": true,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 700,
+    "y": 3420,
+    "wires": [
+      [
+        "T_FWUP",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": "T_FWUP",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_FWUP",
+    "order": 0,
+    "width": "6",
+    "label": "Upload",
+    "format": "Firmware uploaded",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 900,
+    "y": 3420,
+    "wires": []
+  },
+  {
+    "id": "SEL_FWDEV",
+    "type": "ui_dropdown",
+    "z": "FLOWTAB",
+    "group": "GRP_FWFLASH",
+    "order": 0,
+    "width": "6",
+    "name": "flash dev",
+    "label": "Device to flash",
+    "tooltip": "",
+    "options": [
+      {
+        "name": "esp32-01",
+        "value": "esp32-01",
+        "type": "str"
+      },
+      {
+        "name": "esp32-cam",
+        "value": "esp32-cam",
+        "type": "str"
+      }
+    ],
+    "optionType": "enum",
+    "hasType": false,
+    "passthrow": true,
+    "deployOnInputChange": false,
+    "className": "",
+    "x": 100,
+    "y": 3500,
+    "wires": [
+      [
+        "FN_FLASH"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FLASH",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "flash cmd",
+    "func": "var did=msg.payload||'';if(!did){return null;}var fws=global.get('HTSN_FIRMWARE')||[];if(!fws.length){node.status({fill:'red',text:'no firmware'});return null;}var fw=fws[0];var host='192.168.0.183';var url='http://'+host+':8000/fw/'+fw.file;msg.topic='tsn/cmd/'+did+'/ota';msg.payload=JSON.stringify({url:url,crc32:fw.crc,version:fw.ver});node.status({fill:'blue',text:'OTA '+did});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3500,
+    "wires": [
+      [
+        "MQ_FLASH"
+      ]
+    ]
+  },
+  {
+    "id": "MQ_FLASH",
+    "type": "mqtt out",
+    "z": "FLOWTAB",
+    "name": "ota cmd",
+    "topic": "{{msg.topic}}",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "broker": "BRK1",
+    "x": 500,
+    "y": 3500,
+    "wires": [
+      [
+        "T_FLASH"
+      ]
+    ]
+  },
+  {
+    "id": "T_FLASH",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_FWFLASH",
+    "order": 1,
+    "width": "6",
+    "label": "OTA",
+    "format": "OTA started",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 700,
+    "y": 3500,
+    "wires": []
+  },
+  {
+    "id": "TABAIA",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "AI Assistant",
+    "icon": "magic",
+    "order": 7
+  },
+  {
+    "id": "GRP_CHAT",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "LLM Chat",
+    "tab": "TABAIA",
+    "width": "8",
+    "order": 0
+  },
+  {
+    "id": "GRP_DECI",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "AI Decisions",
+    "tab": "TABAIA",
+    "width": "4",
+    "order": 1
+  },
+  {
+    "id": "TABSET",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Settings",
+    "icon": "cog",
+    "order": 8
+  },
+  {
+    "id": "GRP_SET",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "System settings",
+    "tab": "TABSET",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "FORM_CHAT",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_CHAT",
+    "order": 0,
+    "width": 8,
+    "height": 0,
+    "name": "chat",
+    "label": "Ask the TSN assistant",
+    "topic": "llm_chat",
+    "topicType": "str",
+    "submit": "Send",
+    "cancel": "Clear",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Message",
+        "type": "text",
+        "name": "message",
+        "value": "How do I configure TSN for the camera stream?"
+      }
+    ],
+    "x": 100,
+    "y": 3600,
+    "wires": [
+      [
+        "FN_CHAT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_CHAT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build LLM request",
+    "func": "var f=msg.payload||{};var m=f.message||'';if(!m){return null;}node.status({fill:'blue',text:'thinking...'});msg.payload={message:m,history:[]};return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3600,
+    "wires": [
+      [
+        "HTTP_LLM"
+      ]
+    ]
+  },
+  {
+    "id": "HTTP_LLM",
+    "type": "http request",
+    "z": "FLOWTAB",
+    "name": "LLM bridge",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": false,
+    "url": "http://127.0.0.1:8081/chat",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": true,
+    "headers": [
+      {
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "x": 480,
+    "y": 3600,
+    "wires": [
+      [
+        "FN_CHATR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_CHATR",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse LLM reply",
+    "func": "var r=msg.payload||{};var txt=r.response||r.reply||r.message||JSON.stringify(r);var act=r.action||'';node.status({fill:'green',text:act?'action: '+act:'guide'});return {payload:txt+(act?'\n\n[action: '+act+']':'')};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 660,
+    "y": 3600,
+    "wires": [
+      [
+        "T_CHAT"
+      ]
+    ]
+  },
+  {
+    "id": "T_CHAT",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_CHAT",
+    "order": 1,
+    "width": "8",
+    "label": "Assistant response",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "13",
+    "color": "#000000",
+    "x": 860,
+    "y": 3600,
+    "wires": []
+  },
+  {
+    "id": "INJ_DECI",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 3680,
+    "wires": [
+      [
+        "SQL_DECI"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_DECI",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read decisions",
+    "operation": "query",
+    "query": "SELECT ts,device_id,action,params,reason,source FROM ai_decisions ORDER BY id DESC LIMIT 50",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 280,
+    "y": 3680,
+    "wires": [
+      [
+        "FN_DECI"
+      ]
+    ]
+  },
+  {
+    "id": "FN_DECI",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt decisions",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.ts?new Date(r.ts*1000).toLocaleTimeString():'';return{ts:ts,dev:r.device_id||'',act:r.action||'',src:r.source||'',reason:(r.reason||'').substring(0,60)};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 3680,
+    "wires": [
+      [
+        "T_DECI"
+      ]
+    ]
+  },
+  {
+    "id": "T_DECI",
+    "type": "ui_table",
+    "z": "FLOWTAB",
+    "group": "GRP_DECI",
+    "name": "decisions",
+    "width": "4",
+    "height": "10",
+    "collapse": true,
+    "tableLayout": "fixed",
+    "hoverable": true,
+    "sortable": true,
+    "storeFirstRows": false,
+    "defaultSort": {
+      "property": "ts",
+      "direction": "desc"
+    },
+    "columns": [
+      {
+        "alias": "time",
+        "property": "ts",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      },
+      {
+        "alias": "device",
+        "property": "dev",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      },
+      {
+        "alias": "action",
+        "property": "act",
+        "type": "text",
+        "width": "25%",
+        "layout": "left"
+      },
+      {
+        "alias": "source",
+        "property": "src",
+        "type": "text",
+        "width": "15%",
+        "layout": "left"
+      },
+      {
+        "alias": "reason",
+        "property": "reason",
+        "type": "text",
+        "width": "20%",
+        "layout": "left"
+      }
+    ],
+    "layout": "row",
+    "x": 680,
+    "y": 3680,
+    "wires": []
+  },
+  {
+    "id": "BTN_CLRDECI",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_DECI",
+    "name": "clear dec",
+    "label": "Clear",
+    "order": 1,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "clear",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 3740,
+    "wires": [
+      [
+        "SQL_CLRDECI"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_CLRDECI",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "clear decisions",
+    "operation": "delete",
+    "query": "DELETE FROM ai_decisions",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 300,
+    "y": 3740,
+    "wires": [
+      [
+        "T_CLRDECI"
+      ]
+    ]
+  },
+  {
+    "id": "T_CLRDECI",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_DECI",
+    "order": 2,
+    "width": "4",
+    "label": "",
+    "format": "Cleared",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 500,
+    "y": 3740,
+    "wires": []
+  },
+  {
+    "id": "FORM_SET",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_SET",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "settings",
+    "label": "System settings",
+    "topic": "settings",
+    "topicType": "str",
+    "submit": "Save",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "MQTT broker",
+        "type": "text",
+        "name": "broker",
+        "value": "127.0.0.1:1883"
+      },
+      {
+        "label": "LLM bridge URL",
+        "type": "text",
+        "name": "llm_url",
+        "value": "http://127.0.0.1:8081/chat"
+      }
+    ],
+    "x": 100,
+    "y": 3820,
+    "wires": [
+      [
+        "FN_SET"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SET",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "save settings",
+    "func": "var f=msg.payload||{};if(f.broker){msg.query='INSERT OR REPLACE INTO settings(key,value) VALUES(\\'broker\\',?)';msg.params=[f.broker];}else if(f.llm_url){msg.query='INSERT OR REPLACE INTO settings(key,value) VALUES(\\'llm_url\\',?)';msg.params=[f.llm_url];}else{return null;}return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3820,
+    "wires": [
+      [
+        "SQL_SET"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SET",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write settings",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": true,
+    "database": "SQLCFG",
+    "x": 480,
+    "y": 3820,
+    "wires": [
+      [
+        "T_SETOK"
+      ]
+    ]
+  },
+  {
+    "id": "T_SETOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_SET",
+    "order": 1,
+    "width": "6",
+    "label": "Settings",
+    "format": "Saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 660,
+    "y": 3820,
+    "wires": []
+  },
+  {
+    "id": "BTN_EXPORT",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_SET",
+    "name": "export",
+    "label": "Export config JSON",
+    "order": 2,
+    "width": "6",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "export",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 3880,
+    "wires": [
+      [
+        "FN_EXPORT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_EXPORT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "export config",
+    "func": "var tables=['devices','qos_configs','vlan_groups','vlan_members','tas_schedules','timesync_status','tsn_streams','settings'];var result={};tables.forEach(function(t){result[t]=global.get('HTSN_'+t.toUpperCase())||[];});msg.payload=JSON.stringify(result,null,2);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3880,
+    "wires": [
+      [
+        "T_EXPORT"
+      ]
+    ]
+  },
+  {
+    "id": "T_EXPORT",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_SET",
+    "order": 3,
+    "width": "12",
+    "label": "Config export (copy from here)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "11",
+    "color": "#333333",
+    "x": 500,
+    "y": 3880,
+    "wires": []
+  },
+  {
+    "id": "TABBE",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Backend",
+    "icon": "info",
+    "order": 10
+  },
+  {
+    "id": "GRP_BE",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "MQTT listeners",
+    "tab": "TABBE",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "T_BELOG",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_BE",
+    "order": 0,
+    "width": "12",
+    "label": "Last backend event",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "12",
+    "color": "#555555",
+    "x": 100,
+    "y": 1900,
+    "wires": []
+  },
+  {
+    "id": "MQ_ACK",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/ack/#",
+    "topic": "tsn/ack/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 1960,
+    "wires": [
+      [
+        "FN_ACK"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ACK",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse ack",
+    "func": "var p=msg.payload||{};var did=msg.topic.split('/').pop()||'';if(!did){return null;}var ok=p.ok===true||p.ok===1;var now=Math.floor(Date.now()/1000);msg.query='UPDATE devices SET status=?,last_seen=? WHERE id=?';msg.params=[ok?0:1,now,did];global.set('HTSN_LAST_EVENT',did+': ack ok='+ok);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1960,
+    "wires": [
+      [
+        "SQL_ACK",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_ACK",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "ack update",
+    "operation": "update",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 1960,
+    "wires": []
+  },
+  {
+    "id": "MQ_STAT",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/status",
+    "topic": "tsn/status",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2020,
+    "wires": [
+      [
+        "FN_STAT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_STAT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse status",
+    "func": "var p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) SELECT id,name,ip,mac,kind,?,0,? FROM devices WHERE id=? UNION ALL SELECT ?,?,?,?,?,?,0,?';msg.params=[p.firmware||'',now,did,did,p.name||did,p.ip||'',p.kind||0,p.mac||'',p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': status fw='+(p.firmware||'?'));return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2020,
+    "wires": [
+      [
+        "SQL_STAT",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_STAT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "status upsert",
+    "operation": "insert",
+    "query": "INSERT OR IGNORE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?); UPDATE devices SET firmware=COALESCE(NULLIF(?, ''),firmware), ip=COALESCE(NULLIF(?, ''),ip), last_seen=?, status=0 WHERE id=?",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2020,
+    "wires": []
+  },
+  {
+    "id": "MQ_DISC",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/discover",
+    "topic": "tsn/discover",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2080,
+    "wires": [
+      [
+        "FN_DISC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_DISC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse discover",
+    "func": "var p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?)';msg.params=[did,p.name||did,p.ip||'',p.mac||'',p.kind||0,p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': discovered kind='+p.kind+' ip='+(p.ip||'?'));return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2080,
+    "wires": [
+      [
+        "SQL_DISC",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_DISC",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "discover upsert",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2080,
+    "wires": []
+  },
+  {
+    "id": "MQ_LWT",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/lwt/#",
+    "topic": "tsn/lwt/#",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2140,
+    "wires": [
+      [
+        "FN_LWT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_LWT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse lwt",
+    "func": "var did=msg.topic.split('/').pop()||'';if(!did){return null;}msg.query='UPDATE devices SET status=1 WHERE id=?';msg.params=[did];global.set('HTSN_LAST_EVENT',did+': LWT (offline)');return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2140,
+    "wires": [
+      [
+        "SQL_LWT",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_LWT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "lwt offline",
+    "operation": "update",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2140,
+    "wires": []
+  },
+  {
+    "id": "MQ_SENS",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/sensors/#",
+    "topic": "tsn/sensors/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2200,
+    "wires": [
+      [
+        "FN_SENS"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SENS",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse sensors",
+    "func": "var parts=msg.topic.split('/');var did=parts.length>2?parts[2]:'';var sid=parts.length>3?parts[3]:'sensors';var p=msg.payload;if(Array.isArray(p)){p.forEach(function(v,i){var s=global.get('HTSN_SENS')||{};s[did+'/'+(sid+i)]={v:v.ts||v.value||0,u:v.unit||''};global.set('HTSN_SENS',s);});}else if(p&&p.value!==undefined){var s=global.get('HTSN_SENS')||{};s[did+'/'+sid]={v:p.value,u:p.unit||''};global.set('HTSN_SENS',s);}if(did){var now=Math.floor(Date.now()/1000);msg.query='UPDATE devices SET last_seen=? WHERE id=?';msg.params=[now,did];}global.set('HTSN_LAST_EVENT','sensor '+did+'/'+sid);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2200,
+    "wires": [
+      [
+        "SQL_SENS",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SENS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "sensor seen",
+    "operation": "update",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2200,
+    "wires": []
+  },
+  {
+    "id": "MQ_PTP",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/ptp",
+    "topic": "tsn/ptp",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2260,
+    "wires": [
+      [
+        "FN_PTP"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PTP",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse ptp",
+    "func": "var p=msg.payload||{};var did=p.device_id||'main';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO timesync_reports(device_id,ts,offset_ns,jitter_ns,packet_count,packet_loss,status) VALUES(?,?,?,?,?,?,?)';msg.params=[did,now,p.offset_ns||0,p.jitter_ns||0,p.packet_count||0,p.packet_loss||0,p.status||''];global.set('HTSN_LAST_EVENT','ptp '+did+' off='+(p.offset_ns||0)+'ns');return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2260,
+    "wires": [
+      [
+        "SQL_PTP",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_PTP",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "ptp report",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2260,
+    "wires": []
+  },
+  {
+    "id": "MQ_FX",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/fx/#",
+    "topic": "tsn/fx/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2320,
+    "wires": [
+      [
+        "FN_FX"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FX",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse fx",
+    "func": "var p=msg.payload||{};var src=p.src||msg.topic.split('/').pop()||'';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO fx_data(ts,src,data_id,value,text) VALUES(?,?,?,?,?)';msg.params=[now,src,p.data_id||'',p.value||0,p.text||''];var fx=global.get('HTSN_FX')||[];fx.push({ts:now,src:src,id:p.data_id||'',v:p.value||0,t:p.text||''});if(fx.length>200){fx=fx.slice(-200);}global.set('HTSN_FX',fx);global.set('HTSN_LAST_EVENT','fx '+src+' '+ (p.data_id||''));return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2320,
+    "wires": [
+      [
+        "SQL_FX",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_FX",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "fx insert",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2320,
+    "wires": []
+  },
+  {
+    "id": "MQ_SONAR",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/sonar",
+    "topic": "tsn/sonar",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2380,
+    "wires": [
+      [
+        "FN_SONAR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SONARB",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse sonar (backend)",
+    "func": "var p=msg.payload||{};var did=p.device_id||'esp32-01';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO sonar_sweeps(device_id,ts,sweep_id,sweep) VALUES(?,?,?,?)';msg.params=[did,now,p.sweep_id||0,JSON.stringify(p.sweep||[])];var sonar=global.get('HTSN_SONAR')||{};sonar[did]={ts:now,sweep:p.sweep||[],sid:p.sweep_id||0};global.set('HTSN_SONAR',sonar);global.set('HTSN_LAST_EVENT','sonar '+did+' sweep#'+(p.sweep_id||0));return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2380,
+    "wires": [
+      [
+        "SQL_SONAR",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SONAR",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "sonar insert",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2380,
+    "wires": []
+  },
+  {
+    "id": "MQ_REC",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/cam/recordings",
+    "topic": "tsn/cam/recordings",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2440,
+    "wires": [
+      [
+        "FN_REC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_REC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse recordings",
+    "func": "var p=msg.payload||{};var did=p.device_id||'esp32-cam';var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO recordings(device_id,path,recorded_at,detections) VALUES(?,?,?,?)';msg.params=[did,p.path||'',now,JSON.stringify(p.detections||[])];global.set('HTSN_LAST_EVENT','recording '+did+' '+(p.path||''));return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2440,
+    "wires": [
+      [
+        "SQL_REC",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_REC",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "recording upsert",
+    "operation": "insert",
+    "query": "{{msg.query}}",
+    "failOnErr": false,
+    "database": "SQLCFG",
+    "x": 500,
+    "y": 2440,
+    "wires": []
+  }
+]
