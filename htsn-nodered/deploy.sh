@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Deploy Node-RED flows to the RPi.
-# Usage: ./deploy.sh [phase1]
-#   (no args)   - deploy the base flow (27 nodes)
-#   phase1      - also merge the Phase 1 device management nodes
+# Usage: ./deploy.sh [phases...]
+#   (no args)    - deploy the base flow (27 nodes)
+#   phase1       - also merge the Phase 1 device management nodes
+#   phase2       - also merge the Phase 2 TSN config pages
+#   phase1 phase2 - merge both
 set -euo pipefail
 
 RPI_USER="${RPI_USER:-wtsn}"
@@ -31,7 +33,7 @@ sshpass -p "$RPI_PASS" ssh $SSH_OPTS "${RPI_USER}@${RPI_IP}" "
     fi
 "
 
-PHASE="${1:-}"
+PHASES=("$@")
 
 echo "==> Building flow..."
 WORKDIR=$(mktemp -d)
@@ -39,22 +41,34 @@ trap "rm -rf $WORKDIR" EXIT
 
 cp "$BASE_DIR/flows.json" "$WORKDIR/flow.json"
 
-if [ "$PHASE" = "phase1" ]; then
-    echo "    Merging Phase 1 (device management) nodes..."
-    python3 -c "
-import json, sys
+merge_phase() {
+    local phase_file="$1"
+    local phase_label="$2"
+    if [ -f "$BASE_DIR/$phase_file" ]; then
+        echo "    Merging ${phase_label} nodes..."
+        python3 -c "
+import json
 base = json.load(open('$WORKDIR/flow.json'))
-phase1 = json.load(open('$BASE_DIR/phase1-devices.json'))
+extra = json.load(open('$BASE_DIR/$phase_file'))
 existing_ids = {n['id'] for n in base}
 added = 0
-for n in phase1:
+for n in extra:
     if n['id'] not in existing_ids:
         base.append(n)
         added += 1
 json.dump(base, open('$WORKDIR/flow.json', 'w'), indent=4)
-print(f'    Added {added} Phase 1 nodes (total: {len(base)})')
+print(f'    Added {added} nodes (total: {len(base)})')
 "
-fi
+    fi
+}
+
+for p in "${PHASES[@]}"; do
+    case "$p" in
+        phase1) merge_phase "phase1-devices.json" "Phase 1 (devices)" ;;
+        phase2) merge_phase "phase2-tsn-config.json" "Phase 2 (TSN config)" ;;
+        *) echo "    Unknown phase: $p" ;;
+    esac
+done
 
 echo "==> Uploading flow to RPi..."
 sshpass -p "$RPI_PASS" scp $SSH_OPTS "$WORKDIR/flow.json" "${RPI_USER}@${RPI_IP}:${RPI_FLOW}"
