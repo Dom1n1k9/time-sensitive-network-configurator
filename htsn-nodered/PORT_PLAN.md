@@ -3,14 +3,32 @@
 Plan to port all Python GUI (`htsn_webgui/`) features into Node-RED flows,
 making Node-RED the single GUI for the H-TSN control plane.
 
-## Current state (milestone 0)
+## Current state
 
-| Feature | Status |
-|---------|--------|
-| TSN config form (vlan, prio, TC, preemption, timesync, stream role, TAS, GCL) | Done |
-| Live telemetry (servo, PTP, TSN applied state, relay, buzzer, sonar, buttons) | Done |
-| MQTT tsn/# live feed | Done |
-| Applied-state readback (telemetry nodes 31-38) | Done |
+| Phase | Feature | Design | Deployed | Tested |
+|-------|---------|--------|----------|--------|
+| 0 | TSN config form + live telemetry (27 nodes) | Done | Done | Done |
+| 1 | Device management (list, add, ping, domains, versions) | Done | Pending | Pending |
+| 2 | TSN config pages (QoS, VLAN, TAS, Preemption, Streams, Timesync, Deploy) | Done | Pending | Pending |
+| 3 | Monitoring (events, metrics, sensors, recordings) | Done | Pending | Pending |
+| 4 | TSN Endpoint OPC UA commands + Architecture topology | Done | Pending | Pending |
+| 5 | Firmware OTA (list, upload, flash) + Camera proxy | Done | Pending | Pending |
+| 6 | AI Assistant (LLM chat, decisions) + Settings + Export | Done | Pending | Pending |
+| 7 | MQTT backend listeners (ack, status, discover, lwt, sensors, ptp, fx, sonar, recordings) | Done | Pending | Pending |
+
+**All 7 phases designed** (~200 nodes across 7 flow files). Deployment requires:
+1. RPi reachable (currently offline)
+2. `node-red-contrib-sqlite` installed: `cd ~/htsn-nodered && npm install node-red-contrib-sqlite`
+3. Run `./deploy.sh all` to merge + deploy all phases
+4. Test each tab in the Node-RED dashboard (`http://<rpi>:1880/`)
+
+**Known issues to fix during deployment:**
+- Phase 1: `exec` node for snapshot may need quoting fixes
+- Phase 2: TAS GCL entries need a second SQL insert after delete (currently only deletes)
+- Phase 2: Stream members need insert after delete (currently only deletes)
+- Phase 4: Architecture SVG uses `ui_template` with inline JS — verify rendering
+- Phase 5: Firmware upload uses `http in` with `upload:true` — verify multipart handling
+- All: SQLite node property names may differ from `node-red-contrib-sqlite` API
 
 ## Port phases
 
