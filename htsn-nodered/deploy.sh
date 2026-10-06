@@ -67,7 +67,21 @@ for p in "${PHASES[@]}"; do
         phase1) merge_phase "phase1-devices.json" "Phase 1 (devices)" ;;
         phase2) merge_phase "phase2-tsn-config.json" "Phase 2 (TSN config)" ;;
         phase3) merge_phase "phase3-monitoring.json" "Phase 3 (monitoring)" ;;
+        phase4) merge_phase "phase4-endpoint-arch.json" "Phase 4 (endpoint+arch)" ;;
+        phase5) merge_phase "phase5-firmware.json" "Phase 5 (firmware)" ;;
+        phase6) merge_phase "phase6-ai-settings.json" "Phase 6 (AI+settings)" ;;
         phase7) merge_phase "phase7-mqtt-backend.json" "Phase 7 (MQTT backend)" ;;
+        all) for p in phase1 phase2 phase3 phase4 phase5 phase6 phase7; do
+                case "$p" in
+                    phase1) merge_phase "phase1-devices.json" "Phase 1 (devices)" ;;
+                    phase2) merge_phase "phase2-tsn-config.json" "Phase 2 (TSN config)" ;;
+                    phase3) merge_phase "phase3-monitoring.json" "Phase 3 (monitoring)" ;;
+                    phase4) merge_phase "phase4-endpoint-arch.json" "Phase 4 (endpoint+arch)" ;;
+                    phase5) merge_phase "phase5-firmware.json" "Phase 5 (firmware)" ;;
+                    phase6) merge_phase "phase6-ai-settings.json" "Phase 6 (AI+settings)" ;;
+                    phase7) merge_phase "phase7-mqtt-backend.json" "Phase 7 (MQTT backend)" ;;
+                esac
+            done ;;
         *) echo "    Unknown phase: $p" ;;
     esac
 done
