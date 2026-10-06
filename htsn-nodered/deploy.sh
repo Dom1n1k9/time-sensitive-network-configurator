@@ -66,6 +66,7 @@ for p in "${PHASES[@]}"; do
     case "$p" in
         phase1) merge_phase "phase1-devices.json" "Phase 1 (devices)" ;;
         phase2) merge_phase "phase2-tsn-config.json" "Phase 2 (TSN config)" ;;
+        phase7) merge_phase "phase7-mqtt-backend.json" "Phase 7 (MQTT backend)" ;;
         *) echo "    Unknown phase: $p" ;;
     esac
 done
