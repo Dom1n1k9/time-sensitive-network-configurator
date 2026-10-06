@@ -14,7 +14,11 @@
 A production-oriented configuration and control plane for H-TSN. The **control-plane
 core is written in pure C (C11)** and ships as a CLI/headless service and a host
 firmware agent. The **front-end is a Python web GUI**
-(`webgui.py` / `htsn_webgui/`) with a single-file, dependency-light SPA. The **edge AI
+(`webgui.py` / `htsn_webgui/`) with a single-file, dependency-light SPA,
+supplemented by a **Node-RED dashboard** (`htsn-nodered/`) that provides the TSN
+endpoint configuration form and live telemetry widgets. The full Node-RED port of
+all GUI features is planned — see
+[htsn-nodered/PORT_PLAN.md](htsn-nodered/PORT_PLAN.md). The **edge AI
 services** (`rpi-ai/`) and the **wired TSN CNC** (`rpi-tsn/`) run on the Raspberry Pi
 next to the GUI.
 
@@ -34,6 +38,7 @@ network over **FXMQTT** — OPC UA FX / C2C Field Exchange carried over MQTT.
 4. [Components](#components)
     - [C core (CLI / headless)](#c-core)
     - [Web GUI](#web-gui)
+    - [Node-RED dashboard](#node-red-dashboard)
     - [Wired TSN endpoint + RPi CNC](#wired-tsn-endpoint--rpi-cnc)
     - [Edge AI services](#edge-ai-services)
     - [Firmware agents](#firmware-agents)
@@ -238,6 +243,24 @@ and live devices; commands are published to real nodes. There is no simulation m
 
 > **TLS in the GUI.** TLS itself is not bundled — put the GUI behind a reverse proxy
 > (nginx/caddy) for HTTPS; MQTT TLS is optional via the `HTSN_TLS_*` env vars above.
+
+### Node-RED dashboard
+
+A [Node-RED](https://nodered.org/) flow (`htsn-nodered/flows.json`, 27 nodes)
+runs on the RPi as a lightweight dashboard for the **wired TSN endpoint**:
+
+| Tab | Content |
+|-----|---------|
+| **HTSN** (live) | servo gauge, PTP/gPTP status, TSN applied state, relay/buzzer/sonar/buttons, MQTT `tsn/#` feed |
+| **TSN Config** | form to write the flat TSN config (VLAN, PCP, traffic class, preemption, timesync mode, stream role, TAS cycle, GCL schedule) to `cmd_tsn_config` (`ns=1;i=51`) via OPC UA; applied-state readback from telemetry nodes 31-38 |
+
+The flow polls the OPC UA server (`cnc_opcua`, `opc.tcp://127.0.0.1:4840`) every
+0.5 s for telemetry and writes the TSN config as a `String`-typed OPC UA variant.
+Runs as `htsn-nodered.service` (Node-RED on port 1880).
+
+The **full Python GUI feature set is being ported to Node-RED** in phases —
+see [htsn-nodered/PORT_PLAN.md](htsn-nodered/PORT_PLAN.md) for the roadmap
+(~50 actions, 7 phases, ~284 nodes total).
 
 ### Wired TSN endpoint + RPi CNC
 
@@ -633,6 +656,7 @@ deploy/               enable_preempt_rt.sh (RPi PREEMPT_RT + PTP tuning)
 docs/                 ARCHITECTURE, BUILD, EDGE (Pi deployment)
 webgui.py             entry-point shim for the web GUI
 htsn_webgui/          Python web GUI package
+htsn-nodered/         Node-RED dashboard (flows.json, PORT_PLAN.md)
 tests/                Python unit + HTTP smoke tests
 launcher/             desktop launcher + autostart
 ```
