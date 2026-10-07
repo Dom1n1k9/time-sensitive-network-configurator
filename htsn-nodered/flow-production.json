@@ -642,7 +642,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "fmt devices",
-    "func": "var rows=msg.payload||[];var out=rows.map(function(r){var st=(r.status===0)?'online':'offline';return{id:r.id||'',name:r.name||'',ip:r.ip||'',st:st,dom:r.domain||'default',fw:r.firmware||'',usb:r.usb||''};});global.set('HTSN_DEVICES',out);return msg;",
+    "func": "var rows = msg.payload || [];\nif (!Array.isArray(rows)) rows = [rows];\nvar NL = String.fromCharCode(10);\nglobal.set(\"HTSN_DEVICES\", rows);\nvar kinds = [\"esp32\",\"stm32\",\"camera\",\"linux\",\"pc\",\"other\",\"tsn-endpoint\"];\nvar out = [];\nout.push(\">> DEVICE LIST (\" + rows.length + \" nodes) <<\");\nout.push(\"\");\nfor (var i = 0; i < rows.length; i++) {\n  var r = rows[i] || {};\n  var st = (r.status === 0) ? \"ONLINE\" : \"offline\";\n  var kind = kinds[r.kind] || \"device\";\n  var ip = r.ip || \"no IP\";\n  var fw = r.firmware || \"no firmware\";\n  out.push(\"  \" + (r.id || \"unknown\"));\n  out.push(\"    name:     \" + (r.name || \"-\"));\n  out.push(\"    ip:       \" + ip);\n  out.push(\"    type:     \" + kind);\n  out.push(\"    status:   \" + st);\n  out.push(\"    firmware: \" + fw);\n  out.push(\"\");\n}\nmsg.payload = out.join(NL);\nreturn msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -655,24 +655,6 @@
         "T_DEV"
       ]
     ]
-  },
-  {
-    "id": "T_DEV",
-    "type": "ui_template",
-    "z": "FLOWTAB",
-    "group": "GRP_DEV",
-    "name": "devices",
-    "width": "12",
-    "height": "10",
-    "x": 680,
-    "y": 820,
-    "wires": [],
-    "html": "<div style=\"overflow:auto;max-height:100%;padding:4px\">\n<div id=\"dev_list\">Loading...</div>\n</div>\n<script>\n(function(){\n  var rows = (msg && msg.payload) || [];\n  var el = document.getElementById('dev_list');\n  if(!el) return;\n  if(!rows.length){ el.innerHTML='<span style=\"color:#999\">No devices</span>'; return; }\n  var h = '<table style=\"width:100%;border-collapse:collapse;font-size:13px\">';\n  h += '<tr style=\"background:#333;color:#fff\"><th style=\"padding:4px 8px;text-align:left\">ID</th><th style=\"padding:4px 8px;text-align:left\">Name</th><th style=\"padding:4px 8px;text-align:left\">IP</th><th style=\"padding:4px 8px;text-align:left\">Status</th><th style=\"padding:4px 8px;text-align:left\">Firmware</th></tr>';\n  rows.forEach(function(r){\n    var st = (r.st==='online') ? '<span style=\"color:#0a0\">online</span>' : '<span style=\"color:#a00\">offline</span>';\n    h += '<tr style=\"border-bottom:1px solid #ddd\"><td style=\"padding:4px 8px\">'+(r.id||'')+'</td><td style=\"padding:4px 8px\">'+(r.name||'')+'</td><td style=\"padding:4px 8px\">'+(r.ip||'')+'</td><td style=\"padding:4px 8px\">'+st+'</td><td style=\"padding:4px 8px\">'+(r.fw||'-')+'</td></tr>';\n  });\n  h += '</table>';\n  el.innerHTML = h;\n})();\n</script>",
-    "format": "{{msg.payload}}",
-    "storeOutMessages": true,
-    "fgColor": "#000000",
-    "bgColor": "#ffffff",
-    "className": ""
   },
   {
     "id": "FORM_ADD",
@@ -2952,7 +2934,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "fmt firmware",
-    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.uploaded_at?new Date(r.uploaded_at*1000).toLocaleString():'';var kb=r.size?Math.round(r.size/1024)+'KB':'';return{file:r.file||'',ver:r.version||'',size:kb,crc:r.crc32||'',kind:r.kind>=0?r.kind:'any',ts:ts};});global.set('HTSN_FIRMWARE',rows);return msg;",
+    "func": "var rows = msg.payload || [];\nif (!Array.isArray(rows)) rows = [rows];\nvar NL = String.fromCharCode(10);\nvar out = [];\nout.push(\">> FIRMWARE IMAGES (\" + rows.length + \") <<\");\nout.push(\"\");\nfor (var i = 0; i < rows.length; i++) {\n  var r = rows[i] || {};\n  var size = r.size ? Math.round(r.size/1024) + \" KB\" : \"unknown size\";\n  var ver = r.version || \"unversioned\";\n  var kind = [\"esp32\",\"stm32\",\"any\",\"tsn\"][r.kind] || \"any\";\n  var crc = r.crc32 || \"no crc\";\n  out.push(\"  \" + (r.file || \"unknown file\"));\n  out.push(\"    version:  \" + ver);\n  out.push(\"    size:     \" + size);\n  out.push(\"    target:   \" + kind);\n  out.push(\"    crc32:    \" + crc);\n  out.push(\"\");\n}\nif (rows.length === 0) {\n  out.push(\"  No firmware images uploaded yet.\");\n  out.push(\"  Use the upload form below to flash a device.\");\n}\nglobal.set(\"HTSN_FIRMWARE\", rows);\nmsg.payload = out.join(NL);\nreturn msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -2965,24 +2947,6 @@
         "T_FW"
       ]
     ]
-  },
-  {
-    "id": "T_FW",
-    "type": "ui_template",
-    "z": "FLOWTAB",
-    "group": "GRP_FWLIST",
-    "name": "firmware",
-    "width": "12",
-    "height": "8",
-    "x": 680,
-    "y": 3340,
-    "wires": [],
-    "html": "<div style=\"overflow:auto;max-height:100%;padding:4px\">\n<div id=\"fw_list\">Loading...</div>\n</div>\n<script>\n(function(){\n  var rows = (msg && msg.payload) || [];\n  var el = document.getElementById('fw_list');\n  if(!el) return;\n  if(!rows.length){ el.innerHTML='<span style=\"color:#999\">No firmware uploaded</span>'; return; }\n  var h = '<table style=\"width:100%;border-collapse:collapse;font-size:13px\">';\n  h += '<tr style=\"background:#333;color:#fff\"><th style=\"padding:4px 8px;text-align:left\">File</th><th style=\"padding:4px 8px;text-align:left\">Version</th><th style=\"padding:4px 8px;text-align:left\">Size</th><th style=\"padding:4px 8px;text-align:left\">Kind</th><th style=\"padding:4px 8px;text-align:left\">Uploaded</th></tr>';\n  rows.forEach(function(r){\n    h += '<tr style=\"border-bottom:1px solid #ddd\"><td style=\"padding:4px 8px\">'+(r.file||'')+'</td><td style=\"padding:4px 8px\">'+(r.ver||'')+'</td><td style=\"padding:4px 8px\">'+(r.size||'')+'</td><td style=\"padding:4px 8px\">'+(r.kind||'any')+'</td><td style=\"padding:4px 8px\">'+(r.ts||'')+'</td></tr>';\n  });\n  h += '</table>';\n  el.innerHTML = h;\n})();\n</script>",
-    "format": "{{msg.payload}}",
-    "storeOutMessages": true,
-    "fgColor": "#000000",
-    "bgColor": "#ffffff",
-    "className": ""
   },
   {
     "id": "HTTP_FWUP",
@@ -4271,5 +4235,41 @@
     "headers": {},
     "x": 970,
     "y": 450
+  },
+  {
+    "id": "T_DEV",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_DEV",
+    "order": 5,
+    "width": "12",
+    "label": "Device List",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "11",
+    "color": "#000000",
+    "x": 680,
+    "y": 820,
+    "wires": []
+  },
+  {
+    "id": "T_FW",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_FWLIST",
+    "order": 5,
+    "width": "12",
+    "label": "Firmware Images",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "11",
+    "color": "#000000",
+    "x": 680,
+    "y": 3340,
+    "wires": []
   }
 ]
