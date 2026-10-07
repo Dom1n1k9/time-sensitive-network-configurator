@@ -353,28 +353,36 @@
     "className": "",
     "options": [
       {
-        "label": "VLAN ID (0-4094)",
+        "label": "VLAN ID (0-4094, 0=no change)",
         "type": "number",
         "name": "vlan_id",
-        "value": "100"
+        "value": "100",
+        "min": "0",
+        "max": "4094"
       },
       {
-        "label": "Priority / PCP (0-7)",
+        "label": "PCP priority (0-7, -1=no change)",
         "type": "number",
         "name": "priority",
-        "value": "5"
+        "value": "5",
+        "min": "0",
+        "max": "7"
       },
       {
-        "label": "Traffic class (0-7)",
+        "label": "Traffic class (0-7, -1=no change)",
         "type": "number",
         "name": "traffic_class",
-        "value": "5"
+        "value": "5",
+        "min": "0",
+        "max": "7"
       },
       {
         "label": "Preemption 802.1Qbb (0-2)",
         "type": "number",
         "name": "preemption",
-        "value": "0"
+        "value": "0",
+        "min": "0",
+        "max": "1"
       },
       {
         "label": "Timesync mode",
@@ -401,19 +409,25 @@
         "label": "Stream VLAN (0-4094)",
         "type": "number",
         "name": "st_vlan",
-        "value": "100"
+        "value": "100",
+        "min": "0",
+        "max": "4094"
       },
       {
         "label": "Stream PCP (0-7)",
         "type": "number",
         "name": "st_prio",
-        "value": "5"
+        "value": "5",
+        "min": "0",
+        "max": "7"
       },
       {
         "label": "TAS cycle (ns)",
         "type": "number",
         "name": "tas_cycle_ns",
-        "value": "500000000"
+        "value": "500000000",
+        "min": "0",
+        "max": "1000000000"
       },
       {
         "label": "GCL schedule (open:ns closed:ns ...)",
@@ -447,7 +461,7 @@
         "CLI_WRITE"
       ]
     ],
-    "func": "var f=msg.payload||{};\nfunction N(v,d){var n=parseInt(v,10);return isNaN(n)?d:n;}\nvar gs=[],dur=[];\n(String(f.gcl||\"\")).trim().split(/\\s+/).forEach(function(p){var a=p.split(\":\");if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});\nvar TM={\"none\":0,\"GM\":1,\"slave\":2},SR={\"talker\":1,\"listener\":2};\nvar tm=(TM[f.timesync_mode]!==undefined)?TM[f.timesync_mode]:N(f.timesync_mode,0);\nvar sr=(SR[f.st_role]!==undefined)?SR[f.st_role]:N(f.st_role,0);\nvar flat={priority:N(f.priority,0),traffic_class:N(f.traffic_class,0),vlan_id:N(f.vlan_id,0),preemption:N(f.preemption,0),timesync_mode:tm,st_role:sr,st_vlan:N(f.st_vlan,0),st_prio:N(f.st_prio,0),tas_cycle_ns:N(f.tas_cycle_ns,0),gcl_gs:gs,gcl_dur:dur};\nmsg.datatype=\"String\";msg.topic=\"ns=1;i=51\";\nmsg.payload=JSON.stringify(flat);\nglobal.set(\"HTSN_LAST_CFG\",flat);\nnode.status({fill:\"green\",shape:\"dot\",text:\"apply \"+msg.payload.length+\"B\"});\nreturn msg;"
+    "func": "var f=msg.payload||{};\nfunction C(v,lo,hi,d){var n=parseInt(v,10);if(isNaN(n))return d;n=Math.max(lo,Math.min(hi,n));return n;}\nvar gs=[],dur=[];\n(String(f.gcl||\"\")).trim().split(/\\s+/).forEach(function(p){var a=p.split(\":\");if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});\nvar TM={\"none\":0,\"GM\":1,\"slave\":2},SR={\"talker\":1,\"listener\":2};\nvar tm=(TM[f.timesync_mode]!==undefined)?TM[f.timesync_mode]:C(f.timesync_mode,0,2,0);\nvar sr=(SR[f.st_role]!==undefined)?SR[f.st_role]:C(f.st_role,0,2,0);\nvar flat={priority:C(f.priority,0,7,0),traffic_class:C(f.traffic_class,0,7,0),vlan_id:C(f.vlan_id,0,4094,0),preemption:C(f.preemption,0,1,0),timesync_mode:tm,st_role:sr,st_vlan:C(f.st_vlan,0,4094,0),st_prio:C(f.st_prio,0,7,0),tas_cycle_ns:C(f.tas_cycle_ns,0,1000000000,0),gcl_gs:gs,gcl_dur:dur};\nmsg.datatype=\"String\";msg.topic=\"ns=1;i=51\";\nmsg.payload=JSON.stringify(flat);\nglobal.set(\"HTSN_LAST_CFG\",flat);\nnode.status({fill:\"green\",shape:\"dot\",text:\"apply \"+msg.payload.length+\"B\"});\nreturn msg;"
   },
   {
     "id": "CLI_WRITE",
@@ -653,7 +667,7 @@
     "x": 680,
     "y": 820,
     "wires": [],
-    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>ip</th><th>status</th><th>domain</th><th>firmware</th><th>usb</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"ip\", \"st\", \"dom\", \"fw\", \"usb\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "html": "<div style=\"overflow:auto;max-height:100%;padding:4px\">\n<div id=\"dev_list\">Loading...</div>\n</div>\n<script>\n(function(){\n  var rows = (msg && msg.payload) || [];\n  var el = document.getElementById('dev_list');\n  if(!el) return;\n  if(!rows.length){ el.innerHTML='<span style=\"color:#999\">No devices</span>'; return; }\n  var h = '<table style=\"width:100%;border-collapse:collapse;font-size:13px\">';\n  h += '<tr style=\"background:#333;color:#fff\"><th style=\"padding:4px 8px;text-align:left\">ID</th><th style=\"padding:4px 8px;text-align:left\">Name</th><th style=\"padding:4px 8px;text-align:left\">IP</th><th style=\"padding:4px 8px;text-align:left\">Status</th><th style=\"padding:4px 8px;text-align:left\">Firmware</th></tr>';\n  rows.forEach(function(r){\n    var st = (r.st==='online') ? '<span style=\"color:#0a0\">online</span>' : '<span style=\"color:#a00\">offline</span>';\n    h += '<tr style=\"border-bottom:1px solid #ddd\"><td style=\"padding:4px 8px\">'+(r.id||'')+'</td><td style=\"padding:4px 8px\">'+(r.name||'')+'</td><td style=\"padding:4px 8px\">'+(r.ip||'')+'</td><td style=\"padding:4px 8px\">'+st+'</td><td style=\"padding:4px 8px\">'+(r.fw||'-')+'</td></tr>';\n  });\n  h += '</table>';\n  el.innerHTML = h;\n})();\n</script>",
     "format": "{{msg.payload}}",
     "storeOutMessages": true,
     "fgColor": "#000000",
@@ -1217,13 +1231,17 @@
         "label": "Priority (0-7)",
         "type": "number",
         "name": "priority",
-        "value": "5"
+        "value": "5",
+        "min": "0",
+        "max": "7"
       },
       {
         "label": "Traffic class (0-3)",
         "type": "number",
         "name": "traffic_class",
-        "value": "5"
+        "value": "5",
+        "min": "0",
+        "max": "7"
       },
       {
         "label": "Bandwidth kbps",
@@ -1389,7 +1407,9 @@
         "label": "VLAN ID (1-4094)",
         "type": "number",
         "name": "vlan_id",
-        "value": "100"
+        "value": "100",
+        "min": "1",
+        "max": "4094"
       }
     ],
     "x": 100,
@@ -2957,7 +2977,7 @@
     "x": 680,
     "y": 3340,
     "wires": [],
-    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>file</th><th>version</th><th>size</th><th>crc32</th><th>kind</th><th>uploaded</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"file\", \"ver\", \"size\", \"crc\", \"kind\", \"ts\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "html": "<div style=\"overflow:auto;max-height:100%;padding:4px\">\n<div id=\"fw_list\">Loading...</div>\n</div>\n<script>\n(function(){\n  var rows = (msg && msg.payload) || [];\n  var el = document.getElementById('fw_list');\n  if(!el) return;\n  if(!rows.length){ el.innerHTML='<span style=\"color:#999\">No firmware uploaded</span>'; return; }\n  var h = '<table style=\"width:100%;border-collapse:collapse;font-size:13px\">';\n  h += '<tr style=\"background:#333;color:#fff\"><th style=\"padding:4px 8px;text-align:left\">File</th><th style=\"padding:4px 8px;text-align:left\">Version</th><th style=\"padding:4px 8px;text-align:left\">Size</th><th style=\"padding:4px 8px;text-align:left\">Kind</th><th style=\"padding:4px 8px;text-align:left\">Uploaded</th></tr>';\n  rows.forEach(function(r){\n    h += '<tr style=\"border-bottom:1px solid #ddd\"><td style=\"padding:4px 8px\">'+(r.file||'')+'</td><td style=\"padding:4px 8px\">'+(r.ver||'')+'</td><td style=\"padding:4px 8px\">'+(r.size||'')+'</td><td style=\"padding:4px 8px\">'+(r.kind||'any')+'</td><td style=\"padding:4px 8px\">'+(r.ts||'')+'</td></tr>';\n  });\n  h += '</table>';\n  el.innerHTML = h;\n})();\n</script>",
     "format": "{{msg.payload}}",
     "storeOutMessages": true,
     "fgColor": "#000000",
