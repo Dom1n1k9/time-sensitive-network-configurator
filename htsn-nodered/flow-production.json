@@ -12,7 +12,8 @@
     "z": "FLOWTAB",
     "name": "HTSN",
     "icon": "dashboard",
-    "order": 0
+    "order": 0,
+    "label": "Overview"
   },
   {
     "id": "GRP1",
@@ -20,8 +21,10 @@
     "z": "FLOWTAB",
     "name": "Live",
     "tab": "TAB1",
-    "width": "12",
-    "order": 0
+    "width": "6",
+    "order": 0,
+    "label": "Network Status",
+    "className": ""
   },
   {
     "id": "GRP2",
@@ -29,8 +32,10 @@
     "z": "FLOWTAB",
     "name": "Telemetry & TSN",
     "tab": "TAB1",
-    "width": "12",
-    "order": 1
+    "width": "6",
+    "order": 1,
+    "label": "Endpoint Live Telemetry",
+    "className": ""
   },
   {
     "id": "BRK1",
@@ -313,9 +318,10 @@
     "id": "TABCFG",
     "type": "ui_tab",
     "z": "FLOWTAB",
-    "name": "TSN Config",
+    "name": "tsn-config",
     "icon": "cog",
-    "order": 1
+    "order": 1,
+    "label": "TSN Config"
   },
   {
     "id": "GRP_CFG",
@@ -324,7 +330,9 @@
     "name": "Apply config",
     "tab": "TABCFG",
     "width": "6",
-    "order": 0
+    "order": 0,
+    "label": "Endpoint Base Config",
+    "className": ""
   },
   {
     "id": "GRP_APPLY",
@@ -333,7 +341,9 @@
     "name": "Applied state (from endpoint)",
     "tab": "TABCFG",
     "width": "6",
-    "order": 1
+    "order": 1,
+    "label": "Apply & Deploy",
+    "className": ""
   },
   {
     "id": "FORM_TSN",
@@ -568,7 +578,8 @@
     "z": "FLOWTAB",
     "name": "Devices",
     "icon": "book",
-    "order": 2
+    "order": 2,
+    "label": "Devices"
   },
   {
     "id": "GRP_DEV",
@@ -577,7 +588,9 @@
     "name": "Device list",
     "tab": "TABDEV",
     "width": "12",
-    "order": 0
+    "order": 0,
+    "label": "Device List",
+    "className": ""
   },
   {
     "id": "GRP_ADD",
@@ -586,7 +599,9 @@
     "name": "Add / manage",
     "tab": "TABDEV",
     "width": "6",
-    "order": 1
+    "order": 1,
+    "label": "Add / Register Device",
+    "className": ""
   },
   {
     "id": "GRP_VER",
@@ -594,8 +609,10 @@
     "z": "FLOWTAB",
     "name": "Config versions",
     "tab": "TABDEV",
-    "width": "12",
-    "order": 2
+    "width": "6",
+    "order": 2,
+    "label": "Verify Firmware",
+    "className": ""
   },
   {
     "id": "INJ_DEV",
@@ -1116,75 +1133,81 @@
     "className": ""
   },
   {
-    "id": "TABCFG2",
-    "type": "ui_tab",
-    "z": "FLOWTAB",
-    "name": "TSN Config",
-    "icon": "cog",
-    "order": 3
-  },
-  {
     "id": "GRP_QOS",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "QoS (802.1Q)",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "6",
-    "order": 0
+    "order": 2,
+    "label": "QoS Policy",
+    "className": ""
   },
   {
     "id": "GRP_VLAN",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "VLAN (802.1Q)",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "6",
-    "order": 1
+    "order": 3,
+    "label": "VLAN Groups",
+    "className": ""
   },
   {
     "id": "GRP_TAS",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "TAS/GCL (802.1Qbv)",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "6",
-    "order": 2
+    "order": 4,
+    "label": "TAS Scheduling (Qbv)",
+    "className": ""
   },
   {
     "id": "GRP_PRE",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Preemption (802.1Qbu)",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "6",
-    "order": 3
+    "order": 5,
+    "label": "Preemption (Qbu)",
+    "className": ""
   },
   {
     "id": "GRP_STM",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Streams (802.1Qcc)",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "6",
-    "order": 4
+    "order": 6,
+    "label": "Stream Reservation (Qcc)",
+    "className": ""
   },
   {
     "id": "GRP_TSYNC",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Timesync (802.1AS)",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "6",
-    "order": 5
+    "order": 7,
+    "label": "Time Sync (802.1AS)",
+    "className": ""
   },
   {
     "id": "GRP_DEPLOY",
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Deploy",
-    "tab": "TABCFG2",
+    "tab": "TABCFG",
     "width": "12",
-    "order": 6
+    "order": 8,
+    "label": "Deploy to All Devices",
+    "className": ""
   },
   {
     "id": "FORM_QOS",
@@ -2062,7 +2085,8 @@
     "z": "FLOWTAB",
     "name": "Monitor",
     "icon": "dashboard",
-    "order": 4
+    "order": 4,
+    "label": "Monitor"
   },
   {
     "id": "GRP_EVT",
@@ -2071,7 +2095,9 @@
     "name": "Events",
     "tab": "TABMON",
     "width": "12",
-    "order": 0
+    "order": 0,
+    "label": "Event Log",
+    "className": ""
   },
   {
     "id": "GRP_MET",
@@ -2079,8 +2105,10 @@
     "z": "FLOWTAB",
     "name": "Metrics",
     "tab": "TABMON",
-    "width": "12",
-    "order": 1
+    "width": "6",
+    "order": 1,
+    "label": "Link Metrics",
+    "className": ""
   },
   {
     "id": "GRP_SENS",
@@ -2088,8 +2116,10 @@
     "z": "FLOWTAB",
     "name": "Sensors",
     "tab": "TABMON",
-    "width": "12",
-    "order": 2
+    "width": "6",
+    "order": 2,
+    "label": "Sensor Telemetry",
+    "className": ""
   },
   {
     "id": "GRP_REC",
@@ -2098,7 +2128,9 @@
     "name": "Recordings",
     "tab": "TABMON",
     "width": "12",
-    "order": 3
+    "order": 3,
+    "label": "Frame Records",
+    "className": ""
   },
   {
     "id": "INJ_EVT",
@@ -2525,7 +2557,8 @@
     "z": "FLOWTAB",
     "name": "TSN Endpoint",
     "icon": "chip",
-    "order": 5
+    "order": 5,
+    "label": "Endpoint"
   },
   {
     "id": "GRP_EPCMD",
@@ -2534,7 +2567,9 @@
     "name": "Endpoint commands",
     "tab": "TABEP",
     "width": "6",
-    "order": 0
+    "order": 0,
+    "label": "Actuator Control",
+    "className": ""
   },
   {
     "id": "GRP_EPARCH",
@@ -2542,8 +2577,10 @@
     "z": "FLOWTAB",
     "name": "Architecture",
     "tab": "TABEP",
-    "width": "12",
-    "order": 1
+    "width": "6",
+    "order": 1,
+    "label": "Network Topology",
+    "className": ""
   },
   {
     "id": "SL_SERVO",
@@ -2860,7 +2897,8 @@
     "z": "FLOWTAB",
     "name": "Firmware",
     "icon": "cloud",
-    "order": 6
+    "order": 6,
+    "label": "Firmware"
   },
   {
     "id": "GRP_FWLIST",
@@ -2869,7 +2907,9 @@
     "name": "Firmware images",
     "tab": "TABFW",
     "width": "12",
-    "order": 0
+    "order": 0,
+    "label": "Firmware Images",
+    "className": ""
   },
   {
     "id": "GRP_FWUP",
@@ -2878,7 +2918,9 @@
     "name": "Upload",
     "tab": "TABFW",
     "width": "6",
-    "order": 1
+    "order": 1,
+    "label": "Upload Image",
+    "className": ""
   },
   {
     "id": "GRP_FWFLASH",
@@ -2887,7 +2929,9 @@
     "name": "Flash / OTA",
     "tab": "TABFW",
     "width": "6",
-    "order": 2
+    "order": 2,
+    "label": "Flash Target",
+    "className": ""
   },
   {
     "id": "INJ_FW",
@@ -3136,7 +3180,8 @@
     "z": "FLOWTAB",
     "name": "AI Assistant",
     "icon": "magic",
-    "order": 7
+    "order": 7,
+    "label": "AI Assistant"
   },
   {
     "id": "GRP_CHAT",
@@ -3145,7 +3190,9 @@
     "name": "LLM Chat",
     "tab": "TABAIA",
     "width": "8",
-    "order": 0
+    "order": 0,
+    "label": "AI Chat",
+    "className": ""
   },
   {
     "id": "GRP_DECI",
@@ -3154,7 +3201,9 @@
     "name": "AI Decisions",
     "tab": "TABAIA",
     "width": "4",
-    "order": 1
+    "order": 1,
+    "label": "Decision Log",
+    "className": ""
   },
   {
     "id": "TABSET",
@@ -3162,7 +3211,8 @@
     "z": "FLOWTAB",
     "name": "Settings",
     "icon": "cog",
-    "order": 8
+    "order": 8,
+    "label": "Settings"
   },
   {
     "id": "GRP_SET",
@@ -3171,7 +3221,9 @@
     "name": "System settings",
     "tab": "TABSET",
     "width": "12",
-    "order": 0
+    "order": 0,
+    "label": "System Settings",
+    "className": ""
   },
   {
     "id": "FORM_CHAT",
@@ -3581,7 +3633,8 @@
     "z": "FLOWTAB",
     "name": "Backend",
     "icon": "info",
-    "order": 10
+    "order": 10,
+    "label": "Backend"
   },
   {
     "id": "GRP_BE",
@@ -3590,7 +3643,9 @@
     "name": "MQTT listeners",
     "tab": "TABBE",
     "width": "12",
-    "order": 0
+    "order": 0,
+    "label": "Backend Log",
+    "className": ""
   },
   {
     "id": "T_BELOG",
