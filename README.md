@@ -13,14 +13,10 @@
 
 A production-oriented configuration and control plane for H-TSN. The **control-plane
 core is written in pure C (C11)** and ships as a CLI/headless service and a host
-firmware agent. The **front-end is a Python web GUI**
-(`webgui.py` / `htsn_webgui/`) with a single-file, dependency-light SPA,
-supplemented by a **Node-RED dashboard** (`htsn-nodered/`) that provides the TSN
-endpoint configuration form and live telemetry widgets. The full Node-RED port of
-all GUI features is planned — see
-[htsn-nodered/PORT_PLAN.md](htsn-nodered/PORT_PLAN.md). The **edge AI
-services** (`rpi-ai/`) and the **wired TSN CNC** (`rpi-tsn/`) run on the Raspberry Pi
-next to the GUI.
+firmware agent. The **front-end is a Node-RED dashboard** (`htsn-nodered/`) —
+231 nodes across 11 tabs covering devices, TSN config, monitoring, firmware OTA,
+camera proxy, AI assistant, and backend listeners. The **edge AI services**
+(`rpi-ai/`) and the **wired TSN CNC** (`rpi-tsn/`) run on the Raspberry Pi.
 
 It acts as a centralized controller (CNC-style, aligned with IEEE 802.1Qcc) that
 discovers and manages heterogeneous nodes — wireless over MQTT and the wired TSN
@@ -37,7 +33,6 @@ network over **FXMQTT** — OPC UA FX / C2C Field Exchange carried over MQTT.
 3. [The two data planes](#the-two-data-planes)
 4. [Components](#components)
     - [C core (CLI / headless)](#c-core)
-    - [Web GUI](#web-gui)
     - [Node-RED dashboard](#node-red-dashboard)
     - [Wired TSN endpoint + RPi CNC](#wired-tsn-endpoint--rpi-cnc)
     - [Edge AI services](#edge-ai-services)
@@ -75,16 +70,12 @@ python3 -m pip install paho-mqtt
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -- -j$(nproc)
 
-# run the C tests
-./build/htsn-tests
+ # run the C tests
+ ./build/htsn-tests
 
-# launch the web GUI  ->  http://127.0.0.1:8000
-python3 webgui.py
-```
-
-> **Windows:** the web GUI also runs on Windows and only needs `paho-mqtt`:
-> `python -m pip install paho-mqtt`, then `python webgui.py`. The C core targets
-> Linux / ESP-IDF / Zephyr.
+ # Node-RED dashboard (on RPi): http://<rpi-ip>:1880/
+ systemctl status htsn-nodered
+ ```
 
 ### Everything with one command — `run.sh`
 
@@ -125,12 +116,12 @@ the **"HTSN Configurator"** icon.
 ```
   ┌──────────────────────────── RPi edge node (CNC) ─────────────────────────────┐
   │                                                                              │
-  │   ┌────────────────────────────────────────────────────────────────┐         │
-  │   │              Web GUI (Python htsn_webgui, :8000)               │         │
-  │   │ Devices | Monitor | Metrics | Sensors | AI | Architecture      │         │
-  │   │ FXMQTT | Timesync | QoS | VLAN | TAS | Preemption | Streams    │         │
-  │   └───────────────┬───────────────────────────────┬────────────────┘         │
-  │                   │ HTTP/WS + MQTT                │ llm_chat (HTTP)          │
+   │   ┌────────────────────────────────────────────────────────────────┐         │
+   │   │          Node-RED dashboard (:1880, 11 tabs)                   │         │
+   │   │ Devices | TSN Config | Monitor | Firmware | Cameras | AI      │         │
+   │   │ TSN Endpoint | Settings | Backend | HTSN | TSN Config (p2)    │         │
+   │   └───────────────┬───────────────────────────────┬────────────────┘         │
+   │                   │ OPC UA + MQTT                 │ llm_chat (HTTP)          │
   │   ┌───────────────▼──────────────┐    ┌───────────▼───────────────┐          │
   │   │  C11 control core (src/)     │    │ Edge AI (rpi-ai/)         │          │
   │   │  device, qos, vlan, timesync,│    │ vision (YOLOv4 on CAM)    │          │
@@ -158,10 +149,10 @@ the **"HTSN Configurator"** icon.
 
 - **C core** (`src/`) — modular, dependency-injected managers connected through an
   event bus; all state persisted in **SQLite**; communicates only via **MQTT/FXMQTT**.
-- **Web GUI** (`htsn_webgui/`) — Python (mostly stdlib) HTTP + WebSocket front-end
-   (real-mode only — there is no simulation mode).
+- **Node-RED dashboard** (`htsn-nodered/`) — the full GUI: 231 nodes, 11 tabs
+  (devices, TSN config, monitoring, firmware, cameras, AI, settings, backend).
 - **Wired TSN CNC** (`rpi-tsn/`) — the **OPC UA server** (the wired data plane) and a
-  poller that feeds the GUI JSON, plus the **ptpd grandmaster** config.
+  poller that feeds telemetry, plus the **ptpd grandmaster** config.
 - **Wired TSN endpoint** (`stm32-tsn/`) — a Zephyr STM32 node that is a **PTP slave**
   and an **OPC UA client** (writes telemetry, monitors `cmd_*`), with actuators
   (sonar, display, buzzer/servo).
@@ -230,37 +221,29 @@ A self-contained SPA served on http://127.0.0.1:8000:
 | Preemption | eMAC / pMAC priority split (802.1Qbu) |
 | Streams    | 802.1Qcc talker / listener reservations, deploy, status (ready / standby / failed) |
 
-Run it directly:
-
-```bash
-python3 webgui.py [--host H] [--port P]
-# env: HTSN_HOST, HTSN_PORT, HTSN_DB, HTSN_BROKER, HTSN_USER, HTSN_PASS,
-#      HTSN_WEB_USER, HTSN_WEB_PASS, HTSN_LLM_URL, HTSN_TLS_CA, HTSN_TLS_CERT, HTSN_TLS_KEY
-```
-
-**Real mode only.** The GUI connects to your MQTT broker (and the OPC UA wired plane)
-and live devices; commands are published to real nodes. There is no simulation mode.
-
-> **TLS in the GUI.** TLS itself is not bundled — put the GUI behind a reverse proxy
-> (nginx/caddy) for HTTPS; MQTT TLS is optional via the `HTSN_TLS_*` env vars above.
-
 ### Node-RED dashboard
 
-A [Node-RED](https://nodered.org/) flow (`htsn-nodered/flows.json`, 27 nodes)
-runs on the RPi as a lightweight dashboard for the **wired TSN endpoint**:
+The [Node-RED](https://nodered.org/) flow (`htsn-nodered/flow-production.json`,
+231 nodes) is the **sole GUI**, running on the RPi as `htsn-nodered.service`
+(port 1880). It connects to the OPC UA server, MQTT broker, and SQLite DB.
 
 | Tab | Content |
 |-----|---------|
 | **HTSN** (live) | servo gauge, PTP/gPTP status, TSN applied state, relay/buzzer/sonar/buttons, MQTT `tsn/#` feed |
-| **TSN Config** | form to write the flat TSN config (VLAN, PCP, traffic class, preemption, timesync mode, stream role, TAS cycle, GCL schedule) to `cmd_tsn_config` (`ns=1;i=51`) via OPC UA; applied-state readback from telemetry nodes 31-38 |
+| **TSN Config** | form to write TSN config (VLAN, PCP, traffic class, preemption, timesync, stream role, TAS, GCL) to `cmd_tsn_config` via OPC UA |
+| **Devices** | device list, add/remove, firmware status, discovery |
+| **Monitor** | live telemetry, sensor values, network metrics |
+| **TSN Endpoint** | servo angle, relay, buzzer, sonar trigger, reboot commands |
+| **Firmware** | OTA upload, version tracking, A/B slot management |
+| **Cameras** | ESP32 camera proxy (live stream, last frame, replay) |
+| **AI Assistant** | LLM chat (Ollama), policy engine status, decisions |
+| **Settings** | broker config, OPC UA settings, system parameters |
+| **Backend** | MQTT listener status, service health, log viewer |
 
-The flow polls the OPC UA server (`cnc_opcua`, `opc.tcp://127.0.0.1:4840`) every
-0.5 s for telemetry and writes the TSN config as a `String`-typed OPC UA variant.
-Runs as `htsn-nodered.service` (Node-RED on port 1880).
-
-The **full Python GUI feature set is being ported to Node-RED** in phases —
-see [htsn-nodered/PORT_PLAN.md](htsn-nodered/PORT_PLAN.md) for the roadmap
-(~50 actions, 7 phases, ~284 nodes total).
+The flow polls the OPC UA server (`cnc_opcua`, `opc.tcp://127.0.0.1:4840`) for
+telemetry and writes TSN config as a `String`-typed OPC UA variant. Camera proxy
+forwards to ESP32 MJPEG streams. See
+[htsn-nodered/PORT_PLAN.md](htsn-nodered/PORT_PLAN.md) for the full node inventory.
 
 ### Wired TSN endpoint + RPi CNC
 
@@ -598,9 +581,8 @@ cd rpi-tsn && make PFX=$HTSN_O62541_PFX
 # STM32 TSN endpoint (Zephyr; needs the Zephyr SDK + nrfjprog/ST-LINK or J-Link)
 west build -b nucleo_f767zi stm32-tsn && west flash
 
-# Python tests (web GUI) + lint
+# Python tests + lint
 python3 -m unittest discover -s tests
-python3 -m ruff check webgui.py htsn_webgui tests
 
 # package
 cpack -G TGZ          # or: cmake --build build --target package
@@ -654,9 +636,7 @@ rpi-ai/               Raspberry Pi edge services
   systemd/            unit + timer files for the Pi deployment
 deploy/               enable_preempt_rt.sh (RPi PREEMPT_RT + PTP tuning)
 docs/                 ARCHITECTURE, BUILD, EDGE (Pi deployment)
-webgui.py             entry-point shim for the web GUI
-htsn_webgui/          Python web GUI package
-htsn-nodered/         Node-RED dashboard (flows.json, PORT_PLAN.md)
+htsn-nodered/         Node-RED dashboard (flow-production.json, PORT_PLAN.md, deploy.sh)
 tests/                Python unit + HTTP smoke tests
 launcher/             desktop launcher + autostart
 ```
@@ -674,8 +654,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BUILD.md](docs/BUILD.md)
 | libmosquitto  | >= 2.0 dev| MQTT/FX client                 |
 | CMake         | >= 3.16   | Build system                   |
 | GCC/Clang     | C11       | Compiler                       |
-| Python        | >= 3.7    | Web GUI (`webgui.py`)          |
-| paho-mqtt     | any       | MQTT client for the web GUI    |
+| Node.js       | >= 20     | Node-RED dashboard             |
 | OpenCV + numpy| any       | Edge AI vision (Pi only)       |
 | Ollama        | any       | Local LLM (Pi only, optional)  |
 | open62541     | v1.5      | Wired TSN CNC (RPi only)       |
