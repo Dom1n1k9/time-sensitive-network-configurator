@@ -18,6 +18,7 @@
 #include "tas/tas.h"
 #include "timesync/timesync.h"
 #include "vlan/vlan.h"
+#include "radio/htsn_radio.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -320,6 +321,88 @@ static void test_config_version(void) {
     remove("test_cfgver.db");
 }
 
+static void test_tas_validate(void) {
+    htsn_tas_schedule_model s;
+    memset(&s, 0, sizeof(s));
+    htsn_strlcpy(s.id, "tas-1", sizeof(s.id));
+    htsn_strlcpy(s.name, "Control Cycle", sizeof(s.name));
+    s.cycle_time_ns = 100000000; /* 100ms */
+    htsn_strlcpy(s.deploy_target, "switch-1", sizeof(s.deploy_target));
+    htsn_gcl_init(&s.gcl, 100000000);
+    htsn_gcl_add_entry(&s.gcl, HTSN_GATE_OPEN, 50000000);
+    htsn_gcl_add_entry(&s.gcl, 0, 50000000);
+    CHECK(htsn_tas_validate(&s) == HTSN_OK);
+
+    htsn_tas_schedule_model bad = s;
+    bad.cycle_time_ns = 0;
+    CHECK(htsn_tas_validate(&bad) != HTSN_OK);
+
+    htsn_tas_schedule_model bad2 = s;
+    bad2.name[0] = '\0';
+    CHECK(htsn_tas_validate(&bad2) != HTSN_OK);
+}
+
+static void test_radio_wmm_mapping(void) {
+    /* 802.1P: 0->BE, 1-2->BK, 3->BE, 4-5->VI, 6-7->VO */
+    CHECK(htsn_radio_map_priority(0) == HTSN_WMM_AC_BE);
+    CHECK(htsn_radio_map_priority(1) == HTSN_WMM_AC_BK);
+    CHECK(htsn_radio_map_priority(2) == HTSN_WMM_AC_BK);
+    CHECK(htsn_radio_map_priority(3) == HTSN_WMM_AC_BE);
+    CHECK(htsn_radio_map_priority(4) == HTSN_WMM_AC_VI);
+    CHECK(htsn_radio_map_priority(5) == HTSN_WMM_AC_VI);
+    CHECK(htsn_radio_map_priority(6) == HTSN_WMM_AC_VO);
+    CHECK(htsn_radio_map_priority(7) == HTSN_WMM_AC_VO);
+
+    CHECK(strcmp(htsn_wmm_ac_str(HTSN_WMM_AC_VO), "AC_VO") == 0);
+    CHECK(strcmp(htsn_wmm_ac_str(HTSN_WMM_AC_BK), "AC_BK") == 0);
+}
+
+static void test_radio_flow_build(void) {
+    htsn_radio_flow f;
+    memset(&f, 0, sizeof(f));
+    CHECK(htsn_radio_build_flow(6, 5000000, 1000000, &f, sizeof(f)) == 1);
+    CHECK(f.priority == 6);
+    CHECK(f.ac == HTSN_WMM_AC_VO);
+    CHECK(f.admitted == true);
+    CHECK(f.interval_ns == 5000000);
+    CHECK(f.burst_ns == 1000000);
+}
+
+static void test_radio_feature_support(void) {
+    CHECK(htsn_radio_feature_supported("802.1Qbv") == true);
+    CHECK(htsn_radio_feature_supported("802.1AS") == true);
+    CHECK(htsn_radio_feature_supported("802.1Qav") == true);
+    CHECK(htsn_radio_feature_supported(NULL) == false);
+    const char *hint = htsn_radio_feature_hint("802.1Qbu");
+    CHECK(hint != NULL);
+    CHECK(strlen(hint) > 0);
+}
+
+static void test_qos_db_roundtrip(void) {
+    htsn_db db;
+    CHECK(htsn_db_open(&db, "test_qos.db") == HTSN_OK);
+
+    htsn_qos_config q;
+    memset(&q, 0, sizeof(q));
+    htsn_strlcpy(q.device_id, "esp-99", sizeof(q.device_id));
+    q.priority = 6;
+    q.traffic_class = HTSN_QOS_TC_CRITICAL;
+    q.bandwidth_kbps = 5000;
+    q.latency_ms = 2;
+
+    CHECK(htsn_db_qos_save(&db, &q) == HTSN_OK);
+
+    htsn_qos_config loaded;
+    memset(&loaded, 0, sizeof(loaded));
+    CHECK(htsn_db_qos_load(&db, "esp-99", &loaded) == HTSN_OK);
+    CHECK(loaded.priority == 6);
+    CHECK(loaded.bandwidth_kbps == 5000);
+    CHECK(loaded.traffic_class == HTSN_QOS_TC_CRITICAL);
+
+    htsn_db_close(&db);
+    remove("test_qos.db");
+}
+
 int main(void) {
     test_device();
     test_qos_validation();
@@ -333,6 +416,11 @@ int main(void) {
     test_str_util();
     test_event_bus();
     test_config_version();
+    test_tas_validate();
+    test_radio_wmm_mapping();
+    test_radio_flow_build();
+    test_radio_feature_support();
+    test_qos_db_roundtrip();
 
     printf("%d tests, %d failed\n", tests_run, tests_failed);
     return tests_failed ? 1 : 0;
