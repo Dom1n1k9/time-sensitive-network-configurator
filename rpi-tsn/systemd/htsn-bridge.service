@@ -1,0 +1,20 @@
+[Unit]
+Description=HTSN TSN bridge (STM32 UDP:4001 telemetry -> OPC UA, cmds -> UDP:4000)
+After=network-online.target htsn-cnc.service
+Wants=network-online.target
+Requires=htsn-cnc.service
+
+[Service]
+Type=simple
+User=wtsn
+Group=wtsn
+WorkingDirectory=/home/wtsn/wtsn-configurator/rpi-tsn
+Environment=HOME=/home/wtsn
+Environment=HTSN_OPCUA_URL=opc.tcp://127.0.0.1:4840
+Environment=HTSN_TSN_TELEM_PORT=4001
+ExecStart=/home/wtsn/wtsn-configurator/rpi-tsn/tsn_opcua_bridge
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
