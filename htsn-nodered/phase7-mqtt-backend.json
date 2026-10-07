@@ -1,41 +1,470 @@
 [
-  {"id":"TABBE","type":"ui_tab","z":"FLOWTAB","name":"Backend","icon":"info","order":10},
-  {"id":"GRP_BE","type":"ui_group","z":"FLOWTAB","name":"MQTT listeners","tab":"TABBE","width":"12","order":0},
-  {"id":"T_BELOG","type":"ui_text","z":"FLOWTAB","group":"GRP_BE","order":0,"width":"12","label":"Last backend event","format":"{{msg.payload}}","layout":"row-spread","style":"","font":"","fontSize":"12","color":"#555555","x":100,"y":1900,"wires":[]},
-
-  {"id":"MQ_ACK","type":"mqtt in","z":"FLOWTAB","name":"tsn/ack/#","topic":"tsn/ack/#","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":1960,"wires":[["FN_ACK"]]},
-  {"id":"FN_ACK","type":"function","z":"FLOWTAB","name":"parse ack","func":"var p=msg.payload||{};var did=msg.topic.split('/').pop()||'';if(!did){return null;}var ok=p.ok===true||p.ok===1;var now=Math.floor(Date.now()/1000);msg.query='UPDATE devices SET status=?,last_seen=? WHERE id=?';msg.params=[ok?0:1,now,did];global.set('HTSN_LAST_EVENT',did+': ack ok='+ok);return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":1960,"wires":[["SQL_ACK","T_BELOG"]]},
-  {"id":"SQL_ACK","type":"sqlite","z":"FLOWTAB","name":"ack update","operation":"update","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":1960,"wires":[]},
-
-  {"id":"MQ_STAT","type":"mqtt in","z":"FLOWTAB","name":"tsn/status","topic":"tsn/status","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2020,"wires":[["FN_STAT"]]},
-  {"id":"FN_STAT","type":"function","z":"FLOWTAB","name":"parse status","func":"var p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) SELECT id,name,ip,mac,kind,?,0,? FROM devices WHERE id=? UNION ALL SELECT ?,?,?,?,?,?,0,?';msg.params=[p.firmware||'',now,did,did,p.name||did,p.ip||'',p.kind||0,p.mac||'',p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': status fw='+(p.firmware||'?'));return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2020,"wires":[["SQL_STAT","T_BELOG"]]},
-  {"id":"SQL_STAT","type":"sqlite","z":"FLOWTAB","name":"status upsert","operation":"insert","query":"INSERT OR IGNORE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?); UPDATE devices SET firmware=COALESCE(NULLIF(?, ''),firmware), ip=COALESCE(NULLIF(?, ''),ip), last_seen=?, status=0 WHERE id=?","failOnErr":false,"database":"SQLCFG","x":500,"y":2020,"wires":[]},
-
-  {"id":"MQ_DISC","type":"mqtt in","z":"FLOWTAB","name":"tsn/discover","topic":"tsn/discover","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2080,"wires":[["FN_DISC"]]},
-  {"id":"FN_DISC","type":"function","z":"FLOWTAB","name":"parse discover","func":"var p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?)';msg.params=[did,p.name||did,p.ip||'',p.mac||'',p.kind||0,p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': discovered kind='+p.kind+' ip='+(p.ip||'?'));return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2080,"wires":[["SQL_DISC","T_BELOG"]]},
-  {"id":"SQL_DISC","type":"sqlite","z":"FLOWTAB","name":"discover upsert","operation":"insert","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2080,"wires":[]},
-
-  {"id":"MQ_LWT","type":"mqtt in","z":"FLOWTAB","name":"tsn/lwt/#","topic":"tsn/lwt/#","qos":"0","datatype":"utf8","broker":"BRK1","x":100,"y":2140,"wires":[["FN_LWT"]]},
-  {"id":"FN_LWT","type":"function","z":"FLOWTAB","name":"parse lwt","func":"var did=msg.topic.split('/').pop()||'';if(!did){return null;}msg.query='UPDATE devices SET status=1 WHERE id=?';msg.params=[did];global.set('HTSN_LAST_EVENT',did+': LWT (offline)');return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2140,"wires":[["SQL_LWT","T_BELOG"]]},
-  {"id":"SQL_LWT","type":"sqlite","z":"FLOWTAB","name":"lwt offline","operation":"update","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2140,"wires":[]},
-
-  {"id":"MQ_SENS","type":"mqtt in","z":"FLOWTAB","name":"tsn/sensors/#","topic":"tsn/sensors/#","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2200,"wires":[["FN_SENS"]]},
-  {"id":"FN_SENS","type":"function","z":"FLOWTAB","name":"parse sensors","func":"var parts=msg.topic.split('/');var did=parts.length>2?parts[2]:'';var sid=parts.length>3?parts[3]:'sensors';var p=msg.payload;if(Array.isArray(p)){p.forEach(function(v,i){var s=global.get('HTSN_SENS')||{};s[did+'/'+(sid+i)]={v:v.ts||v.value||0,u:v.unit||''};global.set('HTSN_SENS',s);});}else if(p&&p.value!==undefined){var s=global.get('HTSN_SENS')||{};s[did+'/'+sid]={v:p.value,u:p.unit||''};global.set('HTSN_SENS',s);}if(did){var now=Math.floor(Date.now()/1000);msg.query='UPDATE devices SET last_seen=? WHERE id=?';msg.params=[now,did];}global.set('HTSN_LAST_EVENT','sensor '+did+'/'+sid);return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2200,"wires":[["SQL_SENS","T_BELOG"]]},
-  {"id":"SQL_SENS","type":"sqlite","z":"FLOWTAB","name":"sensor seen","operation":"update","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2200,"wires":[]},
-
-  {"id":"MQ_PTP","type":"mqtt in","z":"FLOWTAB","name":"tsn/ptp","topic":"tsn/ptp","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2260,"wires":[["FN_PTP"]]},
-  {"id":"FN_PTP","type":"function","z":"FLOWTAB","name":"parse ptp","func":"var p=msg.payload||{};var did=p.device_id||'main';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO timesync_reports(device_id,ts,offset_ns,jitter_ns,packet_count,packet_loss,status) VALUES(?,?,?,?,?,?,?)';msg.params=[did,now,p.offset_ns||0,p.jitter_ns||0,p.packet_count||0,p.packet_loss||0,p.status||''];global.set('HTSN_LAST_EVENT','ptp '+did+' off='+(p.offset_ns||0)+'ns');return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2260,"wires":[["SQL_PTP","T_BELOG"]]},
-  {"id":"SQL_PTP","type":"sqlite","z":"FLOWTAB","name":"ptp report","operation":"insert","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2260,"wires":[]},
-
-  {"id":"MQ_FX","type":"mqtt in","z":"FLOWTAB","name":"tsn/fx/#","topic":"tsn/fx/#","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2320,"wires":[["FN_FX"]]},
-  {"id":"FN_FX","type":"function","z":"FLOWTAB","name":"parse fx","func":"var p=msg.payload||{};var src=p.src||msg.topic.split('/').pop()||'';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO fx_data(ts,src,data_id,value,text) VALUES(?,?,?,?,?)';msg.params=[now,src,p.data_id||'',p.value||0,p.text||''];var fx=global.get('HTSN_FX')||[];fx.push({ts:now,src:src,id:p.data_id||'',v:p.value||0,t:p.text||''});if(fx.length>200){fx=fx.slice(-200);}global.set('HTSN_FX',fx);global.set('HTSN_LAST_EVENT','fx '+src+' '+ (p.data_id||''));return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2320,"wires":[["SQL_FX","T_BELOG"]]},
-  {"id":"SQL_FX","type":"sqlite","z":"FLOWTAB","name":"fx insert","operation":"insert","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2320,"wires":[]},
-
-  {"id":"MQ_SONAR","type":"mqtt in","z":"FLOWTAB","name":"tsn/sonar","topic":"tsn/sonar","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2380,"wires":[["FN_SONAR"]]},
-  {"id":"FN_SONARB","type":"function","z":"FLOWTAB","name":"parse sonar (backend)","func":"var p=msg.payload||{};var did=p.device_id||'esp32-01';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO sonar_sweeps(device_id,ts,sweep_id,sweep) VALUES(?,?,?,?)';msg.params=[did,now,p.sweep_id||0,JSON.stringify(p.sweep||[])];var sonar=global.get('HTSN_SONAR')||{};sonar[did]={ts:now,sweep:p.sweep||[],sid:p.sweep_id||0};global.set('HTSN_SONAR',sonar);global.set('HTSN_LAST_EVENT','sonar '+did+' sweep#'+(p.sweep_id||0));return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2380,"wires":[["SQL_SONAR","T_BELOG"]]},
-  {"id":"SQL_SONAR","type":"sqlite","z":"FLOWTAB","name":"sonar insert","operation":"insert","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2380,"wires":[]},
-
-  {"id":"MQ_REC","type":"mqtt in","z":"FLOWTAB","name":"tsn/cam/recordings","topic":"tsn/cam/recordings","qos":"0","datatype":"json","broker":"BRK1","x":100,"y":2440,"wires":[["FN_REC"]]},
-  {"id":"FN_REC","type":"function","z":"FLOWTAB","name":"parse recordings","func":"var p=msg.payload||{};var did=p.device_id||'esp32-cam';var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO recordings(device_id,path,recorded_at,detections) VALUES(?,?,?,?)';msg.params=[did,p.path||'',now,JSON.stringify(p.detections||[])];global.set('HTSN_LAST_EVENT','recording '+did+' '+(p.path||''));return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2440,"wires":[["SQL_REC","T_BELOG"]]},
-  {"id":"SQL_REC","type":"sqlite","z":"FLOWTAB","name":"recording upsert","operation":"insert","query":"{{msg.query}}","failOnErr":false,"database":"SQLCFG","x":500,"y":2440,"wires":[]}
+  {
+    "id": "TABBE",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Backend",
+    "icon": "info",
+    "order": 10
+  },
+  {
+    "id": "GRP_BE",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "MQTT listeners",
+    "tab": "TABBE",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "T_BELOG",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_BE",
+    "order": 0,
+    "width": "12",
+    "label": "Last backend event",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "12",
+    "color": "#555555",
+    "x": 100,
+    "y": 1900,
+    "wires": []
+  },
+  {
+    "id": "MQ_ACK",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/ack/#",
+    "topic": "tsn/ack/#",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 1960,
+    "wires": [
+      [
+        "FN_ACK"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ACK",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse ack",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=msg.topic.split('/').pop()||'';if(!did){return null;}var ok=p.ok===true||p.ok===1;var now=Math.floor(Date.now()/1000);msg.topic='UPDATE devices SET status=?,last_seen=? WHERE id=?';msg.params=[ok?0:1,now,did];global.set('HTSN_LAST_EVENT',did+': ack ok='+ok);msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1960,
+    "wires": [
+      [
+        "SQL_ACK",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_ACK",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "ack update",
+    "x": 500,
+    "y": 1960,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_STAT",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/status",
+    "topic": "tsn/status",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2020,
+    "wires": [
+      [
+        "FN_STAT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_STAT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse status",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.topic='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) SELECT id,name,ip,mac,kind,?,0,? FROM devices WHERE id=? UNION ALL SELECT ?,?,?,?,?,?,0,?';msg.params=[p.firmware||'',now,did,did,p.name||did,p.ip||'',p.kind||0,p.mac||'',p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': status fw='+(p.firmware||'?'));msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2020,
+    "wires": [
+      [
+        "SQL_STAT",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_STAT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "status upsert",
+    "x": 500,
+    "y": 2020,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "INSERT OR IGNORE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?); UPDATE devices SET firmware=COALESCE(NULLIF(?, ''),firmware), ip=COALESCE(NULLIF(?, ''),ip), last_seen=?, status=0 WHERE id=?"
+  },
+  {
+    "id": "MQ_DISC",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/discover",
+    "topic": "tsn/discover",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2080,
+    "wires": [
+      [
+        "FN_DISC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_DISC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse discover",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.topic='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?)';msg.params=[did,p.name||did,p.ip||'',p.mac||'',p.kind||0,p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': discovered kind='+p.kind+' ip='+(p.ip||'?'));msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2080,
+    "wires": [
+      [
+        "SQL_DISC",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_DISC",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "discover upsert",
+    "x": 500,
+    "y": 2080,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_LWT",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/lwt/#",
+    "topic": "tsn/lwt/#",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2140,
+    "wires": [
+      [
+        "FN_LWT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_LWT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse lwt",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar did=msg.topic.split('/').pop()||'';if(!did){return null;}msg.topic='UPDATE devices SET status=1 WHERE id=?';msg.params=[did];global.set('HTSN_LAST_EVENT',did+': LWT (offline)');msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2140,
+    "wires": [
+      [
+        "SQL_LWT",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_LWT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "lwt offline",
+    "x": 500,
+    "y": 2140,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_SENS",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/sensors/#",
+    "topic": "tsn/sensors/#",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2200,
+    "wires": [
+      [
+        "FN_SENS"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SENS",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse sensors",
+    "func": "var parts=(msg.topic||'').split('/');var did=parts.length>2?parts[2]:'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.topic=\"UPDATE devices SET last_seen=\"+now+\" WHERE id='\"+did.replace(/'/g,\"''\")+\"'\";global.set('HTSN_LAST_EVENT','sensor '+did);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2200,
+    "wires": [
+      [
+        "SQL_SENS",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SENS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "sensor seen",
+    "x": 500,
+    "y": 2200,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_PTP",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/ptp",
+    "topic": "tsn/ptp",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2260,
+    "wires": [
+      [
+        "FN_PTP"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PTP",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse ptp",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.device_id||'main';var now=Math.floor(Date.now()/1000);msg.topic='INSERT INTO timesync_reports(device_id,ts,offset_ns,jitter_ns,packet_count,packet_loss,status) VALUES(?,?,?,?,?,?,?)';msg.params=[did,now,p.offset_ns||0,p.jitter_ns||0,p.packet_count||0,p.packet_loss||0,p.status||''];global.set('HTSN_LAST_EVENT','ptp '+did+' off='+(p.offset_ns||0)+'ns');msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2260,
+    "wires": [
+      [
+        "SQL_PTP",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_PTP",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "ptp report",
+    "x": 500,
+    "y": 2260,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_FX",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/fx/#",
+    "topic": "tsn/fx/#",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2320,
+    "wires": [
+      [
+        "FN_FX"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FX",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse fx",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var src=p.src||msg.topic.split('/').pop()||'';var now=Math.floor(Date.now()/1000);msg.topic='INSERT INTO fx_data(ts,src,data_id,value,text) VALUES(?,?,?,?,?)';msg.params=[now,src,p.data_id||'',p.value||0,p.text||''];var fx=global.get('HTSN_FX')||[];fx.push({ts:now,src:src,id:p.data_id||'',v:p.value||0,t:p.text||''});if(fx.length>200){fx=fx.slice(-200);}global.set('HTSN_FX',fx);global.set('HTSN_LAST_EVENT','fx '+src+' '+ (p.data_id||''));msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2320,
+    "wires": [
+      [
+        "SQL_FX",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_FX",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "fx insert",
+    "x": 500,
+    "y": 2320,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_SONAR",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/sonar",
+    "topic": "tsn/sonar",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2380,
+    "wires": [
+      [
+        "FN_SONAR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SONARB",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse sonar (backend)",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.device_id||'esp32-01';var now=Math.floor(Date.now()/1000);msg.topic='INSERT INTO sonar_sweeps(device_id,ts,sweep_id,sweep) VALUES(?,?,?,?)';msg.params=[did,now,p.sweep_id||0,JSON.stringify(p.sweep||[])];var sonar=global.get('HTSN_SONAR')||{};sonar[did]={ts:now,sweep:p.sweep||[],sid:p.sweep_id||0};global.set('HTSN_SONAR',sonar);global.set('HTSN_LAST_EVENT','sonar '+did+' sweep#'+(p.sweep_id||0));msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2380,
+    "wires": [
+      [
+        "SQL_SONAR",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SONAR",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "sonar insert",
+    "x": 500,
+    "y": 2380,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "MQ_REC",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "tsn/cam/recordings",
+    "topic": "tsn/cam/recordings",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2440,
+    "wires": [
+      [
+        "FN_REC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_REC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse recordings",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.device_id||'esp32-cam';var now=Math.floor(Date.now()/1000);msg.topic='INSERT OR REPLACE INTO recordings(device_id,path,recorded_at,detections) VALUES(?,?,?,?)';msg.params=[did,p.path||'',now,JSON.stringify(p.detections||[])];global.set('HTSN_LAST_EVENT','recording '+did+' '+(p.path||''));msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2440,
+    "wires": [
+      [
+        "SQL_REC",
+        "T_BELOG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_REC",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "recording upsert",
+    "x": 500,
+    "y": 2440,
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  }
 ]

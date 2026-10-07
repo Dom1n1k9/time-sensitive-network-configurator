@@ -1,38 +1,583 @@
 [
-  {"id":"SQLCFG","type":"sqlite","z":"","mydb":"/home/wtsn/wtsn-configurator/build/htsn_gui.db","pass":"","mode":"0","x":300,"y":40,"wires":[]},
-
-  {"id":"TABDEV","type":"ui_tab","z":"FLOWTAB","name":"Devices","icon":"book","order":2},
-  {"id":"GRP_DEV","type":"ui_group","z":"FLOWTAB","name":"Device list","tab":"TABDEV","width":"12","order":0},
-  {"id":"GRP_ADD","type":"ui_group","z":"FLOWTAB","name":"Add / manage","tab":"TABDEV","width":"6","order":1},
-  {"id":"GRP_VER","type":"ui_group","z":"FLOWTAB","name":"Config versions","tab":"TABDEV","width":"12","order":2},
-
-  {"id":"INJ_DEV","type":"inject","z":"FLOWTAB","name":"poll 2s","props":[{"p":"payload"}],"repeat":"2","once":true,"onceDelay":"1","topic":"","payload":"","payloadType":"date","x":100,"y":820,"wires":[["SQL_DEV"]]},
-  {"id":"SQL_DEV","type":"sqlite","z":"FLOWTAB","name":"read devices","operation":"query","query":"SELECT id,name,ip,mac,kind,firmware,status,last_seen,domain,usb FROM devices ORDER BY id","failOnErr":false,"database":"SQLCFG","x":280,"y":820,"wires":[["FN_DEVFMT"]]},
-  {"id":"FN_DEVFMT","type":"function","z":"FLOWTAB","name":"fmt devices","func":"var rows=msg.payload||[];var out=rows.map(function(r){var st=(r.status===0)?'online':'offline';return{id:r.id||'',name:r.name||'',ip:r.ip||'',st:st,dom:r.domain||'default',fw:r.firmware||'',usb:r.usb||''};});global.set('HTSN_DEVICES',out);return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":480,"y":820,"wires":[["T_DEV"]]},
-  {"id":"T_DEV","type":"ui_table","z":"FLOWTAB","group":"GRP_DEV","name":"devices","width":"12","height":"10","collapse":false,"tableLayout":"fixed","hoverable":true,"sortable":true,"storeFirstRows":false,"defaultSort":{"property":"id","direction":"asc"},"columns":[{"alias":"id","property":"id","type":"text","width":"15%","layout":"left"},{"alias":"name","property":"name","type":"text","width":"15%","layout":"left"},{"alias":"ip","property":"ip","type":"text","width":"15%","layout":"left"},{"alias":"status","property":"st","type":"text","width":"10%","layout":"center"},{"alias":"domain","property":"dom","type":"text","width":"15%","layout":"left"},{"alias":"firmware","property":"fw","type":"text","width":"15%","layout":"left"},{"alias":"usb","property":"usb","type":"text","width":"15%","layout":"left"}],"layout":"row","x":680,"y":820,"wires":[]},
-
-  {"id":"FORM_ADD","type":"ui_form","z":"FLOWTAB","group":"GRP_ADD","order":0,"width":6,"height":0,"name":"add form","label":"Add / update device","topic":"add_dev","topicType":"str","submit":"Save","cancel":"Reset","splitLayout":false,"className":"","options":[{"label":"Device ID","type":"text","name":"id","value":"esp32-01"},{"label":"Name","type":"text","name":"name","value":""},{"label":"IP address","type":"text","name":"ip","value":"192.168.0.100"},{"label":"USB port","type":"text","name":"usb","value":""},{"label":"Domain","type":"text","name":"domain","value":"default"}],"x":100,"y":900,"wires":[["FN_ADD"]]},
-  {"id":"FN_ADD","type":"function","z":"FLOWTAB","name":"build add SQL","func":"var f=msg.payload||{};var id=f.id||'';if(!id){node.status({fill:'red',text:'no id'});return null;}msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen,domain,usb) VALUES(?,?,?,?,0,?,0,strftime(\\'%s\\',\\'now\\'),?,?)';msg.params=[id,f.name||'',f.ip||'','',f.domain||'default',f.usb||''];return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":900,"wires":[["SQL_ADD"]]},
-  {"id":"SQL_ADD","type":"sqlite","z":"FLOWTAB","name":"insert device","operation":"insert","query":"{{msg.query}}","failOnErr":true,"database":"SQLCFG","x":500,"y":900,"wires":[["T_ADDOK"]]},
-  {"id":"T_ADDOK","type":"ui_text","z":"FLOWTAB","group":"GRP_ADD","order":1,"width":"6","label":"Result","format":"Device saved","layout":"row-spread","style":"","font":"","fontSize":"14","color":"#00b500","x":700,"y":900,"wires":[]},
-
-  {"id":"SEL_PING","type":"ui_dropdown","z":"FLOWTAB","group":"GRP_ADD","order":2,"width":"6","name":"ping dev","label":"Ping device","tooltip":"","options":[{"name":"","value":"","type":"str"}],"optionType":"list","hasType":false,"passthrow":true,"deployOnInputChange":false,"className":"","x":100,"y":960,"wires":[["FN_PING"]]},
-  {"id":"FN_PING","type":"function","z":"FLOWTAB","name":"ping logic","func":"var devs=global.get('HTSN_DEVICES')||[];var did=msg.payload||'';if(!did||!devs.length){node.status({fill:'red',text:'no device'});return null;}var dev=devs.find(function(d){return d.id===did;});if(!dev){node.status({fill:'red',text:'not found'});return null;}var isCam=/cam/i.test(dev.id);msg.payload={id:did,ip:dev.ip||'',isCam:isCam};msg.topic=did;node.status({fill:'blue',text:'pinging '+did});return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":960,"wires":[["SW_PING"]]},
-  {"id":"SW_PING","type":"switch","z":"FLOWTAB","name":"cam?","property":"payload.isCam","propertyType":"msg","rules":[{"t":"true"},{"t":"false"}],"join":"","jointype":"join","customize":false,"x":480,"y":960,"wires":[["HTTP_PING"],["MQ_PING"]]},
-  {"id":"HTTP_PING","type":"http request","z":"FLOWTAB","name":"cam ping","method":"GET","ret":"txt","paytoqs":false,"url":"http://{{msg.payload.ip}}/last.jpg","tls":"","persist":false,"proxy":"","authType":"","senderr":true,"headers":[],"x":660,"y":940,"wires":[["FN_PINGR"]]},
-  {"id":"MQ_PING","type":"mqtt out","z":"FLOWTAB","name":"mqtt ping","topic":"tsn/cmd/{{msg.topic}}/ping","qos":"0","retain":"false","respTopic":"","contentType":"","broker":"BRK1","x":660,"y":980,"wires":[["FN_PINGR"]]},
-  {"id":"FN_PINGR","type":"function","z":"FLOWTAB","name":"ping result","func":"var did=msg.topic||'';var t0=Date.now();var ok=true;var note='';if(err){ok=false;note=err.message||String(err);}else if(msg.responseCode&&msg.responseCode!==200){ok=false;note='HTTP '+msg.responseCode;}node.status({fill:ok?'green':'red',text:ok?'online':'offline'});return {payload:did+': '+(ok?'online':'offline '+(note||''))};","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":860,"y":960,"wires":[["T_PING"]]},
-  {"id":"T_PING","type":"ui_text","z":"FLOWTAB","group":"GRP_ADD","order":3,"width":"6","label":"Ping result","format":"{{msg.payload}}","layout":"row-spread","style":"","font":"","fontSize":"14","color":"#000000","x":1060,"y":960,"wires":[]},
-
-  {"id":"BTN_VSN","type":"ui_button","z":"FLOWTAB","group":"GRP_VER","name":"save snap","label":"Save snapshot","group":"GRP_VER","order":0,"width":"4","height":"1","color":"","bgcolor":"","payload":"snap","payloadType":"str","topic":"","topicType":"str","x":100,"y":1060,"wires":[["FN_VSN"]]},
-  {"id":"FN_VSN","type":"function","z":"FLOWTAB","name":"build snapshot cmd","func":"msg.topic='snapshot-'+new Date().toTimeString().substring(0,8).replace(/:/g,'');msg.command='python3 /home/wtsn/htsn-nodered/snapshot.py';return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":1060,"wires":[["EXE_VSN"]]},
-  {"id":"EXE_VSN","type":"exec","z":"FLOWTAB","name":"dump tables","command":"python3 /home/wtsn/htsn-nodered/snapshot.py","addpay":true,"append":"","useSpawn":false,"timer":"","oldmode":false,"defer":false,"x":480,"y":1060,"wires":[["FN_VSN2","",""]]},
-  {"id":"FN_VSN2","type":"function","z":"FLOWTAB","name":"save version","func":"var data=JSON.parse(msg.payload);var name=msg.topic||'snapshot';msg.query='INSERT INTO config_versions(name,device_id,created_at,payload) VALUES(?,?,?,?)';msg.params=[name,'',Math.floor(Date.now()/1000),JSON.stringify(data)];node.status({fill:'green',text:'saved '+name});return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":660,"y":1060,"wires":[["SQL_VSNW"]]},
-  {"id":"SQL_VSNW","type":"sqlite","z":"FLOWTAB","name":"save version","operation":"insert","query":"{{msg.query}}","failOnErr":true,"database":"SQLCFG","x":840,"y":1060,"wires":[["T_VSNOK"]]},
-  {"id":"T_VSNOK","type":"ui_text","z":"FLOWTAB","group":"GRP_VER","order":1,"width":"4","label":"Versions","format":"Snapshot saved","layout":"row-spread","style":"","font":"","fontSize":"14","color":"#00b500","x":1020,"y":1060,"wires":[]},
-
-  {"id":"INJ_VSL","type":"inject","z":"FLOWTAB","name":"poll 5s","props":[{"p":"payload"}],"repeat":"5","once":true,"onceDelay":"2","topic":"","payload":"","payloadType":"date","x":100,"y":1120,"wires":[["SQL_VSL"]]},
-  {"id":"SQL_VSL","type":"sqlite","z":"FLOWTAB","name":"list versions","operation":"query","query":"SELECT id,name,device_id,created_at FROM config_versions ORDER BY id DESC LIMIT 20","failOnErr":false,"database":"SQLCFG","x":280,"y":1120,"wires":[["FN_VSLF"]]},
-  {"id":"FN_VSLF","type":"function","z":"FLOWTAB","name":"fmt versions","func":"var rows=(msg.payload||[]).map(function(r){var ts=r.created_at?new Date(r.created_at*1000).toLocaleString():'';return{id:r.id||'',name:r.name||'',dev:r.device_id||'',ts:ts};});return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":480,"y":1120,"wires":[["T_VSL"]]},
-  {"id":"T_VSL","type":"ui_table","z":"FLOWTAB","group":"GRP_VER","name":"versions","width":"8","height":"8","collapse":false,"tableLayout":"fixed","hoverable":true,"sortable":true,"storeFirstRows":false,"defaultSort":{"property":"id","direction":"desc"},"columns":[{"alias":"id","property":"id","type":"text","width":"10%","layout":"left"},{"alias":"name","property":"name","type":"text","width":"30%","layout":"left"},{"alias":"device","property":"dev","type":"text","width":"20%","layout":"left"},{"alias":"created","property":"ts","type":"text","width":"40%","layout":"left"}],"layout":"row","x":680,"y":1120,"wires":[]}
+  {
+    "id": "SQLCFG",
+    "type": "sqlitedb",
+    "z": "FLOWTAB",
+    "x": 300,
+    "y": 40,
+    "wires": [],
+    "db": "/home/wtsn/wtsn-configurator/build/htsn_gui.db",
+    "mode": "RW"
+  },
+  {
+    "id": "TABDEV",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "Devices",
+    "icon": "book",
+    "order": 2
+  },
+  {
+    "id": "GRP_DEV",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Device list",
+    "tab": "TABDEV",
+    "width": "12",
+    "order": 0
+  },
+  {
+    "id": "GRP_ADD",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Add / manage",
+    "tab": "TABDEV",
+    "width": "6",
+    "order": 1
+  },
+  {
+    "id": "GRP_VER",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Config versions",
+    "tab": "TABDEV",
+    "width": "12",
+    "order": 2
+  },
+  {
+    "id": "INJ_DEV",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 2s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "2",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 820,
+    "wires": [
+      [
+        "SQL_DEV"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_DEV",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read devices",
+    "x": 280,
+    "y": 820,
+    "wires": [
+      [
+        "FN_DEVFMT"
+      ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT id,name,ip,mac,kind,firmware,status,last_seen,domain,usb FROM devices ORDER BY id"
+  },
+  {
+    "id": "FN_DEVFMT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt devices",
+    "func": "var rows=msg.payload||[];var out=rows.map(function(r){var st=(r.status===0)?'online':'offline';return{id:r.id||'',name:r.name||'',ip:r.ip||'',st:st,dom:r.domain||'default',fw:r.firmware||'',usb:r.usb||''};});global.set('HTSN_DEVICES',out);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 820,
+    "wires": [
+      [
+        "T_DEV"
+      ]
+    ]
+  },
+  {
+    "id": "T_DEV",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "group": "GRP_DEV",
+    "name": "devices",
+    "width": "12",
+    "height": "10",
+    "x": 680,
+    "y": 820,
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>ip</th><th>status</th><th>domain</th><th>firmware</th><th>usb</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"ip\", \"st\", \"dom\", \"fw\", \"usb\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
+  },
+  {
+    "id": "FORM_ADD",
+    "type": "ui_form",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 0,
+    "width": 6,
+    "height": 0,
+    "name": "add form",
+    "label": "Add / update device",
+    "topic": "add_dev",
+    "topicType": "str",
+    "submit": "Save",
+    "cancel": "Reset",
+    "splitLayout": false,
+    "className": "",
+    "options": [
+      {
+        "label": "Device ID",
+        "type": "text",
+        "name": "id",
+        "value": "esp32-01"
+      },
+      {
+        "label": "Name",
+        "type": "text",
+        "name": "name",
+        "value": ""
+      },
+      {
+        "label": "IP address",
+        "type": "text",
+        "name": "ip",
+        "value": "192.168.0.100"
+      },
+      {
+        "label": "USB port",
+        "type": "text",
+        "name": "usb",
+        "value": ""
+      },
+      {
+        "label": "Domain",
+        "type": "text",
+        "name": "domain",
+        "value": "default"
+      }
+    ],
+    "x": 100,
+    "y": 900,
+    "wires": [
+      [
+        "FN_ADD"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ADD",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build add SQL",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var id=f.id||'';if(!id){node.status({fill:'red',text:'no id'});return null;}msg.topic='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen,domain,usb) VALUES(?,?,?,?,0,?,0,strftime(\\'%s\\',\\'now\\'),?,?)';msg.params=[id,f.name||'',f.ip||'','',f.domain||'default',f.usb||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 900,
+    "wires": [
+      [
+        "SQL_ADD"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_ADD",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "insert device",
+    "x": 500,
+    "y": 900,
+    "wires": [
+      [
+        "T_ADDOK"
+      ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "T_ADDOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 1,
+    "width": "6",
+    "label": "Result",
+    "format": "Device saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 700,
+    "y": 900,
+    "wires": []
+  },
+  {
+    "id": "SEL_PING",
+    "type": "ui_dropdown",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 2,
+    "width": "6",
+    "name": "ping dev",
+    "label": "Ping device",
+    "tooltip": "",
+    "options": [
+      {
+        "name": "",
+        "value": "",
+        "type": "str"
+      }
+    ],
+    "optionType": "list",
+    "hasType": false,
+    "passthrow": true,
+    "deployOnInputChange": false,
+    "className": "",
+    "x": 100,
+    "y": 960,
+    "wires": [
+      [
+        "FN_PING"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PING",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "ping logic",
+    "func": "var devs=global.get('HTSN_DEVICES')||[];var did=msg.payload||'';if(!did||!devs.length){node.status({fill:'red',text:'no device'});return null;}var dev=devs.find(function(d){return d.id===did;});if(!dev){node.status({fill:'red',text:'not found'});return null;}var isCam=/cam/i.test(dev.id);msg.payload={id:did,ip:dev.ip||'',isCam:isCam};msg.topic=did;node.status({fill:'blue',text:'pinging '+did});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 960,
+    "wires": [
+      [
+        "SW_PING"
+      ]
+    ]
+  },
+  {
+    "id": "SW_PING",
+    "type": "switch",
+    "z": "FLOWTAB",
+    "name": "cam?",
+    "property": "payload.isCam",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "true"
+      },
+      {
+        "t": "false"
+      }
+    ],
+    "join": "",
+    "jointype": "join",
+    "customize": false,
+    "x": 480,
+    "y": 960,
+    "wires": [
+      [
+        "HTTP_PING"
+      ],
+      [
+        "MQ_PING"
+      ]
+    ]
+  },
+  {
+    "id": "HTTP_PING",
+    "type": "http request",
+    "z": "FLOWTAB",
+    "name": "cam ping",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": false,
+    "url": "http://{{msg.payload.ip}}/last.jpg",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": true,
+    "headers": [],
+    "x": 660,
+    "y": 940,
+    "wires": [
+      [
+        "FN_PINGR"
+      ]
+    ]
+  },
+  {
+    "id": "MQ_PING",
+    "type": "mqtt out",
+    "z": "FLOWTAB",
+    "name": "mqtt ping",
+    "topic": "tsn/cmd/{{msg.topic}}/ping",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "broker": "BRK1",
+    "x": 660,
+    "y": 980,
+    "wires": [
+      [
+        "FN_PINGR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PINGR",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "ping result",
+    "func": "var did=msg.topic||'';var t0=Date.now();var ok=true;var note='';if(err){ok=false;note=err.message||String(err);}else if(msg.responseCode&&msg.responseCode!==200){ok=false;note='HTTP '+msg.responseCode;}node.status({fill:ok?'green':'red',text:ok?'online':'offline'});return {payload:did+': '+(ok?'online':'offline '+(note||''))};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 860,
+    "y": 960,
+    "wires": [
+      [
+        "T_PING"
+      ]
+    ]
+  },
+  {
+    "id": "T_PING",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ADD",
+    "order": 3,
+    "width": "6",
+    "label": "Ping result",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 1060,
+    "y": 960,
+    "wires": []
+  },
+  {
+    "id": "BTN_VSN",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_VER",
+    "name": "save snap",
+    "label": "Save snapshot",
+    "order": 0,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "snap",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 1060,
+    "wires": [
+      [
+        "FN_VSN"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSN",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build snapshot cmd",
+    "func": "msg.topic='snapshot-'+new Date().toTimeString().substring(0,8).replace(/:/g,'');msg.command='python3 /home/wtsn/htsn-nodered/snapshot.py';return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 1060,
+    "wires": [
+      [
+        "EXE_VSN"
+      ]
+    ]
+  },
+  {
+    "id": "EXE_VSN",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "dump tables",
+    "command": "python3 /home/wtsn/htsn-nodered/snapshot.py",
+    "addpay": true,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 480,
+    "y": 1060,
+    "wires": [
+      [
+        "FN_VSN2",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSN2",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "save version",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar data=JSON.parse(msg.payload);var name=msg.topic||'snapshot';msg.topic='INSERT INTO config_versions(name,device_id,created_at,payload) VALUES(?,?,?,?)';msg.params=[name,'',Math.floor(Date.now()/1000),JSON.stringify(data)];node.status({fill:'green',text:'saved '+name});msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 660,
+    "y": 1060,
+    "wires": [
+      [
+        "SQL_VSNW"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VSNW",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "save version",
+    "x": 840,
+    "y": 1060,
+    "wires": [
+      [
+        "T_VSNOK"
+      ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
+  },
+  {
+    "id": "T_VSNOK",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_VER",
+    "order": 1,
+    "width": "4",
+    "label": "Versions",
+    "format": "Snapshot saved",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#00b500",
+    "x": 1020,
+    "y": 1060,
+    "wires": []
+  },
+  {
+    "id": "INJ_VSL",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 1120,
+    "wires": [
+      [
+        "SQL_VSL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VSL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "list versions",
+    "x": 280,
+    "y": 1120,
+    "wires": [
+      [
+        "FN_VSLF"
+      ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT id,name,device_id,created_at FROM config_versions ORDER BY id DESC LIMIT 20"
+  },
+  {
+    "id": "FN_VSLF",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt versions",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.created_at?new Date(r.created_at*1000).toLocaleString():'';return{id:r.id||'',name:r.name||'',dev:r.device_id||'',ts:ts};});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 480,
+    "y": 1120,
+    "wires": [
+      [
+        "T_VSL"
+      ]
+    ]
+  },
+  {
+    "id": "T_VSL",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "group": "GRP_VER",
+    "name": "versions",
+    "width": "8",
+    "height": "8",
+    "x": 680,
+    "y": 1120,
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>device</th><th>created</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"dev\", \"ts\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
+  }
 ]

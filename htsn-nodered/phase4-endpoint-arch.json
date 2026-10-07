@@ -1,21 +1,337 @@
 [
-  {"id":"TABEP","type":"ui_tab","z":"FLOWTAB","name":"TSN Endpoint","icon":"chip","order":5},
-  {"id":"GRP_EPCMD","type":"ui_group","z":"FLOWTAB","name":"Endpoint commands","tab":"TABEP","width":"6","order":0},
-  {"id":"GRP_EPARCH","type":"ui_group","z":"FLOWTAB","name":"Architecture","tab":"TABEP","width":"12","order":1},
-
-  {"id":"SL_SERVO","type":"ui_slider","z":"FLOWTAB","group":"GRP_EPCMD","order":0,"width":"6","name":"servo","label":"Servo angle","tooltip":"","min":0,"max":180,"wrap":false,"className":"","x":100,"y":2940,"wires":[["FN_SERVO"]]},
-  {"id":"FN_SERVO","type":"function","z":"FLOWTAB","name":"servo write","func":"msg.topic='ns=1;i=21';msg.datatype='Int16';msg.payload=parseInt(msg.payload)||0;return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":2940,"wires":[["CLI_W"]]},
-  {"id":"SW_RELAY","type":"ui_switch","z":"FLOWTAB","group":"GRP_EPCMD","order":1,"width":"6","name":"relay","label":"Relay","tooltip":"","decimals":0,"className":"","onvalue":"true","onvalueType":"bool","offvalue":"false","offvalueType":"bool","topic":"relay","topicType":"str","x":100,"y":3000,"wires":[["FN_RELAY"]]},
-  {"id":"FN_RELAY","type":"function","z":"FLOWTAB","name":"relay write","func":"msg.topic='ns=1;i=22';msg.datatype='Boolean';msg.payload=(msg.payload===true||msg.payload==='true');return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":3000,"wires":[["CLI_W"]]},
-  {"id":"BTN_BEEP","type":"ui_button","z":"FLOWTAB","group":"GRP_EPCMD","name":"beep","label":"Beep 500ms","group":"GRP_EPCMD","order":2,"width":"4","height":"1","color":"","bgcolor":"","payload":"500","payloadType":"num","topic":"","topicType":"str","x":100,"y":3060,"wires":[["FN_BEEP"]]},
-  {"id":"FN_BEEP","type":"function","z":"FLOWTAB","name":"beep write","func":"msg.topic='ns=1;i=23';msg.datatype='Int16';msg.payload=parseInt(msg.payload)||500;return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":3060,"wires":[["CLI_W"]]},
-  {"id":"BTN_SONAR","type":"ui_button","z":"FLOWTAB","group":"GRP_EPCMD","name":"sonar","label":"Trigger sonar","group":"GRP_EPCMD","order":3,"width":"4","height":"1","color":"","bgcolor":"","payload":"true","payloadType":"bool","topic":"","topicType":"str","x":350,"y":3060,"wires":[["FN_SONAR"]]},
-  {"id":"FN_SONAR","type":"function","z":"FLOWTAB","name":"sonar write","func":"msg.topic='ns=1;i=24';msg.datatype='Boolean';msg.payload=true;return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":500,"y":3060,"wires":[["CLI_W"]]},
-  {"id":"BTN_REBOOT","type":"ui_button","z":"FLOWTAB","group":"GRP_EPCMD","name":"reboot","label":"Reboot endpoint","group":"GRP_EPCMD","order":4,"width":"6","height":"1","color":"red","bgcolor":"","payload":"true","payloadType":"bool","topic":"","topicType":"str","x":100,"y":3120,"wires":[["FN_REBOOT"]]},
-  {"id":"FN_REBOOT","type":"function","z":"FLOWTAB","name":"reboot write","func":"msg.topic='ns=1;i=25';msg.datatype='Boolean';msg.payload=true;return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":3120,"wires":[["CLI_W"]]},
-  {"id":"CLI_W","type":"OpcUa-Client","z":"FLOWTAB","name":"cmd write","action":"write","endpoint":"EP1","time":"1000","timeUnit":"msecs","deadbandtype":"abs","deadbandvalue":"0","certificate":"n","localfile":"","localkeyfile":"","useTransport":false,"maxChunkCount":"0","maxMessageSize":"0","receiveBufferSize":"0","sendBufferSize":"0","setstatusandtime":true,"keepsessionalive":false,"applicationName":"","applicationUri":"","x":600,"y":3000,"wires":[[]]},
-
-  {"id":"T_ARCH","type":"ui_template","z":"FLOWTAB","group":"GRP_EPARCH","order":0,"width":"12","height":"20","name":"topology","label":"Network topology","html":"<div style='width:100%;height:100%;overflow:auto'><svg id='archsvg' width='100%' height='500'></svg></div><script>function drawArch(){var svg=document.getElementById('archsvg');if(!svg)return;var devs=msg.__devices||[];var streams=msg.__streams||[];svg.innerHTML='';var W=svg.clientWidth||800,H=500;var cx=W/2,cy=50;function el(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}svg.appendChild(el('rect',{x:cx-80,y:cy-20,width:160,height:40,rx:8,fill:'#3498db',stroke:'#2980b9','stroke-width':2}));var t=el('text',{x:cx,y:cy+5,'text-anchor':'middle','font-size':'12',fill:'#fff'});t.textContent='CNC (RPi)';svg.appendChild(t);devs.forEach(function(d,i){var col=Math.floor(i/3),row=i%3;var x=80+col*200,y=150+row*120;svg.appendChild(el('line',{x1:cx,y1:cy+20,x2:x,y2:y,stroke:d.st==='online'?'#2ecc71':'#e74c3c','stroke-width':2}));svg.appendChild(el('rect',{x:x-60,y:y-15,width:120,height:30,rx:6,fill:d.st==='online'?'#2ecc71':'#e74c3c',opacity:0.8}));var txt=el('text',{x:x,y:y+4,'text-anchor':'middle','font-size':'10',fill:'#fff'});txt.textContent=d.id.substring(0,14);svg.appendChild(txt);});}</script><script>drawArch();</script>","format":"<h4>{{msg.payload}}</h4>","storeOutMessages":true,"fgColor":"#000000","bgColor":"#ffffff","className":"","x":100,"y":3200,"wires":[[]]},
-  {"id":"INJ_ARCH","type":"inject","z":"FLOWTAB","name":"poll 5s","props":[{"p":"payload"}],"repeat":"5","once":true,"onceDelay":"2","topic":"","payload":"topology","payloadType":"str","x":100,"y":3260,"wires":[["FN_ARCH"]]},
-  {"id":"FN_ARCH","type":"function","z":"FLOWTAB","name":"build topology","func":"var devs=global.get('HTSN_DEVICES')||[];var fx=global.get('HTSN_FX')||[];msg.__devices=devs;msg.payload=devs.length+' devices, '+fx.length+' fx events';return msg;","outputs":1,"timeout":0,"noerr":0,"initialize":"","finalize":"","x":300,"y":3260,"wires":[["T_ARCH"]]}
+  {
+    "id": "TABEP",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "TSN Endpoint",
+    "icon": "chip",
+    "order": 5
+  },
+  {
+    "id": "GRP_EPCMD",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Endpoint commands",
+    "tab": "TABEP",
+    "width": "6",
+    "order": 0
+  },
+  {
+    "id": "GRP_EPARCH",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Architecture",
+    "tab": "TABEP",
+    "width": "12",
+    "order": 1
+  },
+  {
+    "id": "SL_SERVO",
+    "type": "ui_slider",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "order": 0,
+    "width": "6",
+    "name": "servo",
+    "label": "Servo angle",
+    "tooltip": "",
+    "min": 0,
+    "max": 180,
+    "wrap": false,
+    "className": "",
+    "x": 100,
+    "y": 2940,
+    "wires": [
+      [
+        "FN_SERVO"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SERVO",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "servo write",
+    "func": "msg.topic='ns=1;i=21';msg.datatype='Int16';msg.payload=parseInt(msg.payload)||0;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 2940,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "SW_RELAY",
+    "type": "ui_switch",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "order": 1,
+    "width": "6",
+    "name": "relay",
+    "label": "Relay",
+    "tooltip": "",
+    "decimals": 0,
+    "className": "",
+    "onvalue": "true",
+    "onvalueType": "bool",
+    "offvalue": "false",
+    "offvalueType": "bool",
+    "topic": "relay",
+    "topicType": "str",
+    "x": 100,
+    "y": 3000,
+    "wires": [
+      [
+        "FN_RELAY"
+      ]
+    ]
+  },
+  {
+    "id": "FN_RELAY",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "relay write",
+    "func": "msg.topic='ns=1;i=22';msg.datatype='Boolean';msg.payload=(msg.payload===true||msg.payload==='true');return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3000,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "BTN_BEEP",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "name": "beep",
+    "label": "Beep 500ms",
+    "order": 2,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "500",
+    "payloadType": "num",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 3060,
+    "wires": [
+      [
+        "FN_BEEP"
+      ]
+    ]
+  },
+  {
+    "id": "FN_BEEP",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "beep write",
+    "func": "msg.topic='ns=1;i=23';msg.datatype='Int16';msg.payload=parseInt(msg.payload)||500;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3060,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "BTN_SONAR",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "name": "sonar",
+    "label": "Trigger sonar",
+    "order": 3,
+    "width": "4",
+    "height": "1",
+    "color": "",
+    "bgcolor": "",
+    "payload": "true",
+    "payloadType": "bool",
+    "topic": "",
+    "topicType": "str",
+    "x": 350,
+    "y": 3060,
+    "wires": [
+      [
+        "FN_SONAR"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SONAR",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "sonar write",
+    "func": "msg.topic='ns=1;i=24';msg.datatype='Boolean';msg.payload=true;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 500,
+    "y": 3060,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "BTN_REBOOT",
+    "type": "ui_button",
+    "z": "FLOWTAB",
+    "group": "GRP_EPCMD",
+    "name": "reboot",
+    "label": "Reboot endpoint",
+    "order": 4,
+    "width": "6",
+    "height": "1",
+    "color": "red",
+    "bgcolor": "",
+    "payload": "true",
+    "payloadType": "bool",
+    "topic": "",
+    "topicType": "str",
+    "x": 100,
+    "y": 3120,
+    "wires": [
+      [
+        "FN_REBOOT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_REBOOT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "reboot write",
+    "func": "msg.topic='ns=1;i=25';msg.datatype='Boolean';msg.payload=true;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3120,
+    "wires": [
+      [
+        "CLI_W"
+      ]
+    ]
+  },
+  {
+    "id": "CLI_W",
+    "type": "OpcUa-Client",
+    "z": "FLOWTAB",
+    "name": "cmd write",
+    "action": "write",
+    "endpoint": "EP1",
+    "time": "1000",
+    "timeUnit": "msecs",
+    "deadbandtype": "abs",
+    "deadbandvalue": "0",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "useTransport": false,
+    "maxChunkCount": "0",
+    "maxMessageSize": "0",
+    "receiveBufferSize": "0",
+    "sendBufferSize": "0",
+    "setstatusandtime": true,
+    "keepsessionalive": false,
+    "applicationName": "",
+    "applicationUri": "",
+    "x": 600,
+    "y": 3000,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "T_ARCH",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "group": "GRP_EPARCH",
+    "order": 0,
+    "width": "12",
+    "height": "20",
+    "name": "topology",
+    "label": "Network topology",
+    "html": "<div style='width:100%;height:100%;overflow:auto'><svg id='archsvg' width='100%' height='500'></svg></div><script>function drawArch(){var svg=document.getElementById('archsvg');if(!svg)return;var devs=msg.__devices||[];var streams=msg.__streams||[];svg.innerHTML='';var W=svg.clientWidth||800,H=500;var cx=W/2,cy=50;function el(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}svg.appendChild(el('rect',{x:cx-80,y:cy-20,width:160,height:40,rx:8,fill:'#3498db',stroke:'#2980b9','stroke-width':2}));var t=el('text',{x:cx,y:cy+5,'text-anchor':'middle','font-size':'12',fill:'#fff'});t.textContent='CNC (RPi)';svg.appendChild(t);devs.forEach(function(d,i){var col=Math.floor(i/3),row=i%3;var x=80+col*200,y=150+row*120;svg.appendChild(el('line',{x1:cx,y1:cy+20,x2:x,y2:y,stroke:d.st==='online'?'#2ecc71':'#e74c3c','stroke-width':2}));svg.appendChild(el('rect',{x:x-60,y:y-15,width:120,height:30,rx:6,fill:d.st==='online'?'#2ecc71':'#e74c3c',opacity:0.8}));var txt=el('text',{x:x,y:y+4,'text-anchor':'middle','font-size':'10',fill:'#fff'});txt.textContent=d.id.substring(0,14);svg.appendChild(txt);});}</script><script>drawArch();</script>",
+    "format": "<h4>{{msg.payload}}</h4>",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": "",
+    "x": 100,
+    "y": 3200,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "INJ_ARCH",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "topology",
+    "payloadType": "str",
+    "x": 100,
+    "y": 3260,
+    "wires": [
+      [
+        "FN_ARCH"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ARCH",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build topology",
+    "func": "var devs=global.get('HTSN_DEVICES')||[];var fx=global.get('HTSN_FX')||[];msg.__devices=devs;msg.payload=devs.length+' devices, '+fx.length+' fx events';return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 300,
+    "y": 3260,
+    "wires": [
+      [
+        "T_ARCH"
+      ]
+    ]
+  }
 ]

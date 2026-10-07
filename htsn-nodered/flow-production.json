@@ -540,14 +540,13 @@
   },
   {
     "id": "SQLCFG",
-    "type": "sqlite",
-    "z": "",
-    "mydb": "/home/wtsn/wtsn-configurator/build/htsn_gui.db",
-    "pass": "",
-    "mode": "0",
+    "type": "sqlitedb",
+    "z": "FLOWTAB",
     "x": 300,
     "y": 40,
-    "wires": []
+    "wires": [],
+    "db": "/home/wtsn/wtsn-configurator/build/htsn_gui.db",
+    "mode": "RW"
   },
   {
     "id": "TABDEV",
@@ -613,17 +612,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read devices",
-    "operation": "query",
-    "query": "SELECT id,name,ip,mac,kind,firmware,status,last_seen,domain,usb FROM devices ORDER BY id",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 820,
     "wires": [
       [
         "FN_DEVFMT"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT id,name,ip,mac,kind,firmware,status,last_seen,domain,usb FROM devices ORDER BY id"
   },
   {
     "id": "FN_DEVFMT",
@@ -646,76 +644,21 @@
   },
   {
     "id": "T_DEV",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_DEV",
     "name": "devices",
     "width": "12",
     "height": "10",
-    "collapse": false,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "id",
-      "direction": "asc"
-    },
-    "columns": [
-      {
-        "alias": "id",
-        "property": "id",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "name",
-        "property": "name",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "ip",
-        "property": "ip",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "status",
-        "property": "st",
-        "type": "text",
-        "width": "10%",
-        "layout": "center"
-      },
-      {
-        "alias": "domain",
-        "property": "dom",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "firmware",
-        "property": "fw",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "usb",
-        "property": "usb",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 820,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>ip</th><th>status</th><th>domain</th><th>firmware</th><th>usb</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"ip\", \"st\", \"dom\", \"fw\", \"usb\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "FORM_ADD",
@@ -778,7 +721,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "build add SQL",
-    "func": "var f=msg.payload||{};var id=f.id||'';if(!id){node.status({fill:'red',text:'no id'});return null;}msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen,domain,usb) VALUES(?,?,?,?,0,?,0,strftime(\\'%s\\',\\'now\\'),?,?)';msg.params=[id,f.name||'',f.ip||'','',f.domain||'default',f.usb||''];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var id=f.id||'';if(!id){node.status({fill:'red',text:'no id'});return null;}msg.topic='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen,domain,usb) VALUES(?,?,?,?,0,?,0,strftime(\\'%s\\',\\'now\\'),?,?)';msg.params=[id,f.name||'',f.ip||'','',f.domain||'default',f.usb||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -797,17 +740,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "insert device",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 500,
     "y": 900,
     "wires": [
       [
         "T_ADDOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_ADDOK",
@@ -1054,7 +995,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "save version",
-    "func": "var data=JSON.parse(msg.payload);var name=msg.topic||'snapshot';msg.query='INSERT INTO config_versions(name,device_id,created_at,payload) VALUES(?,?,?,?)';msg.params=[name,'',Math.floor(Date.now()/1000),JSON.stringify(data)];node.status({fill:'green',text:'saved '+name});return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar data=JSON.parse(msg.payload);var name=msg.topic||'snapshot';msg.topic='INSERT INTO config_versions(name,device_id,created_at,payload) VALUES(?,?,?,?)';msg.params=[name,'',Math.floor(Date.now()/1000),JSON.stringify(data)];node.status({fill:'green',text:'saved '+name});msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1073,17 +1014,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "save version",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 840,
     "y": 1060,
     "wires": [
       [
         "T_VSNOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_VSNOK",
@@ -1132,17 +1071,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "list versions",
-    "operation": "query",
-    "query": "SELECT id,name,device_id,created_at FROM config_versions ORDER BY id DESC LIMIT 20",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 1120,
     "wires": [
       [
         "FN_VSLF"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT id,name,device_id,created_at FROM config_versions ORDER BY id DESC LIMIT 20"
   },
   {
     "id": "FN_VSLF",
@@ -1165,55 +1103,21 @@
   },
   {
     "id": "T_VSL",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_VER",
     "name": "versions",
     "width": "8",
     "height": "8",
-    "collapse": false,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "id",
-      "direction": "desc"
-    },
-    "columns": [
-      {
-        "alias": "id",
-        "property": "id",
-        "type": "text",
-        "width": "10%",
-        "layout": "left"
-      },
-      {
-        "alias": "name",
-        "property": "name",
-        "type": "text",
-        "width": "30%",
-        "layout": "left"
-      },
-      {
-        "alias": "device",
-        "property": "dev",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      },
-      {
-        "alias": "created",
-        "property": "ts",
-        "type": "text",
-        "width": "40%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 1120,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>device</th><th>created</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"dev\", \"ts\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "TABCFG2",
@@ -1353,7 +1257,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "qos SQL",
-    "func": "var f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.query='INSERT OR REPLACE INTO qos_configs(device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption) VALUES(?,?,?,?,?,?)';msg.params=[d,parseInt(f.priority)||0,parseInt(f.traffic_class)||0,parseInt(f.bandwidth_kbps)||0,parseInt(f.latency_ms)||0,parseInt(f.preemption)||0];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO qos_configs(device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption) VALUES(?,?,?,?,?,?)';msg.params=[d,parseInt(f.priority)||0,parseInt(f.traffic_class)||0,parseInt(f.bandwidth_kbps)||0,parseInt(f.latency_ms)||0,parseInt(f.preemption)||0];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1372,17 +1276,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write qos",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 1200,
     "wires": [
       [
         "T_QOSOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_QOSOK",
@@ -1431,76 +1333,34 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read qos",
-    "operation": "query",
-    "query": "SELECT device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption FROM qos_configs ORDER BY device_id",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 1260,
     "wires": [
       [
         "T_QOSL"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption FROM qos_configs ORDER BY device_id"
   },
   {
     "id": "T_QOSL",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_QOS",
     "name": "qos list",
     "width": "6",
     "height": "6",
-    "collapse": true,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "device_id",
-      "direction": "asc"
-    },
-    "columns": [
-      {
-        "alias": "device",
-        "property": "device_id",
-        "type": "text",
-        "width": "30%",
-        "layout": "left"
-      },
-      {
-        "alias": "prio",
-        "property": "priority",
-        "type": "text",
-        "width": "15%",
-        "layout": "center"
-      },
-      {
-        "alias": "tc",
-        "property": "traffic_class",
-        "type": "text",
-        "width": "15%",
-        "layout": "center"
-      },
-      {
-        "alias": "bw kbps",
-        "property": "bandwidth_kbps",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      },
-      {
-        "alias": "lat ms",
-        "property": "latency_ms",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      }
-    ],
-    "layout": "row",
     "x": 480,
     "y": 1260,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>prio</th><th>tc</th><th>bw kbps</th><th>lat ms</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"device_id\", \"priority\", \"traffic_class\", \"bandwidth_kbps\", \"latency_ms\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "FORM_VLAN",
@@ -1545,7 +1405,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "vlan SQL",
-    "func": "var f=msg.payload||{};var n=f.name||'';if(!n){return null;}var vid=Math.max(1,Math.min(4094,parseInt(f.vlan_id)||1));msg.query='INSERT OR REPLACE INTO vlan_groups(id,name,vlan_id) VALUES(?,?,?)';msg.params=['grp'+vid,n,vid];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var n=f.name||'';if(!n){return null;}var vid=Math.max(1,Math.min(4094,parseInt(f.vlan_id)||1));msg.topic='INSERT OR REPLACE INTO vlan_groups(id,name,vlan_id) VALUES(?,?,?)';msg.params=['grp'+vid,n,vid];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1564,17 +1424,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write vlan",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 1340,
     "wires": [
       [
         "T_VLANOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_VLANOK",
@@ -1623,69 +1481,34 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read vlans",
-    "operation": "query",
-    "query": "SELECT g.id,g.name,g.vlan_id, GROUP_CONCAT(m.device_id) as members FROM vlan_groups g LEFT JOIN vlan_members m ON m.group_id=g.id GROUP BY g.id ORDER BY g.vlan_id",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 1400,
     "wires": [
       [
         "T_VLANL"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT g.id,g.name,g.vlan_id, GROUP_CONCAT(m.device_id) as members FROM vlan_groups g LEFT JOIN vlan_members m ON m.group_id=g.id GROUP BY g.id ORDER BY g.vlan_id"
   },
   {
     "id": "T_VLANL",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_VLAN",
     "name": "vlan list",
     "width": "6",
     "height": "6",
-    "collapse": true,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "vlan_id",
-      "direction": "asc"
-    },
-    "columns": [
-      {
-        "alias": "id",
-        "property": "id",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      },
-      {
-        "alias": "name",
-        "property": "name",
-        "type": "text",
-        "width": "25%",
-        "layout": "left"
-      },
-      {
-        "alias": "vlan",
-        "property": "vlan_id",
-        "type": "text",
-        "width": "15%",
-        "layout": "center"
-      },
-      {
-        "alias": "members",
-        "property": "members",
-        "type": "text",
-        "width": "40%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 480,
     "y": 1400,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>vlan</th><th>members</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"vlan_id\", \"members\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "FORM_TAS",
@@ -1742,7 +1565,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "tas SQL",
-    "func": "var f=msg.payload||{};var n=f.name||'';if(!n){return null;}msg.query='INSERT OR REPLACE INTO tas_schedules(id,name,cycle_time_ns,deploy_target) VALUES(?,?,?,?)';msg.params=[n,n,parseInt(f.cycle_time_ns)||0,f.deploy_target||''];var gs=[];dur=[];(String(f.gcl||'')).trim().split(/\\s+/).forEach(function(p){var a=p.split(':');if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});msg._gcl=gs;msg._dur=dur;return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var n=f.name||'';if(!n){return null;}msg.topic='INSERT OR REPLACE INTO tas_schedules(id,name,cycle_time_ns,deploy_target) VALUES(?,?,?,?)';msg.params=[n,n,parseInt(f.cycle_time_ns)||0,f.deploy_target||''];var gs=[];dur=[];(String(f.gcl||'')).trim().split(/\\s+/).forEach(function(p){var a=p.split(':');if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});msg._gcl=gs;msg._dur=dur;msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1761,24 +1584,22 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write tas",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 1480,
     "wires": [
       [
         "FN_TASG"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "FN_TASG",
     "type": "function",
     "z": "FLOWTAB",
     "name": "write gcl",
-    "func": "var n=msg._name||'';var gs=msg._gcl||[];var dur=msg._dur||[];if(!gs.length){return null;}msg.query='DELETE FROM gcl_entries WHERE schedule_id=?';msg.params=[n];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar n=msg._name||'';var gs=msg._gcl||[];var dur=msg._dur||[];if(!gs.length){return null;}msg.topic='DELETE FROM gcl_entries WHERE schedule_id=?';msg.params=[n];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1797,17 +1618,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "del gcl",
-    "operation": "delete",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 840,
     "y": 1480,
     "wires": [
       [
         "T_TASOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_TASOK",
@@ -1882,7 +1701,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "preemption SQL",
-    "func": "var f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.query='INSERT OR REPLACE INTO preemption_configs(device_id,preemption,emac,pmac) VALUES(?,?,?,?)';msg.params=[d,parseInt(f.preemption)||0,f.emac||'',f.pmac||''];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO preemption_configs(device_id,preemption,emac,pmac) VALUES(?,?,?,?)';msg.params=[d,parseInt(f.preemption)||0,f.emac||'',f.pmac||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1901,17 +1720,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write pre",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 1560,
     "wires": [
       [
         "T_PREOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_PREOK",
@@ -1986,7 +1803,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "stream SQL",
-    "func": "var f=msg.payload||{};var n=f.name||'';var t=f.talker||'';if(!n||!t){return null;}msg.query='INSERT OR REPLACE INTO tsn_streams(stream_id,name,talker,vlan_id,max_latency_ns,max_interval_ns,priority,data_frame_prio,status,comment) VALUES(?,?,?,?,100000000,1000000,5,5,0,\\'\\')';msg.params=[n,n,t,parseInt(f.vlan_id)||0];msg._listeners=(f.listeners||'').split(',').map(function(s){return s.trim();}).filter(Boolean);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var n=f.name||'';var t=f.talker||'';if(!n||!t){return null;}msg.topic='INSERT OR REPLACE INTO tsn_streams(stream_id,name,talker,vlan_id,max_latency_ns,max_interval_ns,priority,data_frame_prio,status,comment) VALUES(?,?,?,?,100000000,1000000,5,5,0,\\'\\')';msg.params=[n,n,t,parseInt(f.vlan_id)||0];msg._listeners=(f.listeners||'').split(',').map(function(s){return s.trim();}).filter(Boolean);msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -2005,24 +1822,22 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write stream",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 1640,
     "wires": [
       [
         "FN_STMM"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "FN_STMM",
     "type": "function",
     "z": "FLOWTAB",
     "name": "stream members",
-    "func": "var sid=msg._sid||'';var lsn=msg._listeners||[];msg.query='DELETE FROM tsn_stream_members WHERE stream_id=?';msg.params=[sid];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar sid=msg._sid||'';var lsn=msg._listeners||[];msg.topic='DELETE FROM tsn_stream_members WHERE stream_id=?';msg.params=[sid];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -2041,17 +1856,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "del members",
-    "operation": "delete",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 840,
     "y": 1640,
     "wires": [
       [
         "T_STMOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_STMOK",
@@ -2114,7 +1927,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "tsync SQL",
-    "func": "var f=msg.payload||{};msg.query='INSERT OR REPLACE INTO timesync_status(id,mode,grandmaster,offset_ns,quality) VALUES(\\'main\\',?,?,0,0)';msg.params=[parseInt(f.mode)||0,f.grandmaster||''];return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};msg.topic='INSERT OR REPLACE INTO timesync_status(id,mode,grandmaster,offset_ns,quality) VALUES(\\'main\\',?,?,0,0)';msg.params=[parseInt(f.mode)||0,f.grandmaster||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -2133,17 +1946,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write tsync",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 1720,
     "wires": [
       [
         "T_TSYNOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_TSYNOK",
@@ -2316,24 +2127,23 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read events",
-    "operation": "query",
-    "query": "SELECT ts,kind,source,msg FROM trace_log ORDER BY id DESC LIMIT 100",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 2500,
     "wires": [
       [
         "FN_EVT"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT ts,type,source,line FROM trace_log ORDER BY id DESC LIMIT 100"
   },
   {
     "id": "FN_EVT",
     "type": "function",
     "z": "FLOWTAB",
     "name": "fmt events",
-    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.ts?new Date(r.ts*1000).toLocaleTimeString():'';return{ts:ts,kind:r.kind||'',src:r.source||'',msg:r.msg||''};});return msg;",
+    "func": "var rows=(msg.payload||[]).map(function(r){var ts=r.ts?new Date(r.ts*1000).toLocaleTimeString():'';return{ts:ts,kind:r.type||'',src:r.source||'',msg:r.line||''};});return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -2349,55 +2159,21 @@
   },
   {
     "id": "T_EVT",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_EVT",
     "name": "events",
     "width": "12",
     "height": "10",
-    "collapse": false,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "ts",
-      "direction": "desc"
-    },
-    "columns": [
-      {
-        "alias": "time",
-        "property": "ts",
-        "type": "text",
-        "width": "12%",
-        "layout": "left"
-      },
-      {
-        "alias": "kind",
-        "property": "kind",
-        "type": "text",
-        "width": "12%",
-        "layout": "left"
-      },
-      {
-        "alias": "source",
-        "property": "src",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "message",
-        "property": "msg",
-        "type": "text",
-        "width": "61%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 2500,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>time</th><th>kind</th><th>source</th><th>message</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"ts\", \"kind\", \"src\", \"msg\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "BTN_CLR_EVT",
@@ -2428,17 +2204,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "clear events",
-    "operation": "delete",
-    "query": "DELETE FROM trace_log",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 300,
     "y": 2560,
     "wires": [
       [
         "T_CLREVT"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "DELETE FROM trace_log"
   },
   {
     "id": "T_CLREVT",
@@ -2487,17 +2262,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "latency stats",
-    "operation": "query",
-    "query": "SELECT device_id, AVG(latency_ms) as avg_ms, MAX(latency_ms) as max_ms, COUNT(*) as n FROM latency_log WHERE ts > strftime('%s','now','-300 seconds') GROUP BY device_id",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 2640,
     "wires": [
       [
         "FN_MET"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT device_id, AVG(latency_ms) as avg_ms, MAX(latency_ms) as max_ms, COUNT(*) as n FROM latency_log WHERE ts > strftime('%s','now','-300 seconds') GROUP BY device_id"
   },
   {
     "id": "FN_MET",
@@ -2520,72 +2294,37 @@
   },
   {
     "id": "T_MET",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_MET",
     "name": "latency",
     "width": "6",
     "height": "6",
-    "collapse": true,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "dev",
-      "direction": "asc"
-    },
-    "columns": [
-      {
-        "alias": "device",
-        "property": "dev",
-        "type": "text",
-        "width": "40%",
-        "layout": "left"
-      },
-      {
-        "alias": "avg ms",
-        "property": "avg",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      },
-      {
-        "alias": "max ms",
-        "property": "max",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      },
-      {
-        "alias": "samples",
-        "property": "n",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 2640,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>avg ms</th><th>max ms</th><th>samples</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"avg\", \"max\", \"n\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "SQL_PTPM",
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "ptp stats",
-    "operation": "query",
-    "query": "SELECT device_id, AVG(offset_ns) as avg_off, MAX(jitter_ns) as max_jit, COUNT(*) as n FROM timesync_reports WHERE ts > strftime('%s','now','-300 seconds') GROUP BY device_id",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 2700,
     "wires": [
       [
         "FN_PTPM"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT device_id, AVG(offset_ns) as avg_off, MAX(jitter_ns) as max_jit, COUNT(*) as n FROM timesync_reports WHERE ts > strftime('%s','now','-300 seconds') GROUP BY device_id"
   },
   {
     "id": "FN_PTPM",
@@ -2608,55 +2347,21 @@
   },
   {
     "id": "T_PTPM",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_MET",
     "name": "ptp",
     "width": "6",
     "height": "6",
-    "collapse": true,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "dev",
-      "direction": "asc"
-    },
-    "columns": [
-      {
-        "alias": "device",
-        "property": "dev",
-        "type": "text",
-        "width": "40%",
-        "layout": "left"
-      },
-      {
-        "alias": "avg off ns",
-        "property": "off",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      },
-      {
-        "alias": "max jit ns",
-        "property": "jit",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      },
-      {
-        "alias": "samples",
-        "property": "n",
-        "type": "text",
-        "width": "20%",
-        "layout": "right"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 2700,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>avg off ns</th><th>max jit ns</th><th>samples</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"off\", \"jit\", \"n\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "INJ_SENS",
@@ -2687,17 +2392,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read sensors",
-    "operation": "query",
-    "query": "SELECT device_id,sensor_id,name,value,unit,last_update FROM sensors ORDER BY device_id,sensor_id",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 2780,
     "wires": [
       [
         "FN_SENSL"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT device_id,sensor_id,name,value,unit,last_update FROM sensors ORDER BY device_id,sensor_id"
   },
   {
     "id": "FN_SENSL",
@@ -2720,76 +2424,21 @@
   },
   {
     "id": "T_SENSL",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_SENS",
     "name": "sensors",
     "width": "12",
     "height": "10",
-    "collapse": false,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "dev",
-      "direction": "asc"
-    },
-    "columns": [
-      {
-        "alias": "device",
-        "property": "dev",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "sensor",
-        "property": "name",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "id",
-        "property": "sid",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "value",
-        "property": "val",
-        "type": "text",
-        "width": "15%",
-        "layout": "right"
-      },
-      {
-        "alias": "unit",
-        "property": "unit",
-        "type": "text",
-        "width": "10%",
-        "layout": "left"
-      },
-      {
-        "alias": "age",
-        "property": "age",
-        "type": "text",
-        "width": "10%",
-        "layout": "right"
-      },
-      {
-        "alias": "id2",
-        "property": "sid",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 2780,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>sensor</th><th>id</th><th>value</th><th>unit</th><th>age</th><th>id2</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"name\", \"sid\", \"val\", \"unit\", \"age\", \"sid\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "INJ_REC",
@@ -2820,17 +2469,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read recordings",
-    "operation": "query",
-    "query": "SELECT device_id,path,recorded_at,detections FROM recordings ORDER BY recorded_at DESC LIMIT 30",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 2860,
     "wires": [
       [
         "FN_RECL"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT device_id,path,recorded_at,detections FROM recordings ORDER BY recorded_at DESC LIMIT 30"
   },
   {
     "id": "FN_RECL",
@@ -2853,55 +2501,21 @@
   },
   {
     "id": "T_RECL",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_REC",
     "name": "recordings",
     "width": "12",
     "height": "8",
-    "collapse": true,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "ts",
-      "direction": "desc"
-    },
-    "columns": [
-      {
-        "alias": "device",
-        "property": "dev",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "path",
-        "property": "path",
-        "type": "text",
-        "width": "40%",
-        "layout": "left"
-      },
-      {
-        "alias": "recorded",
-        "property": "ts",
-        "type": "text",
-        "width": "25%",
-        "layout": "left"
-      },
-      {
-        "alias": "detections",
-        "property": "det",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 2860,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>path</th><th>recorded</th><th>detections</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"path\", \"ts\", \"det\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "TABEP",
@@ -3302,17 +2916,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read firmware",
-    "operation": "query",
-    "query": "SELECT file,version,size,crc32,kind,uploaded_at FROM firmware ORDER BY uploaded_at DESC",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 3340,
     "wires": [
       [
         "FN_FW"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT file,version,size,crc32,kind,uploaded_at FROM firmware ORDER BY uploaded_at DESC"
   },
   {
     "id": "FN_FW",
@@ -3335,69 +2948,21 @@
   },
   {
     "id": "T_FW",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_FWLIST",
     "name": "firmware",
     "width": "12",
     "height": "8",
-    "collapse": false,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "ts",
-      "direction": "desc"
-    },
-    "columns": [
-      {
-        "alias": "file",
-        "property": "file",
-        "type": "text",
-        "width": "25%",
-        "layout": "left"
-      },
-      {
-        "alias": "version",
-        "property": "ver",
-        "type": "text",
-        "width": "12%",
-        "layout": "left"
-      },
-      {
-        "alias": "size",
-        "property": "size",
-        "type": "text",
-        "width": "10%",
-        "layout": "right"
-      },
-      {
-        "alias": "crc32",
-        "property": "crc",
-        "type": "text",
-        "width": "12%",
-        "layout": "left"
-      },
-      {
-        "alias": "kind",
-        "property": "kind",
-        "type": "text",
-        "width": "8%",
-        "layout": "center"
-      },
-      {
-        "alias": "uploaded",
-        "property": "ts",
-        "type": "text",
-        "width": "33%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 3340,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>file</th><th>version</th><th>size</th><th>crc32</th><th>kind</th><th>uploaded</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"file\", \"ver\", \"size\", \"crc\", \"kind\", \"ts\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "HTTP_FWUP",
@@ -3421,7 +2986,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "process upload",
-    "func": "var fname=msg.req.headers['x-filename']||'firmware.bin';var fkind=msg.req.headers['x-device']||'-1';if(!msg.payload){return null;}var data=Buffer.isBuffer(msg.payload)?msg.payload:Buffer.from(msg.payload);var size=data.length;var crc=(function(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++){c^=b[i];for(var j=0;j<8;j++){c=(c>>>1)^(0xEDB88320&-(c&1));}}return('00000000'+((c^0xFFFFFFFF)>>>0).toString(16)).slice(-8);})(data);var ver=(fname.match(/v?(\\d+\\.\\d+\\.\\d+)/)||[])[1]||'';msg.query='INSERT OR REPLACE INTO firmware(file,version,size,crc32,kind,uploaded_at) VALUES(?,?,?,?,?,?)';msg.params=[fname,ver,size,crc,parseInt(fkind)||-1,Math.floor(Date.now()/1000)];msg._fname=fname;msg._data=data;msg._fwdir='/home/wtsn/wtsn-configurator/build/fw';return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar fname=msg.req.headers['x-filename']||'firmware.bin';var fkind=msg.req.headers['x-device']||'-1';if(!msg.payload){return null;}var data=Buffer.isBuffer(msg.payload)?msg.payload:Buffer.from(msg.payload);var size=data.length;var crc=(function(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++){c^=b[i];for(var j=0;j<8;j++){c=(c>>>1)^(0xEDB88320&-(c&1));}}return('00000000'+((c^0xFFFFFFFF)>>>0).toString(16)).slice(-8);})(data);var ver=(fname.match(/v?(\\d+\\.\\d+\\.\\d+)/)||[])[1]||'';msg.topic='INSERT OR REPLACE INTO firmware(file,version,size,crc32,kind,uploaded_at) VALUES(?,?,?,?,?,?)';msg.params=[fname,ver,size,crc,parseInt(fkind)||-1,Math.floor(Date.now()/1000)];msg._fname=fname;msg._data=data;msg._fwdir='/home/wtsn/wtsn-configurator/build/fw';msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -3440,17 +3005,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "save fw meta",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 500,
     "y": 3420,
     "wires": [
       [
         "EXE_FWUP"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "EXE_FWUP",
@@ -3710,7 +3273,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse LLM reply",
-    "func": "var r=msg.payload||{};var txt=r.response||r.reply||r.message||JSON.stringify(r);var act=r.action||'';node.status({fill:'green',text:act?'action: '+act:'guide'});return {payload:txt+(act?'\n\n[action: '+act+']':'')};",
+    "func": "var r=msg.payload||{};var txt=r.response||r.reply||r.message||JSON.stringify(r);var act=r.action||'';node.status({fill:'green',text:act?act:'guide'});var suffix=act?' [action: '+act+']':'';return {payload:txt+suffix};",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -3771,17 +3334,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "read decisions",
-    "operation": "query",
-    "query": "SELECT ts,device_id,action,params,reason,source FROM ai_decisions ORDER BY id DESC LIMIT 50",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 280,
     "y": 3680,
     "wires": [
       [
         "FN_DECI"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT ts,device_id,action,params,reason,source FROM ai_decisions ORDER BY id DESC LIMIT 50"
   },
   {
     "id": "FN_DECI",
@@ -3804,62 +3366,21 @@
   },
   {
     "id": "T_DECI",
-    "type": "ui_table",
+    "type": "ui_template",
     "z": "FLOWTAB",
     "group": "GRP_DECI",
     "name": "decisions",
     "width": "4",
     "height": "10",
-    "collapse": true,
-    "tableLayout": "fixed",
-    "hoverable": true,
-    "sortable": true,
-    "storeFirstRows": false,
-    "defaultSort": {
-      "property": "ts",
-      "direction": "desc"
-    },
-    "columns": [
-      {
-        "alias": "time",
-        "property": "ts",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      },
-      {
-        "alias": "device",
-        "property": "dev",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      },
-      {
-        "alias": "action",
-        "property": "act",
-        "type": "text",
-        "width": "25%",
-        "layout": "left"
-      },
-      {
-        "alias": "source",
-        "property": "src",
-        "type": "text",
-        "width": "15%",
-        "layout": "left"
-      },
-      {
-        "alias": "reason",
-        "property": "reason",
-        "type": "text",
-        "width": "20%",
-        "layout": "left"
-      }
-    ],
-    "layout": "row",
     "x": 680,
     "y": 3680,
-    "wires": []
+    "wires": [],
+    "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>time</th><th>device</th><th>action</th><th>source</th><th>reason</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"ts\", \"dev\", \"act\", \"src\", \"reason\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
+    "format": "{{msg.payload}}",
+    "storeOutMessages": true,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
   },
   {
     "id": "BTN_CLRDECI",
@@ -3890,17 +3411,16 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "clear decisions",
-    "operation": "delete",
-    "query": "DELETE FROM ai_decisions",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 300,
     "y": 3740,
     "wires": [
       [
         "T_CLRDECI"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "DELETE FROM ai_decisions"
   },
   {
     "id": "T_CLRDECI",
@@ -3963,7 +3483,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "save settings",
-    "func": "var f=msg.payload||{};if(f.broker){msg.query='INSERT OR REPLACE INTO settings(key,value) VALUES(\\'broker\\',?)';msg.params=[f.broker];}else if(f.llm_url){msg.query='INSERT OR REPLACE INTO settings(key,value) VALUES(\\'llm_url\\',?)';msg.params=[f.llm_url];}else{return null;}return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};if(f.broker){msg.topic='INSERT OR REPLACE INTO settings(key,value) VALUES(\\'broker\\',?)';msg.params=[f.broker];}else if(f.llm_url){msg.topic='INSERT OR REPLACE INTO settings(key,value) VALUES(\\'llm_url\\',?)';msg.params=[f.llm_url];}else{return null;}msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -3982,17 +3502,15 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "write settings",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": true,
-    "database": "SQLCFG",
     "x": 480,
     "y": 3820,
     "wires": [
       [
         "T_SETOK"
       ]
-    ]
+    ],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "T_SETOK",
@@ -4115,7 +3633,7 @@
     "name": "tsn/ack/#",
     "topic": "tsn/ack/#",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 1960,
@@ -4130,7 +3648,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse ack",
-    "func": "var p=msg.payload||{};var did=msg.topic.split('/').pop()||'';if(!did){return null;}var ok=p.ok===true||p.ok===1;var now=Math.floor(Date.now()/1000);msg.query='UPDATE devices SET status=?,last_seen=? WHERE id=?';msg.params=[ok?0:1,now,did];global.set('HTSN_LAST_EVENT',did+': ack ok='+ok);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=msg.topic.split('/').pop()||'';if(!did){return null;}var ok=p.ok===true||p.ok===1;var now=Math.floor(Date.now()/1000);msg.topic='UPDATE devices SET status=?,last_seen=? WHERE id=?';msg.params=[ok?0:1,now,did];global.set('HTSN_LAST_EVENT',did+': ack ok='+ok);msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4150,13 +3668,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "ack update",
-    "operation": "update",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 1960,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_STAT",
@@ -4165,7 +3681,7 @@
     "name": "tsn/status",
     "topic": "tsn/status",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2020,
@@ -4180,7 +3696,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse status",
-    "func": "var p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) SELECT id,name,ip,mac,kind,?,0,? FROM devices WHERE id=? UNION ALL SELECT ?,?,?,?,?,?,0,?';msg.params=[p.firmware||'',now,did,did,p.name||did,p.ip||'',p.kind||0,p.mac||'',p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': status fw='+(p.firmware||'?'));return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.topic='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) SELECT id,name,ip,mac,kind,?,0,? FROM devices WHERE id=? UNION ALL SELECT ?,?,?,?,?,?,0,?';msg.params=[p.firmware||'',now,did,did,p.name||did,p.ip||'',p.kind||0,p.mac||'',p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': status fw='+(p.firmware||'?'));msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4200,13 +3716,12 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "status upsert",
-    "operation": "insert",
-    "query": "INSERT OR IGNORE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?); UPDATE devices SET firmware=COALESCE(NULLIF(?, ''),firmware), ip=COALESCE(NULLIF(?, ''),ip), last_seen=?, status=0 WHERE id=?",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2020,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "INSERT OR IGNORE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?); UPDATE devices SET firmware=COALESCE(NULLIF(?, ''),firmware), ip=COALESCE(NULLIF(?, ''),ip), last_seen=?, status=0 WHERE id=?"
   },
   {
     "id": "MQ_DISC",
@@ -4215,7 +3730,7 @@
     "name": "tsn/discover",
     "topic": "tsn/discover",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2080,
@@ -4230,7 +3745,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse discover",
-    "func": "var p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?)';msg.params=[did,p.name||did,p.ip||'',p.mac||'',p.kind||0,p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': discovered kind='+p.kind+' ip='+(p.ip||'?'));return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.id||'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.topic='INSERT OR REPLACE INTO devices(id,name,ip,mac,kind,firmware,status,last_seen) VALUES(?,?,?,?,?,?,0,?)';msg.params=[did,p.name||did,p.ip||'',p.mac||'',p.kind||0,p.firmware||'',now];global.set('HTSN_LAST_EVENT',did+': discovered kind='+p.kind+' ip='+(p.ip||'?'));msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4250,13 +3765,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "discover upsert",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2080,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_LWT",
@@ -4280,7 +3793,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse lwt",
-    "func": "var did=msg.topic.split('/').pop()||'';if(!did){return null;}msg.query='UPDATE devices SET status=1 WHERE id=?';msg.params=[did];global.set('HTSN_LAST_EVENT',did+': LWT (offline)');return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar did=msg.topic.split('/').pop()||'';if(!did){return null;}msg.topic='UPDATE devices SET status=1 WHERE id=?';msg.params=[did];global.set('HTSN_LAST_EVENT',did+': LWT (offline)');msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4300,13 +3813,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "lwt offline",
-    "operation": "update",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2140,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_SENS",
@@ -4315,7 +3826,7 @@
     "name": "tsn/sensors/#",
     "topic": "tsn/sensors/#",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2200,
@@ -4330,7 +3841,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse sensors",
-    "func": "var parts=msg.topic.split('/');var did=parts.length>2?parts[2]:'';var sid=parts.length>3?parts[3]:'sensors';var p=msg.payload;if(Array.isArray(p)){p.forEach(function(v,i){var s=global.get('HTSN_SENS')||{};s[did+'/'+(sid+i)]={v:v.ts||v.value||0,u:v.unit||''};global.set('HTSN_SENS',s);});}else if(p&&p.value!==undefined){var s=global.get('HTSN_SENS')||{};s[did+'/'+sid]={v:p.value,u:p.unit||''};global.set('HTSN_SENS',s);}if(did){var now=Math.floor(Date.now()/1000);msg.query='UPDATE devices SET last_seen=? WHERE id=?';msg.params=[now,did];}global.set('HTSN_LAST_EVENT','sensor '+did+'/'+sid);return msg;",
+    "func": "var parts=(msg.topic||'').split('/');var did=parts.length>2?parts[2]:'';if(!did){return null;}var now=Math.floor(Date.now()/1000);msg.topic=\"UPDATE devices SET last_seen=\"+now+\" WHERE id='\"+did.replace(/'/g,\"''\")+\"'\";global.set('HTSN_LAST_EVENT','sensor '+did);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4350,13 +3861,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "sensor seen",
-    "operation": "update",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2200,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_PTP",
@@ -4365,7 +3874,7 @@
     "name": "tsn/ptp",
     "topic": "tsn/ptp",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2260,
@@ -4380,7 +3889,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse ptp",
-    "func": "var p=msg.payload||{};var did=p.device_id||'main';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO timesync_reports(device_id,ts,offset_ns,jitter_ns,packet_count,packet_loss,status) VALUES(?,?,?,?,?,?,?)';msg.params=[did,now,p.offset_ns||0,p.jitter_ns||0,p.packet_count||0,p.packet_loss||0,p.status||''];global.set('HTSN_LAST_EVENT','ptp '+did+' off='+(p.offset_ns||0)+'ns');return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.device_id||'main';var now=Math.floor(Date.now()/1000);msg.topic='INSERT INTO timesync_reports(device_id,ts,offset_ns,jitter_ns,packet_count,packet_loss,status) VALUES(?,?,?,?,?,?,?)';msg.params=[did,now,p.offset_ns||0,p.jitter_ns||0,p.packet_count||0,p.packet_loss||0,p.status||''];global.set('HTSN_LAST_EVENT','ptp '+did+' off='+(p.offset_ns||0)+'ns');msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4400,13 +3909,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "ptp report",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2260,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_FX",
@@ -4415,7 +3922,7 @@
     "name": "tsn/fx/#",
     "topic": "tsn/fx/#",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2320,
@@ -4430,7 +3937,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse fx",
-    "func": "var p=msg.payload||{};var src=p.src||msg.topic.split('/').pop()||'';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO fx_data(ts,src,data_id,value,text) VALUES(?,?,?,?,?)';msg.params=[now,src,p.data_id||'',p.value||0,p.text||''];var fx=global.get('HTSN_FX')||[];fx.push({ts:now,src:src,id:p.data_id||'',v:p.value||0,t:p.text||''});if(fx.length>200){fx=fx.slice(-200);}global.set('HTSN_FX',fx);global.set('HTSN_LAST_EVENT','fx '+src+' '+ (p.data_id||''));return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var src=p.src||msg.topic.split('/').pop()||'';var now=Math.floor(Date.now()/1000);msg.topic='INSERT INTO fx_data(ts,src,data_id,value,text) VALUES(?,?,?,?,?)';msg.params=[now,src,p.data_id||'',p.value||0,p.text||''];var fx=global.get('HTSN_FX')||[];fx.push({ts:now,src:src,id:p.data_id||'',v:p.value||0,t:p.text||''});if(fx.length>200){fx=fx.slice(-200);}global.set('HTSN_FX',fx);global.set('HTSN_LAST_EVENT','fx '+src+' '+ (p.data_id||''));msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4450,13 +3957,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "fx insert",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2320,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_SONAR",
@@ -4465,7 +3970,7 @@
     "name": "tsn/sonar",
     "topic": "tsn/sonar",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2380,
@@ -4480,7 +3985,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse sonar (backend)",
-    "func": "var p=msg.payload||{};var did=p.device_id||'esp32-01';var now=Math.floor(Date.now()/1000);msg.query='INSERT INTO sonar_sweeps(device_id,ts,sweep_id,sweep) VALUES(?,?,?,?)';msg.params=[did,now,p.sweep_id||0,JSON.stringify(p.sweep||[])];var sonar=global.get('HTSN_SONAR')||{};sonar[did]={ts:now,sweep:p.sweep||[],sid:p.sweep_id||0};global.set('HTSN_SONAR',sonar);global.set('HTSN_LAST_EVENT','sonar '+did+' sweep#'+(p.sweep_id||0));return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.device_id||'esp32-01';var now=Math.floor(Date.now()/1000);msg.topic='INSERT INTO sonar_sweeps(device_id,ts,sweep_id,sweep) VALUES(?,?,?,?)';msg.params=[did,now,p.sweep_id||0,JSON.stringify(p.sweep||[])];var sonar=global.get('HTSN_SONAR')||{};sonar[did]={ts:now,sweep:p.sweep||[],sid:p.sweep_id||0};global.set('HTSN_SONAR',sonar);global.set('HTSN_LAST_EVENT','sonar '+did+' sweep#'+(p.sweep_id||0));msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4500,13 +4005,11 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "sonar insert",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2380,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   },
   {
     "id": "MQ_REC",
@@ -4515,7 +4018,7 @@
     "name": "tsn/cam/recordings",
     "topic": "tsn/cam/recordings",
     "qos": "0",
-    "datatype": "json",
+    "datatype": "utf8",
     "broker": "BRK1",
     "x": 100,
     "y": 2440,
@@ -4530,7 +4033,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "parse recordings",
-    "func": "var p=msg.payload||{};var did=p.device_id||'esp32-cam';var now=Math.floor(Date.now()/1000);msg.query='INSERT OR REPLACE INTO recordings(device_id,path,recorded_at,detections) VALUES(?,?,?,?)';msg.params=[did,p.path||'',now,JSON.stringify(p.detections||[])];global.set('HTSN_LAST_EVENT','recording '+did+' '+(p.path||''));return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar p=msg.payload||{};var did=p.device_id||'esp32-cam';var now=Math.floor(Date.now()/1000);msg.topic='INSERT OR REPLACE INTO recordings(device_id,path,recorded_at,detections) VALUES(?,?,?,?)';msg.params=[did,p.path||'',now,JSON.stringify(p.detections||[])];global.set('HTSN_LAST_EVENT','recording '+did+' '+(p.path||''));msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -4550,12 +4053,10 @@
     "type": "sqlite",
     "z": "FLOWTAB",
     "name": "recording upsert",
-    "operation": "insert",
-    "query": "{{msg.query}}",
-    "failOnErr": false,
-    "database": "SQLCFG",
     "x": 500,
     "y": 2440,
-    "wires": []
+    "wires": [],
+    "mydb": "SQLCFG",
+    "sqlquery": "batch"
   }
 ]
