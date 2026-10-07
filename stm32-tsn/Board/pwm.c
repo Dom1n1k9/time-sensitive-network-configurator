@@ -14,7 +14,7 @@
 #include "pwm.h"
 
 #include <zephyr/kernel.h>
-#include <zephyr/cmsis.h>   /* RCC, TIM1, TIM3, GPIOA/B, SystemCoreClock */
+#include "stm32f7xx.h"   
 
 /* Typical NUCLEO-F767ZI timer clocks (adjust to your clock tree). */
 #define SERVO_TIM_CLK   216000000UL   /* TIM1, on APB2 */

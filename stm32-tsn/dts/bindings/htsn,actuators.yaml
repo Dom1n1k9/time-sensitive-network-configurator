@@ -1,0 +1,36 @@
+description: HTSN TSN endpoint actuator pins
+
+compatible: "htsn,actuators"
+
+properties:
+  sonar-trig-gpios:
+    type: phandle-array
+    description: HC-SR04 sonar trigger pin
+
+  sonar-echo-gpios:
+    type: phandle-array
+    description: HC-SR04 sonar echo pin
+
+  relay-gpios:
+    type: phandle-array
+    description: Relay control pin
+
+  btn1-gpios:
+    type: phandle-array
+    description: Button 1
+
+  btn2-gpios:
+    type: phandle-array
+    description: Button 2
+
+  btn3-gpios:
+    type: phandle-array
+    description: Button 3
+
+  btn4-gpios:
+    type: phandle-array
+    description: Button 4
+
+  led-hb-gpios:
+    type: phandle-array
+    description: Heartbeat LED

@@ -9,7 +9,7 @@
 
 /* Default MAC (the two low bits can be set by PD2/PG2-to-GND bridges for
  * multiple endpoints on one network, mirroring the Sienda reference design). */
-#define HTSN_MAC {0x70, 0xB3, 0xD5, 0xA8, 0x10, 0x2C}
+#define HTSN_MAC "70:B3:D5:A8:10:2C"
 
 /* Deterministic UDP protocol endpoints (the RPi/CNC is the peer).
  * The STM32 listens on CMD_PORT for commands; it sends telemetry to the CNC's

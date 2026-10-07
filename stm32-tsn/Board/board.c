@@ -11,7 +11,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
-#include <zephyr/cmsis.h>              /* DWT, CoreDebug, SystemCoreClock, NVIC_SystemReset */
+#include "stm32f7xx.h"              
 #include <zephyr/drivers/gpio.h>
 
 #define HTSN_ACT DT_NODELABEL(htsn_actuators)

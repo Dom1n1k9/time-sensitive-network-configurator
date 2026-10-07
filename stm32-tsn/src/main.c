@@ -10,7 +10,7 @@
  * the display/heartbeat threads.
  */
 #include <zephyr/kernel.h>
-#include <zephyr/cmsis.h>
+#include "stm32f7xx.h"
 
 #include "htsn_config.h"
 #include "htsn_port.h"

@@ -53,14 +53,12 @@
 /* ---- I2C2: SSD1306 OLED (PB10/PB11) ---- */
 &i2c2 {
 	status = "okay";
-	oled@3c {
-		compatible = "solomon,ssd1306";
-		reg = <0x3c>;
-	};
+	pinctrl-0 = <&i2c2_scl_pb10 &i2c2_sda_pb11>;
+	pinctrl-names = "default";
 };
 
 /* ---- Ethernet MAC: the on-board LAN8742A (PHY handled by the board DTS) ---- */
-&ethernet {
+&mac {
 	status = "okay";
 	local-mac-address = [ 70 b3 d5 a8 10 2c ];
 };

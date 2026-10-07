@@ -22,10 +22,10 @@
 #include "htsn_net.h"
 
 #include <zephyr/kernel.h>
-#include <zephyr/cmsis.h>      /* DWT, SystemCoreClock */
+#include "stm32f7xx.h"      
 #include <zephyr/net/socket.h> /* POSIX socket()/bind()/sendto()/recvfrom() */
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <zephyr/posix/sys/socket.h>
+#include <zephyr/posix/netinet/in.h>
 
 #include <string.h>
 #include <stdlib.h>

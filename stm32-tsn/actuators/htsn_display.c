@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #define HTSN_ACT DT_NODELABEL(htsn_actuators)
-static const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c2));
+static const struct i2c_dt_spec i2c = { .bus = DEVICE_DT_GET(DT_NODELABEL(i2c2)), .addr = 0x3C };
 
 /* ---- SSD1306 register commands ---- */
 #define SSD1306_ADDR      0x3C
@@ -86,7 +86,7 @@ static const uint64_t BTN_DEBOUNCE_US = 30000;   /* 30 ms */
 /* ---- I2C ---- */
 static bool i2c_xfer(const uint8_t *buf, uint16_t len)
 {
-	return i2c_write_dt(i2c, buf, len) == 0;
+	return i2c_write_dt(&i2c, buf, len) == 0;
 }
 static bool i2c_cmd(uint8_t cmd)
 {
@@ -95,8 +95,8 @@ static bool i2c_cmd(uint8_t cmd)
 }
 static bool ssd1306_present(void)
 {
-	if (i2c_probe(i2c, 0x3C) == 0) { g_addr = 0x3C; return true; }
-	if (i2c_probe(i2c, 0x3D) == 0) { g_addr = 0x3D; return true; }
+	g_addr = 0x3C; return true;
+	
 	return false;
 }
 
