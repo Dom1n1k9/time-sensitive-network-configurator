@@ -87,6 +87,15 @@ add_executable(htsn-cli src/app/main_cli.c)
 target_link_libraries(htsn-cli PRIVATE htsn-core SQLite::SQLite3 ${MOSQUITTO_LIBRARIES} Threads::Threads)
 target_include_directories(htsn-cli PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
 
+# ---- Edge AI services (C) ----
+add_executable(htsn-llm-bridge rpi-ai/llm_bridge.c)
+target_link_libraries(htsn-llm-bridge PRIVATE htsn-core SQLite::SQLite3 ${MOSQUITTO_LIBRARIES} Threads::Threads)
+target_include_directories(htsn-llm-bridge PRIVATE ${MOSQUITTO_INCLUDE_DIRS} src)
+
+add_executable(htsn-policy rpi-ai/policy_engine.c)
+target_link_libraries(htsn-policy PRIVATE htsn-core SQLite::SQLite3 ${MOSQUITTO_LIBRARIES} Threads::Threads)
+target_include_directories(htsn-policy PRIVATE ${MOSQUITTO_INCLUDE_DIRS} src)
+
 
 
 add_executable(htsn-tests src/app/test_main.c)
