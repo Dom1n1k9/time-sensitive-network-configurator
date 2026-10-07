@@ -4058,5 +4058,198 @@
     "wires": [],
     "mydb": "SQLCFG",
     "sqlquery": "batch"
+  },
+  {
+    "id": "TAB_CAM",
+    "type": "tab",
+    "label": "Cameras",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "GRP_CAM",
+    "type": "group",
+    "label": "Camera Feeds",
+    "tab": [
+      "TAB_CAM"
+    ],
+    "style": {
+      "label": true,
+      "border": true
+    },
+    "width": 300,
+    "height": 300
+  },
+  {
+    "id": "CAM_HTTPIN",
+    "type": "http in",
+    "z": "TAB_CAM",
+    "name": "cam proxy",
+    "url": "cam/:ip/:path",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "wires": [
+      [
+        "CAM_FN"
+      ]
+    ],
+    "x": 150,
+    "y": 100
+  },
+  {
+    "id": "CAM_FN",
+    "type": "function",
+    "z": "TAB_CAM",
+    "name": "validate + upstream",
+    "func": "var ip = msg.req.params.ip;\nvar path = msg.req.params.path;\nvar m = ip.match(/^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);\nif (!m || m.slice(1).some(function(x){return +x>255;})) {\n    msg.statusCode = 404;\n    msg.payload = \"invalid ip\";\n    return [msg, null];\n}\nvar allowed = [\"last.jpg\",\"replay.mjpeg\",\"stream\",\"ping\"];\nif (allowed.indexOf(path) === -1) {\n    msg.statusCode = 404;\n    msg.payload = \"invalid path\";\n    return [msg, null];\n}\nmsg.url = \"http://\" + ip + \"/\" + path;\nmsg.headers = {\"User-Agent\": \"htsn-nodered-proxy\"};\nmsg.complete = false;\nreturn [null, msg];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "CAM_HTTPRESP404"
+      ],
+      [
+        "CAM_HTTPREQ"
+      ]
+    ],
+    "x": 370,
+    "y": 100
+  },
+  {
+    "id": "CAM_HTTPREQ",
+    "type": "http request",
+    "z": "TAB_CAM",
+    "name": "fetch from cam",
+    "method": "GET",
+    "ret": "bin",
+    "payto": "url",
+    "timeout": "10000",
+    "wires": [
+      [
+        "CAM_HTTPRESP"
+      ]
+    ],
+    "x": 600,
+    "y": 100
+  },
+  {
+    "id": "CAM_HTTPRESP",
+    "type": "http response",
+    "z": "TAB_CAM",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 820,
+    "y": 100
+  },
+  {
+    "id": "CAM_HTTPRESP404",
+    "type": "http response",
+    "z": "TAB_CAM",
+    "name": "404",
+    "statusCode": "404",
+    "headers": {},
+    "x": 600,
+    "y": 180
+  },
+  {
+    "id": "CAM_UI",
+    "type": "ui_template",
+    "z": "TAB_CAM",
+    "group": [
+      "GRP_CAM"
+    ],
+    "name": "Camera Feed",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "format": "<div style=\"padding:10px;\"><h3>ESP32 Camera Feeds</h3><div id=\"camList\"><div style=\"color:#888;padding:20px;\">Loading cameras...</div></div></div><script>\nfunction $(s){return document.querySelector(s)}\nfunction loadCams(){\n  fetch('api/cam/list').then(r=>r.json()).then(function(cams){\n    var el = $('#camList');\n    if(!cams || !cams.length){el.innerHTML='<div style=\"color:#888;padding:20px;\">No camera devices found.</div>';return;}\n    var h='';\n    cams.forEach(function(c){\n      h+='<div style=\"margin-bottom:15px;\"><div style=\"background:#222;border-radius:8px;padding:10px;\">';\n      h+='<div style=\"color:#0f0;font-family:monospace;font-size:12px;margin-bottom:5px;\">'+c.name+' ('+c.ip+')</div>';\n      h+='<img src=\"api/cam/'+c.ip+'/last.jpg?t='+Date.now()+'\" style=\"width:100%;max-height:200px;border-radius:4px;\" onerror=\"this.style.display=\\'none\\'\">';\n      h+='<div style=\"margin-top:5px;\"><button onclick=\"location.reload()\" style=\"background:#4CAF50;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;\">Refresh</button> ';\n      h+='<a href=\"api/cam/'+c.ip+'/stream\" target=\"_blank\" style=\"color:#64b5f6;text-decoration:none;margin-left:10px;\">Live Stream</a></div></div></div>';\n    });\n    el.innerHTML=h;\n  }).catch(function(){ $('#camList').innerHTML='<div style=\"color:#f66;\">Error loading cameras</div>'; });\n}\nloadCams();\nsetInterval(loadCams, 30000);\n</script>",
+    "storeOutMessages": true,
+    "fwdInMessages": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "style": "",
+    "x": 150,
+    "y": 300
+  },
+  {
+    "id": "CAM_LIST_IN",
+    "type": "http in",
+    "z": "TAB_CAM",
+    "name": "cam list",
+    "url": "cam/list",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "wires": [
+      [
+        "CAM_LIST_FN"
+      ]
+    ],
+    "x": 150,
+    "y": 450
+  },
+  {
+    "id": "CAM_LIST_FN",
+    "type": "function",
+    "z": "TAB_CAM",
+    "name": "query cams from DB",
+    "func": "msg.payload = JSON.stringify([]);\nmsg.headers = {\"Content-Type\":\"application/json\"};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "CAM_LIST_RESP"
+      ]
+    ],
+    "x": 370,
+    "y": 450
+  },
+  {
+    "id": "CAM_SQL",
+    "type": "sqlite",
+    "z": "TAB_CAM",
+    "mydb": "SQLCFG",
+    "mode": "batch",
+    "sql": "SELECT id, name, ip FROM devices WHERE ip IS NOT NULL AND ip != ''",
+    "wires": [
+      [
+        "CAM_FMT"
+      ]
+    ],
+    "x": 570,
+    "y": 450
+  },
+  {
+    "id": "CAM_FMT",
+    "type": "function",
+    "z": "TAB_CAM",
+    "name": "format JSON",
+    "func": "var rows = msg.payload || [];\nvar cams = rows.map(function(r){return {id:r[0],name:r[1],ip:r[2]};});\nmsg.payload = JSON.stringify(cams);\nmsg.headers = {\"Content-Type\":\"application/json\"};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [],
+    "x": 770,
+    "y": 450
+  },
+  {
+    "id": "CAM_LIST_RESP",
+    "type": "http response",
+    "z": "TAB_CAM",
+    "name": "",
+    "statusCode": "200",
+    "headers": {},
+    "x": 970,
+    "y": 450
   }
 ]
