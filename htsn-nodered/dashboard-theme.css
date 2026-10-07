@@ -1,20 +1,94 @@
 
 /* HTSN-CARD-THEME
-   Card aesthetic for the Node-RED Dashboard (2.x).
-   Apply with:  bash htsn-nodered/apply-dashboard-theme.sh
-   (appends this block to node_modules/node-red-dashboard/dist/css/app.min.css)
+   Card aesthetic for Node-RED Dashboard 2.x.
+   Apply: bash htsn-nodered/apply-dashboard-theme.sh
+   Real element names: ui-card-panel (card), p.nr-dashboard-cardtitle (title),
+   .nr-dashboard-text, .nr-dashboard-form, .nr-dashboard-button.
 */
-.node-red-dashboard .tr-ui-page-content{background:#eef1f6 !important;}
-.node-red-dashboard .tr-ui-workspace{background:#eef1f6;}
-tr-ui-group{background:#fff !important;border-radius:14px;box-shadow:0 2px 12px rgba(20,40,80,.08);margin:8px;padding:4px 10px;border:1px solid #e6eaf1;}
-tr-ui-group>div.tr-ui-group-header{border-radius:10px 10px 0 0 !important;background:linear-gradient(90deg,#2d3e5f,#3d5178) !important;border-bottom:none !important;}
-tr-ui-group>div.tr-ui-group-header .tr-ui-group-label{color:#fff !important;font-weight:600;font-size:14px;letter-spacing:.3px;}
-tr-ui-form{margin:8px 0;}
-tr-ui-form label{font-size:12px !important;color:#5a6b85;font-weight:600;}
-tr-ui-form input, tr-ui-form select{border-radius:8px !important;border:1px solid #cdd6e3 !important;font-size:14px !important;}
-tr-ui-form input:focus, tr-ui-form select:focus{border-color:#3d5178 !important;box-shadow:0 0 0 3px rgba(61,81,120,.12);}
-tr-ui-button, .tr-ui-button{border-radius:9px !important;}
-tr-ui-text{padding:6px 4px;}
-tr-ui-text pre{font-family:"SF Mono",Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre-wrap;color:#243b55;}
-tr-ui-tab-bar .tr-ui-tab-bar-item.is-active .tr-ui-tab-bar-item-label{color:#2d3e5f;}
-tr-ui-tab-bar .tr-ui-tab-bar-item.is-active{border-bottom-color:#2d3e5f;}
+/* --- page background --- */
+body.nr-dashboard-theme{background:#e9edf3;}
+md-content{background:transparent;}
+
+/* --- each group = a white rounded card --- */
+ui-card-panel{
+  background:#ffffff !important;
+  border:none !important;
+  border-radius:14px !important;
+  box-shadow:0 3px 14px rgba(20,40,80,.10) !important;
+  margin:10px !important;
+  overflow:hidden;
+}
+/* card header/title */
+ui-card-panel p.nr-dashboard-cardtitle{
+  background:linear-gradient(90deg,#2d3e5f,#3d5178) !important;
+  color:#ffffff !important;
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:.3px;
+  padding:10px 14px !important;
+  margin:0 !important;
+  border-radius:0 !important;
+}
+
+/* --- forms --- */
+.nr-dashboard-form{padding:8px 6px;}
+.nr-dashboard-form label{font-size:12px;color:#5a6b85;font-weight:600;}
+.nr-dashboard-textinput input,
+.nr-dashboard-numeric input,
+.nr-dashboard-form select,
+select{
+  border-radius:8px !important;
+  border:1px solid #cdd6e3 !important;
+  font-size:14px !important;
+}
+.nr-dashboard-textinput input:focus,
+.nr-dashboard-numeric input:focus{
+  border-color:#3d5178 !important;
+  box-shadow:0 0 0 3px rgba(61,81,120,.12);
+}
+
+/* --- buttons --- */
+.nr-dashboard-button,
+.md-button.md-default-theme.md-primary,
+.md-button.md-primary{
+  border-radius:9px !important;
+  background:#3d5178 !important;
+  color:#fff !important;
+}
+.md-button.md-default-theme.md-primary:hover,
+.md-button.md-primary:hover{background:#2d3e5f !important;}
+
+/* --- TEXT widgets: fix overflow, make scrollable + wrapping --- */
+.nr-dashboard-text,
+.nr-dashboard-text *{
+  word-wrap:break-word !important;
+  overflow-wrap:break-word !important;
+}
+.nr-dashboard-template{
+  max-height:100%;
+  overflow:auto !important;
+  font-family:"SF Mono",Consolas,"DejaVu Sans Mono",monospace;
+  font-size:12px;
+  line-height:1.55;
+  white-space:pre-wrap;
+  color:#243b55;
+  padding:6px 8px;
+}
+/* ui_text content often renders inside a div/p */
+ui-card-panel div[ng-bind],
+ui-card-panel .nr-dashboard-text p,
+ui-card-panel .nr-dashboard-text div{
+  white-space:pre-wrap !important;
+  overflow-wrap:break-word !important;
+}
+
+/* --- data tables inside templates --- */
+table{width:100%;border-collapse:collapse;font-size:12px;}
+table th{background:#2d3e5f;color:#fff;text-align:left;padding:6px 8px;}
+table td{padding:6px 8px;border-bottom:1px solid #eef1f5;}
+table tr:nth-child(even) td{background:#f8fafc;}
+
+/* --- tab bar accent --- */
+md-tab.md-active,
+md-tab[aria-selected="true"]{color:#2d3e5f !important;}
+md-tabs-navigation md-tab{font-size:14px;}
