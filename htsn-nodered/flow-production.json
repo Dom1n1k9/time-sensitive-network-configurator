@@ -4253,159 +4253,207 @@
     "y": 450
   },
   {
-    "id": "GUIDE_TSN",
-    "type": "ui_text",
+    "id": "GD_TSN",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_CFG"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>TSN Endpoint Configuration</h3><p style='margin:0;color:#aaa;font-size:13px;'>Configure the wired STM32 endpoint: VLAN tagging, priority (PCP), traffic class, time sync, and stream role. After filling the form, click <b>Apply to Endpoint</b> to push via OPC UA.</p></div>",
-    "formatType": "html",
-    "name": "guide-tsn",
+    "group": "GRP_CFG",
+    "name": "GD_TSN",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">TSN Endpoint Configuration</b><br><span style=\"color:#aaa;font-size:12px;\">Configure the wired STM32: VLAN ID, priority (PCP 0-7), traffic class, timesync mode, stream role, TAS cycle. Click Apply to push via OPC UA.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_QOS",
-    "type": "ui_text",
+    "id": "GD_QOS",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_QOS"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>QoS - Quality of Service</h3><p style='margin:0;color:#aaa;font-size:13px;'>Set the 802.1Q priority (0-7) and bandwidth for a device. <b>Priority 5-7</b> = critical (control). <b>Bandwidth</b> in kbps (0 = unlimited). <b>Traffic class</b> maps to the switch egress queue.</p></div>",
-    "formatType": "html",
-    "name": "guide-qos",
+    "group": "GRP_QOS",
+    "name": "GD_QOS",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">QoS - Quality of Service</b><br><span style=\"color:#aaa;font-size:12px;\">Set 802.1Q priority (0-7) and bandwidth for a device. 5-7=critical. Bandwidth in kbps (0=unlimited). Traffic class maps to switch egress queue.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_VLAN",
-    "type": "ui_text",
+    "id": "GD_VLAN",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_VLAN"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>VLAN - Virtual LAN Groups</h3><p style='margin:0;color:#aaa;font-size:13px;'>Create a VLAN group (ID 1-4094) and assign devices to it. Devices in the same VLAN can communicate; others are isolated. <b>VID 100</b> = control, <b>200</b> = telemetry (example).</p></div>",
-    "formatType": "html",
-    "name": "guide-vlan",
+    "group": "GRP_VLAN",
+    "name": "GD_VLAN",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">VLAN - Virtual LAN Groups</b><br><span style=\"color:#aaa;font-size:12px;\">Create a VLAN (ID 1-4094) and assign devices. Same VLAN = can communicate. Different VLAN = isolated. Example: 100=control, 200=telemetry.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_TAS",
-    "type": "ui_text",
+    "id": "GD_TAS",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_TAS"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>TAS - Time-Aware Shaping (802.1Qbv)</h3><p style='margin:0 0 6px 0;color:#aaa;font-size:13px;'>Define a gate control schedule: the switch opens/closes egress queues in time windows. <b>Cycle</b> = total period (ns). <b>Open duration</b> = how long the gate stays open. Leave the rest closed for other traffic.</p></div>",
-    "formatType": "html",
-    "name": "guide-tas",
+    "group": "GRP_TAS",
+    "name": "GD_TAS",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">TAS - Time-Aware Shaping (802.1Qbv)</b><br><span style=\"color:#aaa;font-size:12px;\">Gate control schedule: switch opens/closes egress queues in time windows. Cycle=total period (ns). Open=how long gate stays open.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_PRE",
-    "type": "ui_text",
+    "id": "GD_PRE",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_PRE"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>Preemption (802.1Qbu)</h3><p style='margin:0;color:#aaa;font-size:13px;'>Split a queue into <b>eMAC</b> (expeditable, low prio) and <b>pMAC</b> (preempting, high prio). High-prio frames can interrupt a low-prio frame in transit. Set the priority threshold that triggers preemption.</p></div>",
-    "formatType": "html",
-    "name": "guide-pre",
+    "group": "GRP_PRE",
+    "name": "GD_PRE",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">Preemption (802.1Qbu)</b><br><span style=\"color:#aaa;font-size:12px;\">Split queue into eMAC (low prio) and pMAC (high prio). High-prio frames interrupt low-prio in transit. Set the priority threshold.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_STM",
-    "type": "ui_text",
+    "id": "GD_STM",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_STM"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>TSN Stream - 802.1Qcc Reservation</h3><p style='margin:0;color:#aaa;font-size:13px;'>Reserve a guaranteed-bandwidth stream from <b>talker</b> (sender) to <b>listener</b> (receiver). Set <b>max latency</b> (ns) and <b>interval</b> (ns between frames). The network reserves resources end-to-end.</p></div>",
-    "formatType": "html",
-    "name": "guide-stream",
+    "group": "GRP_STM",
+    "name": "GD_STM",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">TSN Stream - 802.1Qcc Reservation</b><br><span style=\"color:#aaa;font-size:12px;\">Reserve guaranteed bandwidth from talker (sender) to listener (receiver). Set max latency (ns) and interval (ns between frames).</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_TSYNC",
-    "type": "ui_text",
+    "id": "GD_TS",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_TSYNC"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>Time Synchronization (gPTP / 802.1AS)</h3><p style='margin:0;color:#aaa;font-size:13px;'>Choose the grandmaster mode: <b>local</b> = RPi is the GM (default), <b>external</b> = follow an external GM on the network. The STM32 endpoint always syncs to the RPi via PTP over the wired link.</p></div>",
-    "formatType": "html",
-    "name": "guide-timesync",
+    "group": "GRP_TSYNC",
+    "name": "GD_TS",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">Time Sync (gPTP / 802.1AS)</b><br><span style=\"color:#aaa;font-size:12px;\">local = RPi is grandmaster (default). external = follow an external GM. STM32 always syncs to RPi via PTP on the wired link.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_DEVADD",
-    "type": "ui_text",
+    "id": "GD_DEV",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_ADD"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>Add / Update Device</h3><p style='margin:0;color:#aaa;font-size:13px;'>Register a new node on the network. <b>ID</b> = unique name (e.g. esp32-01). <b>IP</b> = its address. <b>Kind</b> = esp32, stm32, cam, or linux. New ESP32 nodes auto-discover via MQTT; add others manually.</p></div>",
-    "formatType": "html",
-    "name": "guide-devadd",
+    "group": "GRP_ADD",
+    "name": "GD_DEV",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">Add / Update Device</b><br><span style=\"color:#aaa;font-size:12px;\">Register a node. ID=unique name. IP=address. Kind=esp32/stm32/cam/linux. ESP32 auto-discovers via MQTT; add others manually.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_EPCMD",
-    "type": "ui_text",
+    "id": "GD_EP",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_EPCMD"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>STM32 Endpoint Control</h3><p style='margin:0;color:#aaa;font-size:13px;'>Directly command the wired TSN endpoint: rotate the <b>servo</b> (0-180 deg), toggle the <b>relay</b>, trigger the <b>sonar</b> (ultrasonic ping), <b>beep</b> the buzzer, or <b>reboot</b> the board. Commands go via OPC UA in &lt;1ms.</p></div>",
-    "formatType": "html",
-    "name": "guide-epcmd",
+    "group": "GRP_EPCMD",
+    "name": "GD_EP",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">STM32 Endpoint Control</b><br><span style=\"color:#aaa;font-size:12px;\">Command the wired endpoint: servo (0-180 deg), relay on/off, sonar ping, beep 500ms, or reboot. Via OPC UA in <1ms.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_FW",
-    "type": "ui_text",
+    "id": "GD_FW",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_FWUP"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>Firmware OTA</h3><p style='margin:0;color:#aaa;font-size:13px;'>Upload a new firmware image (.bin/.uf2) and flash it to the selected device. The device downloads to the <b>inactive A/B partition</b>, verifies CRC32, then reboots. Auto-rollback on bad boot.</p></div>",
-    "formatType": "html",
-    "name": "guide-fw",
+    "group": "GRP_FWUP",
+    "name": "GD_FW",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">Firmware OTA</b><br><span style=\"color:#aaa;font-size:12px;\">Upload .bin/.uf2, select device, flash. Device downloads to inactive A/B slot, verifies CRC32, reboots. Auto-rollback on bad boot.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_AI",
-    "type": "ui_text",
+    "id": "GD_AI",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_CHAT"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>AI TSN Assistant</h3><p style='margin:0;color:#aaa;font-size:13px;'>Ask the local LLM (Ollama, runs on the RPi) how to configure TSN. It can <b>execute validated actions</b> (save QoS, create VLAN, deploy stream) or give you a step-by-step guide. All AI changes are logged in the Decisions table below.</p></div>",
-    "formatType": "html",
-    "name": "guide-ai",
+    "group": "GRP_CHAT",
+    "name": "GD_AI",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">AI TSN Assistant</b><br><span style=\"color:#aaa;font-size:12px;\">Ask the local LLM (Ollama on RPi) how to configure TSN. It can execute validated actions or give step-by-step guides. All logged below.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   },
   {
-    "id": "GUIDE_SET",
-    "type": "ui_text",
+    "id": "GD_SET",
+    "type": "ui_template",
     "z": "FLOWTAB",
-    "group": [
-      "GRP_SET"
-    ],
-    "format": "<div style='background:#1a1a2e;color:#fff;padding:12px;border-radius:8px;margin-bottom:8px;'><h3 style='margin:0 0 6px 0;'>System Settings</h3><p style='margin:0;color:#aaa;font-size:13px;'>Broker address, OPC UA endpoint, poll interval, and system parameters. Changes apply immediately (no reboot needed). <b>Export</b> gives you the full config as JSON for backup/transfer.</p></div>",
-    "formatType": "html",
-    "name": "guide-set",
+    "group": "GRP_SET",
+    "name": "GD_SET",
+    "width": "12",
+    "height": "4",
     "x": 0,
-    "y": -80
+    "y": -100,
+    "wires": [],
+    "html": "<div style=\"background:#1a1a2e;color:#fff;padding:10px;border-radius:6px;\"><b style=\"font-size:14px;\">System Settings</b><br><span style=\"color:#aaa;font-size:12px;\">Broker address, OPC UA endpoint, poll interval. Changes apply immediately. Export gives full config as JSON for backup.</span></div>",
+    "storeOutMessages": true,
+    "fgColor": "#ffffff",
+    "bgColor": "#1a1a2e",
+    "className": ""
   }
 ]
