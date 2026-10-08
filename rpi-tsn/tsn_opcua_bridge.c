@@ -202,7 +202,7 @@ static int send_cmd_kind(uint8_t kind, const uint8_t *pl, uint16_t len) {
 
 static char last_tsn[HTSN_FRAME_MAXPLEN + 1] = {0};
 
-static void push_tsn_config(const char *json) {
+static void push_tsn_config(const char *json, int quiet) {
     htsn_tsn_cfg_t cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.priority        = (uint8_t)jint(json, "priority", 0);
@@ -229,8 +229,9 @@ static void push_tsn_config(const char *json) {
     }
     if (send_cmd_kind(HTSN_KIND_CMD_TSN_CFG, pl, off) >= 0) {
         snprintf(last_tsn, sizeof(last_tsn), "%s", json);
-        fprintf(stderr, "bridge: TSN config -> endpoint (vlan=%d prio=%d role=%d cyc=%lld gcl=%d)\n",
-                cfg.vlan_id, cfg.priority, cfg.stream_role, (long long)cfg.tas_cycle_ns, cfg.gcl_count);
+        if (!quiet)
+            fprintf(stderr, "bridge: TSN config -> endpoint (vlan=%d prio=%d role=%d cyc=%lld gcl=%d)\n",
+                    cfg.vlan_id, cfg.priority, cfg.stream_role, (long long)cfg.tas_cycle_ns, cfg.gcl_count);
     }
 }
 
@@ -259,9 +260,21 @@ static void poll_commands(void) {
         size_t n = us->length < sizeof(s) - 1 ? us->length : sizeof(s) - 1;
         memcpy(s, us->data, n); s[n] = 0;
         if (s[0] && strcmp(s, last_tsn) != 0)
-            push_tsn_config(s);
+            push_tsn_config(s, 0);
     }
     UA_Variant_clear(&v);
+
+    /* Keepalive: the endpoint loses its applied TSN state on flash/reboot. The
+     * one-shot boot frame is often missed (pre-ARP), so re-push the last config
+     * periodically. The firmware stays quiet when the config is unchanged. */
+    static time_t last_keepalive = 0;
+    if (last_tsn[0]) {
+        time_t now = time(NULL);
+        if (now - last_keepalive >= 10) {
+            push_tsn_config(last_tsn, 1);
+            last_keepalive = now;
+        }
+    }
 
     /* Actuator level commands — forward on change (skip the startup baseline). */
     int16_t a; UA_Boolean b; int16_t ms;

@@ -1,0 +1,20 @@
+[Unit]
+Description=HTSN TSN VLAN 100 interface (eth0.100) for 802.1Q-tagged telemetry
+# The STM32 emits tagged telemetry (VLAN 100) addressed to 192.168.1.11, which
+# lives on this tagged interface. Linux won't deliver a tagged frame for an IP
+# that sits on a *different* (untagged) interface, so the tag rides its own
+# /32 host address here. /32 (not /24) so it does NOT create a competing
+# 192.168.1.0/24 route (which would send commands out tagged and break the
+# STM32's untagged command socket).
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# (No per-interface sysctl: the '.' in eth0.100 breaks sysctl's dot-notation.
+#  conf/all.rp_filter=0 suffices so the tagged frame's source passes reverse-path.)
+ExecStart=/bin/bash -c 'modprobe 8021q || true; ip link add link eth0 name eth0.100 type vlan id 100 2>/dev/null || true; ip addr replace 192.168.1.11/32 dev eth0.100 2>/dev/null || true; ip link set eth0.100 up || true; sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null 2>&1 || true'
+
+[Install]
+WantedBy=multi-user.target

@@ -6,7 +6,9 @@
 #
 # PFX = prefix where open62541 was installed (headers + lib). Build open62541
 # with -DUA_ENABLE_SUBSCRIBERS=ON -DUA_ENABLE_PUBSUB=ON (the STM32 uses PubSub).
-PFX     ?= /tmp/opencode/o62541-prefix
+# Default points at the RPi's persistent install (see build_open62541.sh); the
+# old /tmp build dir is cleared on reboot. Override with: make PFX=/path/prefix
+PFX     ?= /home/wtsn/o62541-prefix
 CFLAGS  += -O2 -Wall -I. -I$(PFX)/include
 LDFLAGS += -L$(PFX)/lib -Wl,-rpath,$(PFX)/lib
 

@@ -17,6 +17,14 @@
 #define CNC_IP           "192.168.1.10"   /* RPi CNC TSN NIC (edit to your net) */
 #define CNC_TELEM_PORT   4001             /* where the STM32 sends telemetry */
 #define STM32_CMD_PORT   4000             /* where the STM32 receives commands */
+/* RPi CNC link-layer address, needed to build 802.1Q-tagged raw frames
+ * (the AF_PACKET path bypasses ARP). Point-to-point wired link. */
+#define CNC_MAC          "98:fe:54:03:fe:bb"
+/* L3 address of the RPi's tagged (VLAN 100) interface, eth0.100. Tagged
+ * egress targets this (not CNC_IP, which sits on the untagged eth0): Linux
+ * won't deliver a packet for an address that arrived on a *different*
+ * interface, so the tag rides the matching tagged IP. */
+#define CNC_TAG_IP       "192.168.1.11"
 
 /* 802.1Q priority for TSN control traffic (6 = highest, VO/AC_VO). */
 #define TSN_PCP          6u

@@ -51,6 +51,8 @@ enum {
     HTSN_KIND_TELEM_ACTUATOR   = 4, /* payload: JSON {on,hz,ms,angle}    */
     HTSN_KIND_TELEM_PTP        = 5, /* payload: JSON {offset_ns,state}   */
     HTSN_KIND_TELEM_TSN_APPLIED= 6, /* payload: htsn_tsn_cfg_t + gcl[] + int32 features */
+    HTSN_KIND_TELEM_PREEMPT    = 7, /* 802.3br: preemptible (low-pri) demo payload       */
+    HTSN_KIND_TELEM_PREEMPT_URG= 8, /* 802.3br: preempting (high-pri) demo payload       */
 };
 
 /* ---- TSN config / applied-state binary layout (shared with the endpoint) ----

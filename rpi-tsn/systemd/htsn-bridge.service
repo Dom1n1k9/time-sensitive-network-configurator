@@ -1,7 +1,7 @@
 [Unit]
 Description=HTSN TSN bridge (STM32 UDP:4001 telemetry -> OPC UA, cmds -> UDP:4000)
-After=network-online.target htsn-cnc.service
-Wants=network-online.target
+After=network-online.target htsn-cnc.service htsn-vlan-setup.service
+Wants=network-online.target htsn-vlan-setup.service
 Requires=htsn-cnc.service
 
 [Service]
