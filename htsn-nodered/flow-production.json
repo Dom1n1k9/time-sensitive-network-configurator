@@ -584,7 +584,7 @@
     "z": "FLOWTAB",
     "name": "Devices",
     "icon": "book",
-    "order": 2,
+    "order": 8,
     "label": "Devices"
   },
   {
@@ -1143,9 +1143,9 @@
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "QoS (802.1Q)",
-    "tab": "TABCFG",
+    "tab": "TAB_QOS",
     "width": "6",
-    "order": 2,
+    "order": 0,
     "label": "QoS Policy",
     "className": ""
   },
@@ -1154,9 +1154,9 @@
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "VLAN (802.1Q)",
-    "tab": "TABCFG",
+    "tab": "TAB_VLAN",
     "width": "6",
-    "order": 3,
+    "order": 0,
     "label": "VLAN Groups",
     "className": ""
   },
@@ -1165,9 +1165,9 @@
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "TAS/GCL (802.1Qbv)",
-    "tab": "TABCFG",
+    "tab": "TAB_TAS",
     "width": "6",
-    "order": 4,
+    "order": 0,
     "label": "TAS Scheduling (Qbv)",
     "className": ""
   },
@@ -1176,9 +1176,9 @@
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Preemption (802.1Qbu)",
-    "tab": "TABCFG",
+    "tab": "TAB_PRE",
     "width": "6",
-    "order": 5,
+    "order": 0,
     "label": "Preemption (Qbu)",
     "className": ""
   },
@@ -1187,9 +1187,9 @@
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Streams (802.1Qcc)",
-    "tab": "TABCFG",
+    "tab": "TAB_STM",
     "width": "6",
-    "order": 6,
+    "order": 0,
     "label": "Stream Reservation (Qcc)",
     "className": ""
   },
@@ -1198,9 +1198,9 @@
     "type": "ui_group",
     "z": "FLOWTAB",
     "name": "Timesync (802.1AS)",
-    "tab": "TABCFG",
+    "tab": "TAB_TSYNC",
     "width": "6",
-    "order": 7,
+    "order": 0,
     "label": "Time Sync (802.1AS)",
     "className": ""
   },
@@ -2091,7 +2091,7 @@
     "z": "FLOWTAB",
     "name": "Monitor",
     "icon": "dashboard",
-    "order": 4,
+    "order": 9,
     "label": "Monitor"
   },
   {
@@ -2563,7 +2563,7 @@
     "z": "FLOWTAB",
     "name": "TSN Endpoint",
     "icon": "chip",
-    "order": 5,
+    "order": 10,
     "label": "Endpoint"
   },
   {
@@ -2903,7 +2903,7 @@
     "z": "FLOWTAB",
     "name": "Firmware",
     "icon": "cloud",
-    "order": 6,
+    "order": 11,
     "label": "Firmware"
   },
   {
@@ -3186,7 +3186,7 @@
     "z": "FLOWTAB",
     "name": "AI Assistant",
     "icon": "magic",
-    "order": 7,
+    "order": 12,
     "label": "AI Assistant"
   },
   {
@@ -3217,7 +3217,7 @@
     "z": "FLOWTAB",
     "name": "Settings",
     "icon": "cog",
-    "order": 8,
+    "order": 13,
     "label": "Settings"
   },
   {
@@ -3639,7 +3639,7 @@
     "z": "FLOWTAB",
     "name": "Backend",
     "icon": "info",
-    "order": 10,
+    "order": 14,
     "label": "Backend"
   },
   {
@@ -4533,5 +4533,53 @@
       ]
     ],
     "func": "var s=(msg.payload||'').trim();var ok=(s==='active');\nmsg.payload=ok?'htsn-preempt ACTIVE - emitting 802.3br preemption (truncated PCP5 + 0xFFFF LFM -> urgent PCP7 -> retransmit) every 2s':'htsn-preempt '+s+' - software preemption demo NOT emitting';\nreturn msg;"
+  },
+  {
+    "id": "TAB_QOS",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "qos-8021q",
+    "order": 2,
+    "label": "QoS 802.1Q"
+  },
+  {
+    "id": "TAB_VLAN",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "vlan-8021q",
+    "order": 3,
+    "label": "VLAN 802.1Q"
+  },
+  {
+    "id": "TAB_TAS",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "tas-8021qbv",
+    "order": 4,
+    "label": "TAS 802.1Qbv"
+  },
+  {
+    "id": "TAB_PRE",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "preempt-8021qbu",
+    "order": 5,
+    "label": "Preempt 802.1Qbu"
+  },
+  {
+    "id": "TAB_STM",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "streams-8021qcc",
+    "order": 6,
+    "label": "Streams 802.1Qcc"
+  },
+  {
+    "id": "TAB_TSYNC",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "timesync-8021as",
+    "order": 7,
+    "label": "Timesync 802.1AS"
   }
 ]
