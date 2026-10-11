@@ -1,0 +1,1 @@
+{"priority":5,"traffic_class":5,"vlan_id":100,"preemption":1,"timesync_mode":2,"st_role":1,"st_vlan":100,"st_prio":5,"tas_cycle_ns":500000000,"gcl_gs":[1,0],"gcl_dur":[250000000,250000000]}
