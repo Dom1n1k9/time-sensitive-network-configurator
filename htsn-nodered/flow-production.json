@@ -1007,7 +1007,7 @@
     "y": 1120,
     "wires": [
       [
-        "T_VSL"
+        "FMT_T_VSL"
       ]
     ]
   },
@@ -1023,7 +1023,7 @@
     "y": 1120,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>device</th><th>created</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"dev\", \"ts\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -1191,7 +1191,7 @@
     "y": 1260,
     "wires": [
       [
-        "T_QOSL"
+        "FMT_T_QOSL"
       ]
     ],
     "mydb": "SQLCFG",
@@ -1210,7 +1210,7 @@
     "y": 1260,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>prio</th><th>tc</th><th>bw kbps</th><th>lat ms</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"device_id\", \"priority\", \"traffic_class\", \"bandwidth_kbps\", \"latency_ms\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -1301,7 +1301,7 @@
     "y": 1400,
     "wires": [
       [
-        "T_VLANL"
+        "FMT_T_VLANL"
       ]
     ],
     "mydb": "SQLCFG",
@@ -1320,7 +1320,7 @@
     "y": 1400,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>id</th><th>name</th><th>vlan</th><th>members</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"id\", \"name\", \"vlan_id\", \"members\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -1790,7 +1790,7 @@
     "y": 2500,
     "wires": [
       [
-        "T_EVT"
+        "FMT_T_EVT"
       ]
     ]
   },
@@ -1806,7 +1806,7 @@
     "y": 2500,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>time</th><th>kind</th><th>source</th><th>message</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"ts\", \"kind\", \"src\", \"msg\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -1925,7 +1925,7 @@
     "y": 2640,
     "wires": [
       [
-        "T_MET"
+        "FMT_T_MET"
       ]
     ]
   },
@@ -1941,7 +1941,7 @@
     "y": 2640,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>avg ms</th><th>max ms</th><th>samples</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"avg\", \"max\", \"n\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -1978,7 +1978,7 @@
     "y": 2700,
     "wires": [
       [
-        "T_PTPM"
+        "FMT_T_PTPM"
       ]
     ]
   },
@@ -1994,7 +1994,7 @@
     "y": 2700,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>avg off ns</th><th>max jit ns</th><th>samples</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"off\", \"jit\", \"n\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -2055,7 +2055,7 @@
     "y": 2780,
     "wires": [
       [
-        "T_SENSL"
+        "FMT_T_SENSL"
       ]
     ]
   },
@@ -2071,7 +2071,7 @@
     "y": 2780,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>sensor</th><th>id</th><th>value</th><th>unit</th><th>age</th><th>id2</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"name\", \"sid\", \"val\", \"unit\", \"age\", \"sid\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -2132,7 +2132,7 @@
     "y": 2860,
     "wires": [
       [
-        "T_RECL"
+        "FMT_T_RECL"
       ]
     ]
   },
@@ -2148,7 +2148,7 @@
     "y": 2860,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>device</th><th>path</th><th>recorded</th><th>detections</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"dev\", \"path\", \"ts\", \"det\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -2999,7 +2999,7 @@
     "y": 3680,
     "wires": [
       [
-        "T_DECI"
+        "FMT_T_DECI"
       ]
     ]
   },
@@ -3015,7 +3015,7 @@
     "y": 3680,
     "wires": [],
     "html": "<div style=\"overflow:auto;max-height:100%\">\n<table style=\"width:100%;border-collapse:collapse;font-size:12px\" id=\"tbl_{id}\">\n<thead><tr><th>time</th><th>device</th><th>action</th><th>source</th><th>reason</th></tr></thead>\n<tbody id=\"tbody_{id}\"></tbody>\n</table>\n</div>\n<script>\n(function(){\n  var tblId='tbl_{id}';\n  var cols=[\"ts\", \"dev\", \"act\", \"src\", \"reason\"];\n  function render(){\n    var rows=(msg&&msg.payload)||[];\n    var tbody=document.getElementById('tbody_'+tblId);\n    if(!tbody)return;\n    tbody.innerHTML='';\n    rows.forEach(function(r){\n      var tr=document.createElement('tr');\n      tr.style.borderBottom='1px solid #eee';\n      cols.forEach(function(p){\n        var td=document.createElement('td');\n        td.style.padding='4px 6px';\n        var v=r[p];\n        td.textContent=(v===null||v===undefined)?'-':String(v);\n        tr.appendChild(td);\n      });\n      tbody.appendChild(tr);\n    });\n    if(rows.length===0){\n      var tr=document.createElement('tr');\n      var td=document.createElement('td');\n      td.colSpan=cols.length;\n      td.style.textAlign='center';\n      td.style.color='#999';\n      td.textContent='No data';\n      tr.appendChild(td);\n      tbody.appendChild(tr);\n    }\n  }\n  render();\n})();\n</script>",
-    "format": "{{msg.payload}}",
+    "format": "<pre style=\"margin:0;white-space:pre-wrap;font-size:12px;line-height:1.55;font-family:monospace;color:#37474f;\">{{msg.payload}}</pre>",
     "storeOutMessages": true,
     "fgColor": "#000000",
     "bgColor": "#ffffff",
@@ -4184,7 +4184,7 @@
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_CFG",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>Endpoint Base Config</h3><div class=\"sub\">VLAN, PCP, traffic class, timesync + stream role. Apply pushes to the STM32 via OPC UA.</div>\n<div class=\"row\"><label>VLAN ID (0-4094, 0=no change)</label><input type=\"number\" id=\"HTML_TSN_vlan_id\" min=\"0\" max=\"4094\" step=\"1\"></div><div class=\"row\"><label>PCP priority (0-7)</label><input type=\"number\" id=\"HTML_TSN_priority\" min=\"0\" max=\"7\" step=\"1\"></div><div class=\"row\"><label>Traffic class (0-7)</label><input type=\"number\" id=\"HTML_TSN_traffic_class\" min=\"0\" max=\"7\" step=\"1\"></div><div class=\"row\"><label>Preemption 802.1Qbb (0-1)</label><input type=\"number\" id=\"HTML_TSN_preemption\" min=\"0\" max=\"1\" step=\"1\"></div><div class=\"row\"><label>Timesync mode</label><select id=\"HTML_TSN_timesync_mode\"><option value=\"none\">none</option><option value=\"GM\">GM</option><option value=\"slave\">slave</option></select></div><div class=\"row\"><label>Stream role</label><select id=\"HTML_TSN_st_role\"><option value=\"talker\">talker</option><option value=\"listener\">listener</option></select></div><div class=\"row\"><label>Stream VLAN (0-4094)</label><input type=\"number\" id=\"HTML_TSN_st_vlan\" min=\"0\" max=\"4094\" step=\"1\"></div><div class=\"row\"><label>Stream PCP (0-7)</label><input type=\"number\" id=\"HTML_TSN_st_prio\" min=\"0\" max=\"7\" step=\"1\"></div><div class=\"row\"><label>TAS cycle (ns)</label><input type=\"number\" id=\"HTML_TSN_tas_cycle_ns\" min=\"1\" max=\"1000000000\" step=\"1\"></div><div class=\"row\"><label>GCL schedule (open:ns closed:ns ...)</label><input type=\"text\" id=\"HTML_TSN_gcl\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_TSN')\">Apply to STM32</button>\n<div class=\"ok\" id=\"HTML_TSN_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.vlan_id=(document.getElementById(\"HTML_TSN_vlan_id\").value||\"\").trim();\n    p.priority=(document.getElementById(\"HTML_TSN_priority\").value||\"\").trim();\n    p.traffic_class=(document.getElementById(\"HTML_TSN_traffic_class\").value||\"\").trim();\n    p.preemption=(document.getElementById(\"HTML_TSN_preemption\").value||\"\").trim();\n    p.timesync_mode=(document.getElementById(\"HTML_TSN_timesync_mode\").value||\"\").trim();\n    p.st_role=(document.getElementById(\"HTML_TSN_st_role\").value||\"\").trim();\n    p.st_vlan=(document.getElementById(\"HTML_TSN_st_vlan\").value||\"\").trim();\n    p.st_prio=(document.getElementById(\"HTML_TSN_st_prio\").value||\"\").trim();\n    p.tas_cycle_ns=(document.getElementById(\"HTML_TSN_tas_cycle_ns\").value||\"\").trim();\n    p.gcl=(document.getElementById(\"HTML_TSN_gcl\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4196,14 +4196,15 @@
       [
         "FN_CFG"
       ]
-    ]
+    ],
+    "groupMode": "fixed"
   },
   {
     "id": "HTML_QOS",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_QOS",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>QoS Policy</h3><div class=\"sub\">Per-device priority (0-7, 5-7=critical), bandwidth (kbps, 0=unlimited), latency (ms).</div>\n<div class=\"row\"><label>Device ID</label><input type=\"text\" id=\"HTML_QOS_device_id\"></div><div class=\"row\"><label>Priority (0-7)</label><input type=\"number\" id=\"HTML_QOS_priority\" min=\"0\" max=\"7\" step=\"1\"></div><div class=\"row\"><label>Traffic class (0-7)</label><input type=\"number\" id=\"HTML_QOS_traffic_class\" min=\"0\" max=\"7\" step=\"1\"></div><div class=\"row\"><label>Bandwidth kbps</label><input type=\"number\" id=\"HTML_QOS_bandwidth_kbps\" min=\"0\" max=\"100000\" step=\"1\"></div><div class=\"row\"><label>Latency ms</label><input type=\"number\" id=\"HTML_QOS_latency_ms\" min=\"0\" max=\"10000\" step=\"1\"></div><div class=\"row\"><label>Preemption (0-1)</label><input type=\"number\" id=\"HTML_QOS_preemption\" min=\"0\" max=\"1\" step=\"1\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_QOS')\">Save QoS</button>\n<div class=\"ok\" id=\"HTML_QOS_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.device_id=(document.getElementById(\"HTML_QOS_device_id\").value||\"\").trim();\n    p.priority=(document.getElementById(\"HTML_QOS_priority\").value||\"\").trim();\n    p.traffic_class=(document.getElementById(\"HTML_QOS_traffic_class\").value||\"\").trim();\n    p.bandwidth_kbps=(document.getElementById(\"HTML_QOS_bandwidth_kbps\").value||\"\").trim();\n    p.latency_ms=(document.getElementById(\"HTML_QOS_latency_ms\").value||\"\").trim();\n    p.preemption=(document.getElementById(\"HTML_QOS_preemption\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4215,14 +4216,15 @@
       [
         "FN_QOS"
       ]
-    ]
+    ],
+    "groupMode": "fixed"
   },
   {
     "id": "HTML_VLAN",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_VLAN",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>VLAN Groups</h3><div class=\"sub\">802.1Q VLAN groups (ID 1-4094).</div>\n<div class=\"row\"><label>Group name</label><input type=\"text\" id=\"HTML_VLAN_name\"></div><div class=\"row\"><label>VLAN ID (1-4094)</label><input type=\"number\" id=\"HTML_VLAN_vlan_id\" min=\"1\" max=\"4094\" step=\"1\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_VLAN')\">Save VLAN</button>\n<div class=\"ok\" id=\"HTML_VLAN_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.name=(document.getElementById(\"HTML_VLAN_name\").value||\"\").trim();\n    p.vlan_id=(document.getElementById(\"HTML_VLAN_vlan_id\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4234,14 +4236,15 @@
       [
         "FN_VLAN"
       ]
-    ]
+    ],
+    "groupMode": "fixed"
   },
   {
     "id": "HTML_TAS",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_TAS",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>TAS Scheduling (802.1Qbv)</h3><div class=\"sub\">Cycle (ns) = period; GCL = gate:ns gate:ns.</div>\n<div class=\"row\"><label>Schedule name</label><input type=\"text\" id=\"HTML_TAS_name\"></div><div class=\"row\"><label>Cycle time (ns)</label><input type=\"number\" id=\"HTML_TAS_cycle_time_ns\" min=\"1\" max=\"1000000000\" step=\"1\"></div><div class=\"row\"><label>Deploy target</label><input type=\"text\" id=\"HTML_TAS_deploy_target\"></div><div class=\"row\"><label>GCL (gate:ns gate:ns ...)</label><input type=\"text\" id=\"HTML_TAS_gcl\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_TAS')\">Save TAS</button>\n<div class=\"ok\" id=\"HTML_TAS_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.name=(document.getElementById(\"HTML_TAS_name\").value||\"\").trim();\n    p.cycle_time_ns=(document.getElementById(\"HTML_TAS_cycle_time_ns\").value||\"\").trim();\n    p.deploy_target=(document.getElementById(\"HTML_TAS_deploy_target\").value||\"\").trim();\n    p.gcl=(document.getElementById(\"HTML_TAS_gcl\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4253,14 +4256,15 @@
       [
         "FN_TAS"
       ]
-    ]
+    ],
+    "groupMode": "fixed"
   },
   {
     "id": "HTML_PRE",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_PRE",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>Frame Preemption (802.1Qbb)</h3><div class=\"sub\">Enable per device + eMAC/pMAC priority lists.</div>\n<div class=\"row\"><label>Device ID</label><input type=\"text\" id=\"HTML_PRE_device_id\"></div><div class=\"row\"><label>Preemption (0-1)</label><input type=\"number\" id=\"HTML_PRE_preemption\" min=\"0\" max=\"1\" step=\"1\"></div><div class=\"row\"><label>eMAC priorities</label><input type=\"text\" id=\"HTML_PRE_emac\"></div><div class=\"row\"><label>pMAC priorities</label><input type=\"text\" id=\"HTML_PRE_pmac\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_PRE')\">Save Preemption</button>\n<div class=\"ok\" id=\"HTML_PRE_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.device_id=(document.getElementById(\"HTML_PRE_device_id\").value||\"\").trim();\n    p.preemption=(document.getElementById(\"HTML_PRE_preemption\").value||\"\").trim();\n    p.emac=(document.getElementById(\"HTML_PRE_emac\").value||\"\").trim();\n    p.pmac=(document.getElementById(\"HTML_PRE_pmac\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4272,14 +4276,15 @@
       [
         "FN_PRE"
       ]
-    ]
+    ],
+    "groupMode": "fixed"
   },
   {
     "id": "HTML_STM",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_STM",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>Stream Reservation (802.1Qcc)</h3><div class=\"sub\">Talker -&gt; listener, VLAN.</div>\n<div class=\"row\"><label>Stream name</label><input type=\"text\" id=\"HTML_STM_name\"></div><div class=\"row\"><label>Talker device</label><input type=\"text\" id=\"HTML_STM_talker\"></div><div class=\"row\"><label>Listeners (comma-sep)</label><input type=\"text\" id=\"HTML_STM_listeners\"></div><div class=\"row\"><label>VLAN ID</label><input type=\"number\" id=\"HTML_STM_vlan_id\" min=\"1\" max=\"4094\" step=\"1\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_STM')\">Save Stream</button>\n<div class=\"ok\" id=\"HTML_STM_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.name=(document.getElementById(\"HTML_STM_name\").value||\"\").trim();\n    p.talker=(document.getElementById(\"HTML_STM_talker\").value||\"\").trim();\n    p.listeners=(document.getElementById(\"HTML_STM_listeners\").value||\"\").trim();\n    p.vlan_id=(document.getElementById(\"HTML_STM_vlan_id\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4291,14 +4296,15 @@
       [
         "FN_STM"
       ]
-    ]
+    ],
+    "groupMode": "fixed"
   },
   {
     "id": "HTML_TSYNC",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
-    "group": null,
+    "group": "GRP_TSYNC",
     "format": "<style>.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:2px 6px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 44%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;-webkit-appearance:none;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}.tsnf .ok{display:none;margin-top:10px;font-size:13px;color:#009688;font-weight:500;}</style>\n<div class=\"tsnf\"><h3>Time Sync (802.1AS gPTP)</h3><div class=\"sub\">Mode: 0=none, 1=GM (RPi leads), 2=slave (follow).</div>\n<div class=\"row\"><label>Mode (0=none 1=GM 2=slave)</label><input type=\"number\" id=\"HTML_TSYNC_mode\" min=\"0\" max=\"2\" step=\"1\"></div><div class=\"row\"><label>Grandmaster device</label><input type=\"text\" id=\"HTML_TSYNC_grandmaster\"></div>\n<button class=\"btn\" type=\"button\" onclick=\"tsnfGo('HTML_TSYNC')\">Save Time Sync</button>\n<div class=\"ok\" id=\"HTML_TSYNC_ok\">Saved &#10003;</div></div>\n<script>\nwindow.tsnfGo=function(fid){var p={};\n    p.mode=(document.getElementById(\"HTML_TSYNC_mode\").value||\"\").trim();\n    p.grandmaster=(document.getElementById(\"HTML_TSYNC_grandmaster\").value||\"\").trim();\nsend({payload:p});var o=document.getElementById(fid+\"_ok\");o.style.display=\"block\";setTimeout(function(){o.style.display=\"none\";},1500);};\n</script>",
     "storeOutMessages": "false",
     "cd": "false",
@@ -4309,6 +4315,196 @@
     "wires": [
       [
         "FN_TSYNC"
+      ]
+    ],
+    "groupMode": "fixed"
+  },
+  {
+    "id": "GLOBAL_CSS",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "global css",
+    "group": null,
+    "templateScope": "global",
+    "format": "<style>.nr-dashboard-cardcontainer{width:100%!important;max-width:none!important;margin:0 0 10px 0!important;}.nr-dashboard-cardcontainer .md-card,.nr-dashboard-cardcontainer md-card{box-shadow:none!important;border:none!important;background:transparent!important;}.nr-dashboard-cardcarat{display:none!important;}.nr-dashboard-template{overflow:visible!important;}</style>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "x": 40,
+    "y": 40,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "FMT_T_QOSL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 330,
+    "y": 1260,
+    "wires": [
+      [
+        "T_QOSL"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_VLANL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 330,
+    "y": 1400,
+    "wires": [
+      [
+        "T_VLANL"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_VSL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 1120,
+    "wires": [
+      [
+        "T_VSL"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_EVT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 2500,
+    "wires": [
+      [
+        "T_EVT"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_MET",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 2640,
+    "wires": [
+      [
+        "T_MET"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_PTPM",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 2700,
+    "wires": [
+      [
+        "T_PTPM"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_SENSL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 2780,
+    "wires": [
+      [
+        "T_SENSL"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_RECL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 2860,
+    "wires": [
+      [
+        "T_RECL"
+      ]
+    ]
+  },
+  {
+    "id": "FMT_T_DECI",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt",
+    "func": "var p=msg.payload;if(Array.isArray(p)){msg.payload=p.map(function(r){if(r&&typeof r==='object')return Object.keys(r).map(function(k){return k+'='+r[k];}).join('  ');return String(r);}).join('\\n');}else if(p&&typeof p==='object'){msg.payload=Object.keys(p).map(function(k){return k+'='+p[k];}).join('  ');}else{msg.payload=(p===null||p===undefined)?'':String(p);}return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 3680,
+    "wires": [
+      [
+        "T_DECI"
       ]
     ]
   }
