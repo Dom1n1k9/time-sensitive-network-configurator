@@ -15,7 +15,7 @@ LDFLAGS += -L$(PFX)/lib -Wl,-rpath,$(PFX)/lib
 # Shared objects: the node model + the PubSub plane (used by the server + test).
 OBJS_COMMON = htsn_nodes.c htsn_pubsub.c
 
-all: cnc_opcua test_opcua_client htsn_opcua_cli tsn_opcua_link tsn_opcua_bridge htsn_pubsub_test
+all: cnc_opcua test_opcua_client htsn_opcua_cli tsn_opcua_link tsn_opcua_bridge htsn_pubsub_test htsn_preempt_emit
 
 cnc_opcua: cnc_opcua.c $(OBJS_COMMON) htsn_opcua_ids.h htsn_nodes.h htsn_pubsub.h
 	$(CC) $(CFLAGS) -o $@ cnc_opcua.c $(OBJS_COMMON) $(LDFLAGS) -lopen62541
@@ -35,7 +35,11 @@ htsn_opcua_cli: htsn_opcua_cli.c htsn_opcua_ids.h
 tsn_opcua_link: tsn_opcua_link.c htsn_opcua_ids.h
 	$(CC) $(CFLAGS) -o $@ tsn_opcua_link.c $(LDFLAGS) -lopen62541
 
+# Standalone 802.3br software frame-preemption demo (raw AF_PACKET, no open62541).
+htsn_preempt_emit: preempt_emit.c htsn_frame.h
+	$(CC) -O2 -Wall -I. -o $@ preempt_emit.c
+
 clean:
-	rm -f cnc_opcua test_opcua_client htsn_opcua_cli tsn_opcua_link tsn_opcua_bridge htsn_pubsub_test
+	rm -f cnc_opcua test_opcua_client htsn_opcua_cli tsn_opcua_link tsn_opcua_bridge htsn_pubsub_test htsn_preempt_emit
 
 .PHONY: all clean

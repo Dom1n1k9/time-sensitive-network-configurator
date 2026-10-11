@@ -1,0 +1,24 @@
+[Unit]
+Description=HTSN software 802.3br frame-preemption demo (RPi, no HW engine)
+# The RPi's macb NIC has no HW frame-preemption engine and no taprio qdisc, so
+# htsn_preempt_emit simulates 802.3br preemption in software: it emits the same
+# 3-frame sequence a real preempting MAC would put on the wire (a preemptible
+# low-PCP frame aborted with a 0xFFFF Last-Fragment-Marker, a PCP-7 urgent frame
+# that interrupted it, then the full frame retransmitted), VLAN-tagged, so the
+# preemption is physically visible on the wire / in Wireshark / the Node-RED view.
+After=network-online.target htsn-vlan-setup.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# AF_PACKET raw socket needs CAP_NET_RAW -> run as root (like the capture path).
+ExecStart=/home/wtsn/wtsn-configurator/rpi-tsn/htsn_preempt_emit
+Environment=HTSN_IFACE=eth0
+Environment=HTSN_VLAN=100
+Environment=HTSN_PCP=5
+Environment=HTSN_INTERVAL_MS=2000
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
