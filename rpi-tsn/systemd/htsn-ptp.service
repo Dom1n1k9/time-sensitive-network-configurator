@@ -1,0 +1,21 @@
+[Unit]
+Description=HTSN PTP grandmaster (ptp4l, master-only, HW time-stamped) on eth0
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# ptp4l needs CAP_NET_ADMIN -> run as root (default, no User=).
+# -H enables hardware time-stamping: the macb NIC exposes a PHC (/dev/ptp0) with
+# IEEE-1588-precise HW time-stamping, so ptp4l selects it as the PTP clock and
+# the per-frame timestamps are taken at the NIC rather than in the kernel (lower
+# timestamp jitter). With HW timestamps ptp4l runs 1-step (the SYNC carries the
+# HW timestamp); the STM32 slave auto-detects 1-step vs 2-step (stm32-tsn/tsn/ptp.c:
+# a SYNC that carries a timestamp is treated as 1-step, otherwise it reads the
+# Follow_Up), so the sync stays locked either way.
+ExecStart=/usr/sbin/ptp4l -i eth0 -m -H
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
