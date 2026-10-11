@@ -4197,7 +4197,9 @@
         "FN_CFG"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "13",
+    "width": "24"
   },
   {
     "id": "HTML_QOS",
@@ -4217,7 +4219,9 @@
         "FN_QOS"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "9",
+    "width": "24"
   },
   {
     "id": "HTML_VLAN",
@@ -4237,7 +4241,9 @@
         "FN_VLAN"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "5",
+    "width": "24"
   },
   {
     "id": "HTML_TAS",
@@ -4257,7 +4263,9 @@
         "FN_TAS"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "7",
+    "width": "24"
   },
   {
     "id": "HTML_PRE",
@@ -4277,7 +4285,9 @@
         "FN_PRE"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "7",
+    "width": "24"
   },
   {
     "id": "HTML_STM",
@@ -4297,7 +4307,9 @@
         "FN_STM"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "7",
+    "width": "24"
   },
   {
     "id": "HTML_TSYNC",
@@ -4317,7 +4329,9 @@
         "FN_TSYNC"
       ]
     ],
-    "groupMode": "fixed"
+    "groupMode": "fixed",
+    "height": "5",
+    "width": "24"
   },
   {
     "id": "GLOBAL_CSS",
