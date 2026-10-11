@@ -350,9 +350,15 @@ int main(void) {
             struct sockaddr_in src; socklen_t slen = sizeof(src);
             ssize_t n = recvfrom(udp_fd, buf, sizeof(buf), 0, (struct sockaddr *)&src, &slen);
             if (n > 0) {
-                if (!ep_known) { ep = src; ep_known = UA_TRUE;
+                /* Re-learn the endpoint whenever the source changes: the STM32
+                 * can first emit telemetry from a link-local (169.254.x.x) address
+                 * before it settles on its 192.168.x.x address, so a one-shot learn
+                 * would pin the (dead) link-local address and every forwarded config
+                 * would be dropped -> endpoint never applies 802.1Q. */
+                if (!ep_known || src.sin_addr.s_addr != ep.sin_addr.s_addr || src.sin_port != ep.sin_port) {
+                    int first = !ep_known; ep = src; ep_known = UA_TRUE;
                     char ip[32]; inet_ntop(AF_INET, &src.sin_addr, ip, sizeof(ip));
-                    fprintf(stderr, "bridge: learned endpoint %s:%d\n", ip, ntohs(src.sin_port)); }
+                    fprintf(stderr, "bridge: %s endpoint %s:%d\n", first ? "learned" : "updated", ip, ntohs(src.sin_port)); }
                 uint8_t type, kind, pl[HTSN_FRAME_MAXPLEN];
                 size_t plen = 0;
                 if (htsn_frame_unpack(buf, (size_t)n, &type, &kind, pl, &plen) == 0) {
