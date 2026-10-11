@@ -148,8 +148,8 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "aggregate telemetry",
-    "func": "var NAMES=[\"sonar_sweep\",\"sonar_sweep_id\",\"servo_angle\",\"relay_on\",\"buzzer_hz\",\"buzzer_ms\",\"btn1\",\"btn2\",\"btn3\",\"btn4\",\"ptp_offset_ns\",\"ptp_state\",\"ptp_locked\",\"last_seen\",\"tsn_app_vlan\",\"tsn_app_prio\",\"tsn_app_preempt\",\"tsn_app_timesync\",\"tsn_app_strole\",\"tsn_app_stvlan\",\"tsn_app_tascyc\",\"tsn_features\"];\nvar dv=(msg.payload||[]);\nvar tele={};\nfor(var i=0;i<NAMES.length;i++){var d=dv[i];tele[NAMES[i]]=(d&&d.value)?d.value.value:null;}\nglobal.set(\"HTSN_TELE\",tele);\nvar b=[tele.btn1,tele.btn2,tele.btn3,tele.btn4].join(\",\");\nreturn [\n {payload:(typeof tele.servo_angle===\"number\")?tele.servo_angle:0},\n {payload:\"state=\"+tele.ptp_state+\" locked=\"+tele.ptp_locked+\" off=\"+(tele.ptp_offset_ns||0)+\"ns lastseen=\"+(tele.last_seen||0)},\n {payload:\"vlan=\"+tele.tsn_app_vlan+\" prio=\"+tele.tsn_app_prio+\" ts=\"+tele.tsn_app_timesync+\" role=\"+tele.tsn_app_strole+\" feat=\"+tele.tsn_features+\" tasns=\"+(tele.tsn_app_tascyc||0)},\n {payload:\"relay=\"+tele.relay_on+\" buzz=\"+(tele.buzzer_hz||0)+\"Hz sonar#=\"+tele.sonar_sweep_id+\" btns=[\"+b+\"]\"},\n {payload:\"servo=\"+tele.servo_angle+\" ptp=\"+tele.ptp_state+\" feat=\"+tele.tsn_features+\" vlan=\"+tele.tsn_app_vlan+\" @ \"+new Date().toLocaleTimeString()}\n];",
-    "outputs": 5,
+    "func": "var NAMES=[\"sonar_sweep\",\"sonar_sweep_id\",\"servo_angle\",\"relay_on\",\"buzzer_hz\",\"buzzer_ms\",\"btn1\",\"btn2\",\"btn3\",\"btn4\",\"ptp_offset_ns\",\"ptp_state\",\"ptp_locked\",\"last_seen\",\"tsn_app_vlan\",\"tsn_app_prio\",\"tsn_app_preempt\",\"tsn_app_timesync\",\"tsn_app_strole\",\"tsn_app_stvlan\",\"tsn_app_tascyc\",\"tsn_features\"];\nvar dv=(msg.payload||[]);\nvar tele={};\nfor(var i=0;i<NAMES.length;i++){var d=dv[i];tele[NAMES[i]]=(d&&d.value)?d.value.value:null;}\nglobal.set(\"HTSN_TELE\",tele);\nvar b=[tele.btn1,tele.btn2,tele.btn3,tele.btn4].join(\",\");\nvar f=(tele.tsn_features||0)|0;\nvar fbit=function(x){return (f&(1<<x))?\"ON\":\"off\";};\nvar featline=\"802.1Q \"+fbit(0)+\" | PCP \"+fbit(1)+\" | Preempt \"+fbit(2)+\" | PTP \"+fbit(5)+\" | Stream \"+fbit(3)+\" | TAS \"+fbit(4);\nvar applyline=\"vlan=\"+tele.tsn_app_vlan+\" pcp=\"+tele.tsn_app_prio+\" pre=\"+tele.tsn_app_preempt+\" timesync=\"+tele.tsn_app_timesync+\" tas_cycle=\"+(tele.tsn_app_tascyc||0)+\"ns st_role=\"+tele.tsn_app_strole+\" st_vlan=\"+tele.tsn_app_stvlan;\nreturn [\n {payload:(typeof tele.servo_angle===\"number\")?tele.servo_angle:0},\n {payload:\"state=\"+tele.ptp_state+\" locked=\"+tele.ptp_locked+\" off=\"+(tele.ptp_offset_ns||0)+\"ns lastseen=\"+(tele.last_seen||0)},\n {payload:\"vlan=\"+tele.tsn_app_vlan+\" prio=\"+tele.tsn_app_prio+\" ts=\"+tele.tsn_app_timesync+\" role=\"+tele.tsn_app_strole+\" feat=\"+tele.tsn_features+\" tasns=\"+(tele.tsn_app_tascyc||0)},\n {payload:\"relay=\"+tele.relay_on+\" buzz=\"+(tele.buzzer_hz||0)+\"Hz sonar#=\"+tele.sonar_sweep_id+\" btns=[\"+b+\"]\"},\n {payload:\"servo=\"+tele.servo_angle+\" ptp=\"+tele.ptp_state+\" feat=\"+tele.tsn_features+\" vlan=\"+tele.tsn_app_vlan+\" @ \"+new Date().toLocaleTimeString()},\n {payload:featline},\n {payload:applyline}\n];",
+    "outputs": 7,
     "timeout": 0,
     "noerr": 0,
     "initialize": "",
@@ -171,6 +171,12 @@
       ],
       [
         "T_OP"
+      ],
+      [
+        "T_TSNSTAT"
+      ],
+      [
+        "T_TSNCFG"
       ]
     ]
   },
@@ -4326,5 +4332,206 @@
     "x": 680,
     "y": 3340,
     "wires": []
+  },
+  {
+    "id": "GRPWS",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Wireshark",
+    "tab": "TAB1",
+    "width": "6",
+    "order": 2,
+    "label": "Wireshark",
+    "className": ""
+  },
+  {
+    "id": "T_WSLINK",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "group": "GRPWS",
+    "name": "wireshark",
+    "width": "6",
+    "height": "3",
+    "x": 340,
+    "y": 340,
+    "wires": [],
+    "html": "",
+    "format": "<div style=\"height:100%;display:flex;flex-direction:column;justify-content:center;padding:10px\"><div style=\"font-size:12px;color:#555;margin-bottom:10px\">Launches a fresh <b>fullscreen</b> Wireshark capture of <b>eth0</b>, then opens it in a new tab (VNC password when prompted).</div><button onclick=\"fetch('/api/ws-open',{method:'POST'});window.open('http://'+window.location.hostname+':6080/vnc.html?autoconnect=true','_blank')\" style=\"width:100%;padding:11px;background:#0e7490;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer\">Open Wireshark</button></div>",
+    "storeOutMessages": false,
+    "fgColor": "#000000",
+    "bgColor": "#ffffff",
+    "className": ""
+  },
+  {
+    "id": "HTTP_WSOPEN",
+    "type": "http in",
+    "z": "FLOWTAB",
+    "name": "ws-open",
+    "url": "ws-open",
+    "method": "post",
+    "upload": false,
+    "swaggerTag": "",
+    "x": 200,
+    "y": 2600,
+    "wires": [
+      [
+        "EXEC_WSOPEN"
+      ]
+    ]
+  },
+  {
+    "id": "EXEC_WSOPEN",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "launch wireshark",
+    "command": "bash /home/wtsn/vnc-wireshark/launch-wireshark.sh",
+    "addpay": false,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 440,
+    "y": 2600,
+    "wires": [
+      [
+        "HTTP_WSRESP",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": "HTTP_WSRESP",
+    "type": "http response",
+    "z": "FLOWTAB",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 680,
+    "y": 2600
+  },
+  {
+    "id": "GRP_TSNSTAT",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "TSN Status",
+    "tab": "TAB1",
+    "width": "6",
+    "order": 2,
+    "label": "Live TSN Status (decoded)"
+  },
+  {
+    "id": "T_TSNSTAT",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_TSNSTAT",
+    "label": "Active features (decoded)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 960,
+    "y": 1560,
+    "wires": []
+  },
+  {
+    "id": "T_TSNCFG",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_TSNSTAT",
+    "label": "Applied TSN config",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 960,
+    "y": 1600,
+    "wires": []
+  },
+  {
+    "id": "T_PREEMPT",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_TSNSTAT",
+    "label": "Software 802.3br preemption demo",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "14",
+    "color": "#000000",
+    "x": 960,
+    "y": 1640,
+    "wires": []
+  },
+  {
+    "id": "INJ_PREEMPT",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll 5s (preempt svc)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "once": true,
+    "onceDelay": "3",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 1640,
+    "wires": [
+      [
+        "EXEC_PREEMPT"
+      ]
+    ]
+  },
+  {
+    "id": "EXEC_PREEMPT",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "is-active htsn-preempt",
+    "command": "systemctl is-active htsn-preempt 2>/dev/null || echo unknown",
+    "addpay": false,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 360,
+    "y": 1640,
+    "wires": [
+      [
+        "FN_PREEMPT",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": "FN_PREEMPT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt preempt svc",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 560,
+    "y": 1640,
+    "wires": [
+      [
+        "T_PREEMPT"
+      ]
+    ],
+    "func": "var s=(msg.payload||'').trim();var ok=(s==='active');\nmsg.payload=ok?'htsn-preempt ACTIVE - emitting 802.3br preemption (truncated PCP5 + 0xFFFF LFM -> urgent PCP7 -> retransmit) every 2s':'htsn-preempt '+s+' - software preemption demo NOT emitting';\nreturn msg;"
   }
 ]
