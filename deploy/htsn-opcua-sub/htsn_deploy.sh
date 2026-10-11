@@ -44,8 +44,11 @@ step "4/6 802.1Q persistence (drop-in on htsn-cnc.service)"
 if [ -f /etc/systemd/system/htsn-cnc.service ]; then
   $SUDO install -d /etc/systemd/system/htsn-cnc.service.d
   $SUDO install -m 0644 "$STAGE/htsn-cnc-tsn-apply.conf" /etc/systemd/system/htsn-cnc.service.d/tsn-apply.conf
+  if [ -f "$STAGE/htsn-cnc-uadp-vlan.conf" ]; then
+    $SUDO install -m 0644 "$STAGE/htsn-cnc-uadp-vlan.conf" /etc/systemd/system/htsn-cnc.service.d/uadp-vlan.conf
+  fi
   $SUDO systemctl daemon-reload
-  echo "  installed: re-applies TSN config on every htsn-cnc start/restart"
+  echo "  installed: re-applies TSN config + routes UADP data plane onto VLAN 100"
 else
   echo "  WARN: /etc/systemd/system/htsn-cnc.service not found; skipping drop-in"
 fi
