@@ -442,7 +442,7 @@
         "type": "number",
         "name": "tas_cycle_ns",
         "value": "500000000",
-        "min": "0",
+        "min": "1",
         "max": "1000000000"
       },
       {
@@ -1258,19 +1258,25 @@
         "label": "Bandwidth kbps",
         "type": "number",
         "name": "bandwidth_kbps",
-        "value": "1000"
+        "value": "1000",
+        "min": "0",
+        "max": "100000"
       },
       {
         "label": "Latency ms",
         "type": "number",
         "name": "latency_ms",
-        "value": "100"
+        "value": "100",
+        "min": "0",
+        "max": "10000"
       },
       {
         "label": "Preemption (0-1)",
         "type": "number",
         "name": "preemption",
-        "value": "0"
+        "value": "0",
+        "min": "0",
+        "max": "1"
       }
     ],
     "x": 100,
@@ -1286,7 +1292,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "qos SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO qos_configs(device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption) VALUES(?,?,?,?,?,?)';msg.params=[d,parseInt(f.priority)||0,parseInt(f.traffic_class)||0,parseInt(f.bandwidth_kbps)||0,parseInt(f.latency_ms)||0,parseInt(f.preemption)||0];msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO qos_configs(device_id,priority,traffic_class,bandwidth_kbps,latency_ms,preemption) VALUES(?,?,?,?,?,?)';msg.params=[d,C(f.priority,0,7,0),C(f.traffic_class,0,7,0),C(f.bandwidth_kbps,0,100000,0),C(f.latency_ms,0,10000,0),C(f.preemption,0,1,0)];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1568,7 +1574,9 @@
         "label": "Cycle time (ns)",
         "type": "number",
         "name": "cycle_time_ns",
-        "value": "500000000"
+        "value": "500000000",
+        "min": "1",
+        "max": "1000000000"
       },
       {
         "label": "Deploy target",
@@ -1596,7 +1604,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "tas SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var n=f.name||'';if(!n){return null;}msg.topic='INSERT OR REPLACE INTO tas_schedules(id,name,cycle_time_ns,deploy_target) VALUES(?,?,?,?)';msg.params=[n,n,parseInt(f.cycle_time_ns)||0,f.deploy_target||''];var gs=[];dur=[];(String(f.gcl||'')).trim().split(/\\s+/).forEach(function(p){var a=p.split(':');if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});msg._gcl=gs;msg._dur=dur;msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar n=f.name||'';if(!n){return null;}msg.topic='INSERT OR REPLACE INTO tas_schedules(id,name,cycle_time_ns,deploy_target) VALUES(?,?,?,?)';msg.params=[n,n,C(f.cycle_time_ns,1,1000000000,500000000),f.deploy_target||''];var gs=[];dur=[];(String(f.gcl||'')).trim().split(/\\s+/).forEach(function(p){var a=p.split(':');if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});msg._gcl=gs;msg._dur=dur;msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1704,7 +1712,9 @@
         "label": "Preemption (0-1)",
         "type": "number",
         "name": "preemption",
-        "value": "0"
+        "value": "0",
+        "min": "0",
+        "max": "1"
       },
       {
         "label": "eMAC priorities",
@@ -1732,7 +1742,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "preemption SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO preemption_configs(device_id,preemption,emac,pmac) VALUES(?,?,?,?)';msg.params=[d,parseInt(f.preemption)||0,f.emac||'',f.pmac||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO preemption_configs(device_id,preemption,emac,pmac) VALUES(?,?,?,?)';msg.params=[d,C(f.preemption,0,1,0),f.emac||'',f.pmac||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1818,7 +1828,9 @@
         "label": "VLAN ID",
         "type": "number",
         "name": "vlan_id",
-        "value": "100"
+        "value": "100",
+        "min": "1",
+        "max": "4094"
       }
     ],
     "x": 100,
@@ -1834,7 +1846,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "stream SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};var n=f.name||'';var t=f.talker||'';if(!n||!t){return null;}msg.topic='INSERT OR REPLACE INTO tsn_streams(stream_id,name,talker,vlan_id,max_latency_ns,max_interval_ns,priority,data_frame_prio,status,comment) VALUES(?,?,?,?,100000000,1000000,5,5,0,\\'\\')';msg.params=[n,n,t,parseInt(f.vlan_id)||0];msg._listeners=(f.listeners||'').split(',').map(function(s){return s.trim();}).filter(Boolean);msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar n=f.name||'';var t=f.talker||'';if(!n||!t){return null;}msg.topic='INSERT OR REPLACE INTO tsn_streams(stream_id,name,talker,vlan_id,max_latency_ns,max_interval_ns,priority,data_frame_prio,status,comment) VALUES(?,?,?,?,100000000,1000000,5,5,0,\\'\\')';msg.params=[n,n,t,C(f.vlan_id,1,4094,100)];msg._listeners=(f.listeners||'').split(',').map(function(s){return s.trim();}).filter(Boolean);msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1936,7 +1948,9 @@
         "label": "Mode (0=none 1=GM 2=slave)",
         "type": "number",
         "name": "mode",
-        "value": "2"
+        "value": "2",
+        "min": "0",
+        "max": "2"
       },
       {
         "label": "Grandmaster device",
@@ -1958,7 +1972,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "tsync SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};msg.topic='INSERT OR REPLACE INTO timesync_status(id,mode,grandmaster,offset_ns,quality) VALUES(\\'main\\',?,?,0,0)';msg.params=[parseInt(f.mode)||0,f.grandmaster||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
+    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nmsg.topic='INSERT OR REPLACE INTO timesync_status(id,mode,grandmaster,offset_ns,quality) VALUES(\\'main\\',?,?,0,0)';msg.params=[C(f.mode,0,2,2),f.grandmaster||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
