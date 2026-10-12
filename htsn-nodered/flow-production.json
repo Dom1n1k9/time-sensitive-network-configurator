@@ -545,6 +545,9 @@
     "wires": [
       [
         "FN_DEVFMT"
+      ],
+      [
+        "HTML_FLOW"
       ]
     ],
     "mydb": "SQLCFG",
@@ -4519,6 +4522,181 @@
     "wires": [
       [
         "T_DECI"
+      ]
+    ]
+  },
+  {
+    "id": "TAB_FLOW",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "frame-flows-8021q",
+    "order": 2.5,
+    "label": "FrameFlows 802.1Q",
+    "icon": "table"
+  },
+  {
+    "id": "GRP_FLOW",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "FrameFlows (802.1Q)",
+    "tab": "TAB_FLOW",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "FrameFlows (802.1Q)",
+      "tab": "TAB_FLOW",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_FLOW",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "frameflows form",
+    "group": "GRP_FLOW",
+    "groupMode": "fixed",
+    "format": "<style>.ff{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;max-width:1000px;}.ff h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.ff .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.ff table{border-collapse:collapse;width:100%;}.ff th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 8px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.ff td{padding:3px 6px;border-bottom:1px solid #eceff1;}.ff input,.ff select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.ff input:focus,.ff select:focus{outline:none;border-bottom:2px solid #009688;}.ff input[type=checkbox]{width:auto;}.ff .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.ff .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.ff .del:hover{background:#e57373;}.ff .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.ff .btn:hover{background:#00796b;}.ff pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"ff\" ng-init=\"rows=[{sender:'',producer:'',pcp:0,arrival_model:'Periodic',jitter_ns:0,vlan_tagged:true}]\"><h3>FrameFlows (802.1Q)</h3><div class=\"sub\">Define each Ethernet frame flow: who sends/produces it, PCP priority (0-7), arrival model, jitter and whether the frame is VLAN-tagged. Use + to add a row and &minus; to remove one, then click <b>Create</b> to save the table to the final 802.1Q config.</div><table><thead><tr><th>Sender</th><th>Producer</th><th>PCP 0-7</th><th>Arrival model</th><th>Jitter (ns)</th><th>VLAN tag</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><input list=\"ffdev\" ng-model=\"r.sender\" placeholder=\"device\"></td><td><input list=\"ffdev\" ng-model=\"r.producer\" placeholder=\"device\"></td><td><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"r.pcp\"></td><td><select ng-model=\"r.arrival_model\"><option>Sporadic</option><option>Periodic</option><option>Mixed</option></select></td><td><input type=\"number\" min=\"0\" step=\"1\" ng-model=\"r.jitter_ns\"></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.vlan_tagged\"></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\" title=\"remove row\">&minus;</button></td></tr></tbody></table><datalist id=\"ffdev\"><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{{dv.name||dv.id}}\"></option></datalist><button class=\"add\" ng-click=\"rows.push({sender:'',producer:'',pcp:0,arrival_model:'Periodic',jitter_ns:0,vlan_tagged:true})\">+ Add row</button><button class=\"btn\" ng-click=\"send({payload:rows})\">Create</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "11",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_FLOW"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FLOW",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "validate frame flows",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar out = [];\nout.push({topic:\"CREATE TABLE IF NOT EXISTS frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,producer TEXT,pcp INTEGER,arrival_model TEXT,jitter_ns INTEGER,vlan_tagged INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nout.push({topic:\"DELETE FROM frame_flows\"});\nvar valid = ['Sporadic','Periodic','Mixed'];\nvar n = 0;\nif(Object.prototype.toString.call(rows) !== '[object Array]'){ rows = []; }\nrows.forEach(function(r){\n  if(!r) return;\n  var sender = String(r.sender||'').trim();\n  var producer = String(r.producer||'').trim();\n  if(!sender && !producer) return;\n  var pcp = C(r.pcp,0,7,0);\n  var am = (valid.indexOf(r.arrival_model)>=0) ? r.arrival_model : 'Periodic';\n  var jit = C(r.jitter_ns,0,1000000000000,0);\n  var vt = r.vlan_tagged ? 1 : 0;\n  out.push({topic:\"INSERT INTO frame_flows(sender,producer,pcp,arrival_model,jitter_ns,vlan_tagged) VALUES('\"+E(sender)+\"','\"+E(producer)+\"',\"+pcp+\",'\"+am+\"',\"+jit+\",\"+vt+\")\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'saved '+n+' flow(s)'});\nreturn out;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "SQL_FLOW"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_FLOW",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write frame flows",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 710,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "INJ_FLOW",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll",
+    "repeat": "5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "3",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 240,
+    "wires": [
+      [
+        "SQL_FLOWL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_FLOWL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read frame flows",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT sender,producer,pcp,arrival_model,jitter_ns,vlan_tagged FROM frame_flows ORDER BY id",
+    "x": 360,
+    "y": 240,
+    "wires": [
+      [
+        "FN_FLOWFMT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_FLOWFMT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "format flows",
+    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows) !== '[object Array]' || rows.length===0){ msg.payload = '(no frame flows saved yet)'; return msg; }\nmsg.payload = rows.map(function(r){\n  return (r.sender||'-')+'  ->  '+(r.producer||'-')+'   | PCP '+(r.pcp==null?'-':r.pcp)+' | '+(r.arrival_model||'-')+' | jitter '+(r.jitter_ns==null?0:r.jitter_ns)+' ns | '+(r.vlan_tagged?'tagged':'untagged');\n}).join('\\n');\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 570,
+    "y": 240,
+    "wires": [
+      [
+        "T_FLOWL"
+      ]
+    ]
+  },
+  {
+    "id": "T_FLOWL",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "saved frameflows",
+    "group": "GRP_FLOW",
+    "groupMode": "fixed",
+    "format": "<style>.ff{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;max-width:1000px;}.ff h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.ff .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.ff table{border-collapse:collapse;width:100%;}.ff th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 8px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.ff td{padding:3px 6px;border-bottom:1px solid #eceff1;}.ff input,.ff select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.ff input:focus,.ff select:focus{outline:none;border-bottom:2px solid #009688;}.ff input[type=checkbox]{width:auto;}.ff .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.ff .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.ff .del:hover{background:#e57373;}.ff .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.ff .btn:hover{background:#00796b;}.ff pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"ff\"><h3>Saved FrameFlows</h3><div class=\"sub\">Rows currently in the final 802.1Q frame-flow config.</div><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "7",
+    "x": 760,
+    "y": 240,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "INJ_FLOWINIT",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "init table",
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "CREATE TABLE IF NOT EXISTS frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,producer TEXT,pcp INTEGER,arrival_model TEXT,jitter_ns INTEGER,vlan_tagged INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 180,
+    "wires": [
+      [
+        "SQL_FLOW"
       ]
     ]
   }
