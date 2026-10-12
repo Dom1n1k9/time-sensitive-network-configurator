@@ -4557,13 +4557,13 @@
     "name": "frameflows form",
     "group": "GRP_FLOW",
     "groupMode": "fixed",
-    "format": "<style>.ff{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;max-width:1000px;}.ff h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.ff .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.ff table{border-collapse:collapse;width:100%;}.ff th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 8px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.ff td{padding:3px 6px;border-bottom:1px solid #eceff1;}.ff input,.ff select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.ff input:focus,.ff select:focus{outline:none;border-bottom:2px solid #009688;}.ff input[type=checkbox]{width:auto;}.ff .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.ff .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.ff .del:hover{background:#e57373;}.ff .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.ff .btn:hover{background:#00796b;}.ff pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"ff\" ng-init=\"rows=[{sender:'',producer:'',pcp:0,arrival_model:'Periodic',jitter_ns:0,vlan_tagged:true}]\"><h3>FrameFlows (802.1Q)</h3><div class=\"sub\">Define each Ethernet frame flow: who sends/produces it, PCP priority (0-7), arrival model, jitter and whether the frame is VLAN-tagged. Use + to add a row and &minus; to remove one, then click <b>Create</b> to save the table to the final 802.1Q config.</div><table><thead><tr><th>Sender</th><th>Producer</th><th>PCP 0-7</th><th>Arrival model</th><th>Jitter (ns)</th><th>VLAN tag</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><input list=\"ffdev\" ng-model=\"r.sender\" placeholder=\"device\"></td><td><input list=\"ffdev\" ng-model=\"r.producer\" placeholder=\"device\"></td><td><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"r.pcp\"></td><td><select ng-model=\"r.arrival_model\"><option>Sporadic</option><option>Periodic</option><option>Mixed</option></select></td><td><input type=\"number\" min=\"0\" step=\"1\" ng-model=\"r.jitter_ns\"></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.vlan_tagged\"></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\" title=\"remove row\">&minus;</button></td></tr></tbody></table><datalist id=\"ffdev\"><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{{dv.name||dv.id}}\"></option></datalist><button class=\"add\" ng-click=\"rows.push({sender:'',producer:'',pcp:0,arrival_model:'Periodic',jitter_ns:0,vlan_tagged:true})\">+ Add row</button><button class=\"btn\" ng-click=\"send({payload:rows})\">Create</button></div>",
+    "format": "<style>.ff{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.ff h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.ff .sub{margin:0 0 6px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.ff .help{margin:0 0 12px 0;font-size:11px;color:#b0bec5;line-height:1.5;}.ff table{border-collapse:collapse;width:100%;}.ff th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.ff td{padding:3px 5px;border-bottom:1px solid #eceff1;}.ff input,.ff select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.ff input:focus,.ff select:focus{outline:none;border-bottom:2px solid #009688;}.ff input[type=checkbox]{width:auto;}.ff .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.ff .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.ff .del:hover{background:#e57373;}.ff .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.ff .btn:hover{background:#00796b;}.ff pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"ff\" ng-init=\"rows=[{sender:'',producer:'',pcp:5,vlan_id:100,tagged:true,arrival_model:'Periodic',interval_ms:100,jitter_ns:1000,burst:1}]\"><h3>FrameFlows (802.1Q)</h3><div class=\"sub\">Define each Ethernet frame flow. <b>Create &amp; push</b> saves the table and pushes it to the TSN endpoint, which emits one 802.1Q-tagged frame per flow (visible in Wireshark).</div><div class=\"help\">Arrival models: <b>Sporadic</b>=irregular gaps (spread by jitter) &middot; <b>Periodic</b>=fixed interval &middot; <b>Isochronous</b>=strict fixed interval &middot; <b>Burst</b>=`burst` frames each interval &middot; <b>Mixed</b>=alternates single/burst &middot; <b>Random</b>=random interval (0.5&ndash;2&times;).</div><table><thead><tr><th>Sender</th><th>Producer</th><th>PCP 0-7</th><th>VLAN ID</th><th>Tagged</th><th>Arrival model</th><th>Interval (ms)</th><th>Jitter (ns)</th><th>Burst</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><input list=\"ffdev\" ng-model=\"r.sender\" placeholder=\"device\"></td><td><input list=\"ffdev\" ng-model=\"r.producer\" placeholder=\"device\"></td><td><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"r.pcp\"></td><td><input type=\"number\" min=\"1\" max=\"4094\" step=\"1\" ng-model=\"r.vlan_id\"></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.tagged\"></td><td><select ng-model=\"r.arrival_model\"><option>Sporadic</option><option>Periodic</option><option>Mixed</option><option>Burst</option><option>Isochronous</option><option>Random</option></select></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.interval_ms\"></td><td><input type=\"number\" min=\"0\" step=\"1\" ng-model=\"r.jitter_ns\"></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.burst\"></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\" title=\"remove row\">&minus;</button></td></tr></tbody></table><datalist id=\"ffdev\"><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{{dv.name||dv.id}}\"></option></datalist><button class=\"add\" ng-click=\"rows.push({sender:'',producer:'',pcp:5,vlan_id:100,tagged:true,arrival_model:'Periodic',interval_ms:100,jitter_ns:1000,burst:1})\">+ Add row</button><button class=\"btn\" ng-click=\"send({payload:rows})\">Create &amp; push</button></div>",
     "storeOutMessages": "false",
     "cd": "false",
     "js": "",
     "css": "",
     "width": "24",
-    "height": "11",
+    "height": "13",
     "x": 200,
     "y": 120,
     "wires": [
@@ -4577,8 +4577,8 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "validate frame flows",
-    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar out = [];\nout.push({topic:\"CREATE TABLE IF NOT EXISTS frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,producer TEXT,pcp INTEGER,arrival_model TEXT,jitter_ns INTEGER,vlan_tagged INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nout.push({topic:\"DELETE FROM frame_flows\"});\nvar valid = ['Sporadic','Periodic','Mixed'];\nvar n = 0;\nif(Object.prototype.toString.call(rows) !== '[object Array]'){ rows = []; }\nrows.forEach(function(r){\n  if(!r) return;\n  var sender = String(r.sender||'').trim();\n  var producer = String(r.producer||'').trim();\n  if(!sender && !producer) return;\n  var pcp = C(r.pcp,0,7,0);\n  var am = (valid.indexOf(r.arrival_model)>=0) ? r.arrival_model : 'Periodic';\n  var jit = C(r.jitter_ns,0,1000000000000,0);\n  var vt = r.vlan_tagged ? 1 : 0;\n  out.push({topic:\"INSERT INTO frame_flows(sender,producer,pcp,arrival_model,jitter_ns,vlan_tagged) VALUES('\"+E(sender)+\"','\"+E(producer)+\"',\"+pcp+\",'\"+am+\"',\"+jit+\",\"+vt+\")\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'saved '+n+' flow(s)'});\nreturn out;\n",
-    "outputs": 1,
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,producer TEXT,pcp INTEGER,vlan_id INTEGER,vlan_tagged INTEGER,arrival_model TEXT,interval_ms INTEGER,jitter_ns INTEGER,burst INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM frame_flows\"});\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],size=[];\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nrows.forEach(function(r){\n  if(!r) return;\n  var sender=String(r.sender||'').trim();\n  var producer=String(r.producer||'').trim();\n  if(!sender && !producer) return;\n  var P=C(r.pcp,0,7,0);\n  var VID=C(r.vlan_id,1,4094,100);\n  var tagged=r.tagged?1:0;\n  var am=MODELS.hasOwnProperty(r.arrival_model)?r.arrival_model:'Periodic';\n  var iv=C(r.interval_ms,1,60000,100);\n  var jt=C(r.jitter_ns,0,1000000000,0);\n  var bu=C(r.burst,1,1000,1);\n  sql.push({topic:\"INSERT INTO frame_flows(sender,producer,pcp,vlan_id,vlan_tagged,arrival_model,interval_ms,jitter_ns,burst) VALUES('\"+E(sender)+\"','\"+E(producer)+\"',\"+P+\",\"+VID+\",\"+tagged+\",'\"+am+\"',\"+iv+\",\"+jt+\",\"+bu+\")\"});\n  pcp.push(P); vlan.push(tagged?VID:0); model.push(MODELS[am]); per.push(iv*1000); jit.push(jt); burst.push(bu); size.push(64);\n  n++;\n});\nvar flat={count:n,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,size:size};\nnode.status({fill:'green',shape:'dot',text:'saved + push '+n+' flow(s)'});\nreturn [sql, {datatype:\"String\", topic:\"ns=1;i=52\", payload:JSON.stringify(flat)}];\n",
+    "outputs": 2,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
@@ -4588,6 +4588,9 @@
     "wires": [
       [
         "SQL_FLOW"
+      ],
+      [
+        "CLI_FLOW"
       ]
     ]
   },
@@ -4632,7 +4635,7 @@
     "name": "read frame flows",
     "mydb": "SQLCFG",
     "sqlquery": "fixed",
-    "sql": "SELECT sender,producer,pcp,arrival_model,jitter_ns,vlan_tagged FROM frame_flows ORDER BY id",
+    "sql": "SELECT sender,producer,pcp,vlan_id,vlan_tagged,arrival_model,interval_ms,jitter_ns,burst FROM frame_flows ORDER BY id",
     "x": 360,
     "y": 240,
     "wires": [
@@ -4646,7 +4649,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "format flows",
-    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows) !== '[object Array]' || rows.length===0){ msg.payload = '(no frame flows saved yet)'; return msg; }\nmsg.payload = rows.map(function(r){\n  return (r.sender||'-')+'  ->  '+(r.producer||'-')+'   | PCP '+(r.pcp==null?'-':r.pcp)+' | '+(r.arrival_model||'-')+' | jitter '+(r.jitter_ns==null?0:r.jitter_ns)+' ns | '+(r.vlan_tagged?'tagged':'untagged');\n}).join('\\n');\nreturn msg;\n",
+    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows)!=='[object Array]' || rows.length===0){ msg.payload = '(no frame flows saved yet)'; return msg; }\nmsg.payload = rows.map(function(r){\n  return (r.sender||'-')+' -> '+(r.producer||'-')+' | PCP '+r.pcp+' | vlan '+(r.vlan_tagged?r.vlan_id:0)+(r.vlan_tagged?' tagged':' untagged')+' | '+r.arrival_model+' | '+r.interval_ms+'ms | jitter '+r.jitter_ns+'ns | burst '+r.burst;\n}).join('\\n');\nreturn msg;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -4698,6 +4701,35 @@
       [
         "SQL_FLOW"
       ]
+    ]
+  },
+  {
+    "id": "CLI_FLOW",
+    "type": "OpcUa-Client",
+    "z": "FLOWTAB",
+    "name": "write cmd_flow_config",
+    "action": "write",
+    "endpoint": "EP1",
+    "time": "1000",
+    "timeUnit": "msecs",
+    "deadbandtype": "abs",
+    "deadbandvalue": "0",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "useTransport": false,
+    "maxChunkCount": "0",
+    "maxMessageSize": "0",
+    "receiveBufferSize": "0",
+    "sendBufferSize": "0",
+    "setstatusandtime": true,
+    "keepsessionalive": false,
+    "applicationName": "",
+    "applicationUri": "",
+    "x": 950,
+    "y": 120,
+    "wires": [
+      []
     ]
   }
 ]

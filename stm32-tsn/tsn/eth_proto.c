@@ -63,13 +63,13 @@ static uint16_t ipv4_hdr_sum(const uint8_t *h, size_t len)
 }
 
 /* Build [TCI][0x0800][IPv4][UDP][frame] into `out`; returns byte length. */
-static int build_tagged_pcp(uint8_t *out, const uint8_t *frame, uint16_t flen, uint8_t pcp)
+static int build_tagged_pcpvid(uint8_t *out, const uint8_t *frame, uint16_t flen, uint8_t pcp, uint16_t vid)
 {
 	uint16_t udp_len = 8 + flen;
 	uint16_t ip_len  = 20 + udp_len;
 
 	/* 802.1Q TCI (2B, big-endian) + EtherType IPv4 (2B). */
-	uint16_t tci = ((uint16_t)(pcp & 0x07) << 13) | (g_vlan_id & 0x0fff);
+	uint16_t tci = ((uint16_t)(pcp & 0x07) << 13) | (vid & 0x0fff);
 	out[0] = (uint8_t)(tci >> 8);
 	out[1] = (uint8_t)(tci & 0xff);
 	out[2] = 0x08; out[3] = 0x00;
@@ -102,6 +102,11 @@ static int build_tagged_pcp(uint8_t *out, const uint8_t *frame, uint16_t flen, u
 
 	memcpy(&out[32], frame, flen);
 	return 32 + flen;
+}
+
+static int build_tagged_pcp(uint8_t *out, const uint8_t *frame, uint16_t flen, uint8_t pcp)
+{
+	return build_tagged_pcpvid(out, frame, flen, pcp, g_vlan_id);
 }
 
 static int build_tagged(uint8_t *out, const uint8_t *frame, uint16_t flen)
@@ -365,6 +370,127 @@ int htsn_net_tsn_cfg(htsn_tsn_cfg_t *out)
 	return 0;
 }
 
+/* ---- FrameFlows: per-flow 802.1Q-tagged emission ----
+ * A user-configured table of flows (PCP/VID/arrival model/period). The endpoint
+ * emits one tagged frame per flow on a cadence set by the arrival model so each
+ * flow's PCP/VID is visible on the wire (e.g. in Wireshark). */
+static htsn_flow_cfg_t g_flows;
+static volatile int     g_flows_valid = 0;
+static volatile uint8_t g_flow_gen = 0;
+
+static const char *arrival_name(uint8_t m)
+{
+	switch (m) {
+	case HTSN_ARRIVAL_SPORADIC:    return "Sporadic";
+	case HTSN_ARRIVAL_PERIODIC:    return "Periodic";
+	case HTSN_ARRIVAL_MIXED:       return "Mixed";
+	case HTSN_ARRIVAL_BURST:       return "Burst";
+	case HTSN_ARRIVAL_ISOCHRONOUS: return "Isochronous";
+	case HTSN_ARRIVAL_RANDOM:      return "Random";
+	default:                       return "?";
+	}
+}
+
+static void flow_emit(int idx, const htsn_flow_t *f)
+{
+	char pl[72];
+	int n = snprintf(pl, sizeof(pl), "FLOW#%d pcp=%u vlan=%u model=%s jitter=%uns",
+	                 idx, (unsigned)f->pcp, (unsigned)f->vlan_id,
+	                 arrival_name(f->arrival_model), (unsigned)f->jitter_ns);
+	if (n <= 0) return;
+	uint8_t fb[HTSN_FRAME_MAX];
+	int flen = htsn_frame_pack(fb, HTSN_TYPE_TELEM, HTSN_KIND_TELEM_FLOW,
+	                           (const uint8_t *)pl, (uint16_t)n);
+	if (flen <= 0) return;
+
+	uint16_t vid = f->vlan_id ? f->vlan_id : g_vlan_id;
+	uint8_t pcp = (uint8_t)(f->pcp & 0x07);
+
+	if (vid > 0 && g_raw_sock >= 0) {
+		uint8_t out[HTSN_FRAME_MAX + 32];
+		int olen = build_tagged_pcpvid(out, fb, (uint16_t)flen, pcp, vid);
+		if (olen <= 0) return;
+		struct net_sockaddr_ll ll = {0};
+		ll.sll_family   = NET_AF_PACKET;
+		ll.sll_protocol = net_htons(NET_ETH_PTYPE_VLAN);
+		ll.sll_ifindex  = g_eth_if;
+		ll.sll_halen    = 6;
+		memcpy(ll.sll_addr, g_dst_mac, 6);
+		zsock_sendto(g_raw_sock, out, (size_t)olen, 0,
+		             (const struct net_sockaddr *)&ll, sizeof(ll));
+	} else if (g_sock >= 0) {
+		sendto(g_sock, fb, (size_t)flen, 0, (struct sockaddr *)&g_cnc, sizeof(g_cnc));
+	}
+}
+
+K_THREAD_STACK_DEFINE(flow_stack, 4096);
+static struct k_thread flow_thread;
+
+static void flow_task_fn(void *a, void *b, void *c)
+{
+	(void)a; (void)b; (void)c;
+	uint32_t rng = 0x1234abcd;
+	int64_t next_ms[HTSN_FLOW_MAX];
+	uint8_t last_gen = 0;
+	int have = 0;
+	for (int i = 0; i < HTSN_FLOW_MAX; i++) next_ms[i] = 0;
+
+	for (;;) {
+		if (g_flows_valid && g_flow_gen != last_gen) {
+			last_gen = g_flow_gen;
+			have = 1;
+			int64_t now = k_uptime_get();
+			for (int i = 0; i < HTSN_FLOW_MAX; i++) next_ms[i] = now;
+		}
+		if (have) {
+			int64_t now = k_uptime_get();
+			uint16_t n = g_flows.count;
+			if (n > HTSN_FLOW_MAX) n = HTSN_FLOW_MAX;
+			for (int i = 0; i < n; i++) {
+				if (now < next_ms[i]) continue;
+				htsn_flow_t *f = &g_flows.flows[i];
+				int frames = 1, jit = 0;
+				switch (f->arrival_model) {
+				case HTSN_ARRIVAL_BURST:    frames = f->burst ? f->burst : 1; break;
+				case HTSN_ARRIVAL_MIXED:    frames = (rng & 1) ? 1 : (f->burst ? f->burst : 1); break;
+				case HTSN_ARRIVAL_SPORADIC: jit = 1; break;
+				case HTSN_ARRIVAL_RANDOM:   jit = 2; break;
+				default: break;   /* periodic / isochronous */
+				}
+				for (int b = 0; b < frames; b++) flow_emit(i, f);
+
+				int64_t period = (int64_t)(f->period_us ? f->period_us : 100000) / 1000;
+				if (period < 1) period = 1;
+				rng = rng * 1664525u + 1013904223u;
+				if (jit == 1) {
+					int64_t j = (int64_t)(f->jitter_ns / 1000000);
+					if (j > 0) period += (int64_t)(rng % (uint32_t)(2 * j + 1)) - j;
+				} else if (jit == 2) {
+					period = (period * (int64_t)(500 + (rng % 1500))) / 1000;
+				}
+				if (period < 1) period = 1;
+				next_ms[i] = now + period;
+			}
+		}
+		k_msleep(5);
+	}
+}
+
+static void tsn_handle_flow_cfg(const uint8_t *p, uint16_t len)
+{
+	if (len < 4) { LOGW("flow cfg: bad len %u\n", (unsigned)len); return; }
+	uint16_t count = (uint16_t)(p[0] | (p[1] << 8));
+	if (count > HTSN_FLOW_MAX) count = HTSN_FLOW_MAX;
+	uint16_t need = (uint16_t)(4 + count * sizeof(htsn_flow_t));
+	if (len < need) { LOGW("flow cfg: short %u < %u\n", (unsigned)len, (unsigned)need); return; }
+	memset(&g_flows, 0, sizeof(g_flows));
+	g_flows.count = count;
+	memcpy(g_flows.flows, p + 4, (size_t)count * sizeof(htsn_flow_t));
+	g_flows_valid = 1;
+	g_flow_gen++;
+	LOGI("flow cfg: %u flow(s) applied\n", (unsigned)count);
+}
+
 K_THREAD_STACK_DEFINE(cmd_stack, 4096);
 static struct k_thread cmd_thread;
 
@@ -386,6 +512,10 @@ static void cmd_task_fn(void *a, void *b, void *c)
 		/* TSN config is a network-layer op handled here (not via the verb callback). */
 		if (kind == HTSN_KIND_CMD_TSN_CFG) {
 			tsn_handle_cfg(pl, (uint16_t)plen);
+			continue;
+		}
+		if (kind == HTSN_KIND_CMD_FLOW_CFG) {
+			tsn_handle_flow_cfg(pl, (uint16_t)plen);
 			continue;
 		}
 
@@ -478,6 +608,8 @@ int htsn_net_init(void)
 
 	k_thread_create(&cmd_thread, cmd_stack, K_THREAD_STACK_SIZEOF(cmd_stack),
 	                cmd_task_fn, NULL, NULL, NULL, 5, 0, K_NO_WAIT);
+	k_thread_create(&flow_thread, flow_stack, K_THREAD_STACK_SIZEOF(flow_stack),
+	                flow_task_fn, NULL, NULL, NULL, 6, 0, K_NO_WAIT);
 	LOGI("net up: cmd=:%d -> %s:%d\n", STM32_CMD_PORT, CNC_IP, CNC_TELEM_PORT);
 	return 0;
 }

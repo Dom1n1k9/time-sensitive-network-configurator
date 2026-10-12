@@ -46,5 +46,6 @@
 #define HTSN_ID_CMD_SONAR_TRIG    24  /* Boolean  */
 #define HTSN_ID_CMD_REBOOT        25  /* Boolean  */
 #define HTSN_ID_CMD_TSN_CONFIG    51  /* String   JSON TSN snapshot to apply */
+#define HTSN_ID_CMD_FLOW_CONFIG   52  /* String   JSON FrameFlows table to apply */
 
 #endif /* HTSN_OPCUA_IDS_H */

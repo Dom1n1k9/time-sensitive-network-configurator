@@ -235,6 +235,55 @@ static void push_tsn_config(const char *json, int quiet) {
     }
 }
 
+/* ---- FrameFlows (802.1Q per-flow table) -> endpoint ----
+ * The GUI writes a compact JSON of parallel arrays (easy to parse on both
+ * sides): {"count":N,"pcp":[...],"vlan":[...],"model":[...],"period_us":[...],
+ *          "jitter_ns":[...],"burst":[...],"size":[...]} */
+static char last_flow[HTSN_FRAME_MAXPLEN + 1] = {0};
+
+static void push_flow_config(const char *json, int quiet) {
+    long long pcp[HTSN_FLOW_MAX], vlan[HTSN_FLOW_MAX], model[HTSN_FLOW_MAX];
+    long long per[HTSN_FLOW_MAX], jit[HTSN_FLOW_MAX], burst[HTSN_FLOW_MAX], size[HTSN_FLOW_MAX];
+    long long n = jint(json, "count", 0);
+    if (n < 0) n = 0;
+    if (n > HTSN_FLOW_MAX) n = HTSN_FLOW_MAX;
+    int a = jintarr(json, "pcp", pcp, HTSN_FLOW_MAX);
+    int b = jintarr(json, "vlan", vlan, HTSN_FLOW_MAX);
+    int c = jintarr(json, "model", model, HTSN_FLOW_MAX);
+    int d = jintarr(json, "period_us", per, HTSN_FLOW_MAX);
+    int e = jintarr(json, "jitter_ns", jit, HTSN_FLOW_MAX);
+    int f = jintarr(json, "burst", burst, HTSN_FLOW_MAX);
+    int g = jintarr(json, "size", size, HTSN_FLOW_MAX);
+    int m = a; if (b < m) m = b; if (c < m) m = c; if (d < m) m = d;
+    if (e < m) m = e; if (f < m) m = f; if (g < m) m = g;
+    if (n > m) n = m;
+    if (n < 0) n = 0;
+
+    uint8_t pl[HTSN_FRAME_MAXPLEN];
+    pl[0] = (uint8_t)(n & 0xFF);
+    pl[1] = (uint8_t)((n >> 8) & 0xFF);
+    pl[2] = 0; pl[3] = 0;
+    uint16_t off = 4;
+    for (long long i = 0; i < n; i++) {
+        if (off + sizeof(htsn_flow_t) > HTSN_FRAME_MAXPLEN) break;
+        htsn_flow_t fl; memset(&fl, 0, sizeof(fl));
+        fl.pcp           = (uint8_t)(pcp[i] & 0x07);
+        fl.arrival_model = (uint8_t)(model[i] & 0xFF);
+        fl.vlan_id       = (uint16_t)(vlan[i] & 0x0FFF);
+        fl.period_us     = (uint32_t)(per[i] < 0 ? 0 : per[i]);
+        fl.jitter_ns     = (uint32_t)(jit[i] < 0 ? 0 : jit[i]);
+        fl.burst         = (uint16_t)(burst[i] < 0 ? 0 : burst[i]);
+        fl.frame_bytes   = (uint16_t)(size[i] < 0 ? 0 : size[i]);
+        memcpy(&pl[off], &fl, sizeof(fl));
+        off += (uint16_t)sizeof(fl);
+    }
+    if (send_cmd_kind(HTSN_KIND_CMD_FLOW_CFG, pl, off) >= 0) {
+        snprintf(last_flow, sizeof(last_flow), "%s", json);
+        if (!quiet)
+            fprintf(stderr, "bridge: FrameFlows -> endpoint (%lld flow(s))\n", n);
+    }
+}
+
 /* Track last-sent actuator values so we only forward on change. */
 static int16_t last_servo = 0;
 static UA_Boolean last_relay = UA_FALSE;
@@ -264,6 +313,19 @@ static void poll_commands(void) {
     }
     UA_Variant_clear(&v);
 
+    /* FrameFlows table (String) — forward whenever the GUI writes a new table. */
+    UA_Variant_init(&v);
+    if (UA_Client_readValueAttribute(g_c, UA_NODEID_NUMERIC(g_ns, HTSN_ID_CMD_FLOW_CONFIG), &v)
+        == UA_STATUSCODE_GOOD && v.data && v.type == &UA_TYPES[UA_TYPES_STRING]) {
+        UA_String *us = (UA_String *)v.data;
+        char s[HTSN_FRAME_MAXPLEN + 1];
+        size_t n = us->length < sizeof(s) - 1 ? us->length : sizeof(s) - 1;
+        memcpy(s, us->data, n); s[n] = 0;
+        if (s[0] && strcmp(s, last_flow) != 0)
+            push_flow_config(s, 0);
+    }
+    UA_Variant_clear(&v);
+
     /* Keepalive: the endpoint loses its applied TSN state on flash/reboot. The
      * one-shot boot frame is often missed (pre-ARP), so re-push the last config
      * periodically. The firmware stays quiet when the config is unchanged. */
@@ -273,6 +335,14 @@ static void poll_commands(void) {
         if (now - last_keepalive >= 10) {
             push_tsn_config(last_tsn, 1);
             last_keepalive = now;
+        }
+    }
+    static time_t last_flow_ka = 0;
+    if (last_flow[0]) {
+        time_t now = time(NULL);
+        if (now - last_flow_ka >= 10) {
+            push_flow_config(last_flow, 1);
+            last_flow_ka = now;
         }
     }
 

@@ -46,6 +46,7 @@ enum {
     HTSN_KIND_CMD_HUD     = 5,   /* payload: JSON {"temp":..,"humidity":..}  */
     HTSN_KIND_CMD_REBOOT  = 6,   /* payload: none                            */
     HTSN_KIND_CMD_TSN_CFG = 7,   /* payload: htsn_tsn_cfg_t + gcl[]          */
+    HTSN_KIND_CMD_FLOW_CFG= 8,   /* payload: htsn_flow_cfg_t                 */
 };
 
 /* Telemetry kinds (endpoint -> CNC). */
@@ -58,6 +59,7 @@ enum {
     HTSN_KIND_TELEM_TSN_APPLIED=6,/* payload: htsn_tsn_cfg_t + gcl[] + int32 features */
     HTSN_KIND_TELEM_PREEMPT    =7,/* 802.3br: preemptible (low-pri) demo payload      */
     HTSN_KIND_TELEM_PREEMPT_URG=8,/* 802.3br: preempting (high-pri) demo payload      */
+    HTSN_KIND_TELEM_FLOW      =9,/* FrameFlows: one 802.1Q-tagged flow frame          */
 };
 
 /* ---- TSN config / applied-state binary layout (shared with the RPi peer) ----
@@ -82,6 +84,39 @@ typedef struct {
 
 #define HTSN_TSN_GCL_ENTRY  9
 #define HTSN_TSN_MAX_GCL    16
+
+/* ---- FrameFlows (802.1Q per-flow config) ----------------------------------
+ * A table of user-defined Ethernet frame flows. Each is emitted by the endpoint
+ * as an 802.1Q-tagged frame carrying its own PCP/VID so the flow is visible on
+ * the wire (e.g. in Wireshark). All multi-byte fields are little-endian. */
+enum {
+    HTSN_ARRIVAL_SPORADIC    = 0,  /* irregular gaps (jitter_ns)         */
+    HTSN_ARRIVAL_PERIODIC    = 1,  /* fixed period_us                    */
+    HTSN_ARRIVAL_MIXED       = 2,  /* alternates periodic + burst        */
+    HTSN_ARRIVAL_BURST       = 3,  /* `burst` frames every period_us     */
+    HTSN_ARRIVAL_ISOCHRONOUS = 4,  /* strict fixed period_us             */
+    HTSN_ARRIVAL_RANDOM      = 5,  /* random interval in [0.5x, 2x] period */
+};
+
+#define HTSN_FLOW_MAX 16
+
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  pcp;            /* 802.1p PCP (0-7)                    */
+    uint8_t  arrival_model;  /* HTSN_ARRIVAL_*                      */
+    uint16_t vlan_id;        /* 802.1Q VID (0-4094); 0 = untagged   */
+    uint32_t period_us;      /* base period between frames          */
+    uint32_t jitter_ns;      /* irregular spread for sporadic/random */
+    uint16_t burst;          /* frames per burst (burst/mixed)      */
+    uint16_t frame_bytes;    /* emitted payload size (informational)*/
+} htsn_flow_t;               /* 16 bytes */
+
+typedef struct {
+    uint16_t count;
+    uint16_t reserved;
+    htsn_flow_t flows[HTSN_FLOW_MAX];
+} htsn_flow_cfg_t;           /* 4 + 16*16 = 260 bytes */
+#pragma pack(pop)
 
 /* Feature bitmap (endpoint reports what its HW actually enforces). */
 #define HTSN_TSN_F_VLAN       (1u << 0)

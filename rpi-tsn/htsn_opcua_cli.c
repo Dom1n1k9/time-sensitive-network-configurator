@@ -57,6 +57,7 @@ static const NodeDef NODES[] = {
     { "tsn_app_tascyc",    HTSN_ID_TSN_APP_TASCYC,  UA_TYPES_INT64,   0, 0 },
     { "tsn_features",      HTSN_ID_TSN_FEATURES,    UA_TYPES_INT32,   0, 0 },
     { "cmd_tsn_config",    HTSN_ID_CMD_TSN_CONFIG,  UA_TYPES_STRING,  0, 1 },
+    { "cmd_flow_config",   HTSN_ID_CMD_FLOW_CONFIG, UA_TYPES_STRING,  0, 1 },
 };
 static const size_t NN = sizeof(NODES) / sizeof(NODES[0]);
 

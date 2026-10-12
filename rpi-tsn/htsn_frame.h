@@ -41,6 +41,7 @@ enum {
     HTSN_KIND_CMD_HUD       = 5,  /* payload: JSON                        */
     HTSN_KIND_CMD_REBOOT    = 6,  /* payload: none                        */
     HTSN_KIND_CMD_TSN_CFG   = 7,  /* payload: htsn_tsn_cfg_t + gcl[]      */
+    HTSN_KIND_CMD_FLOW_CFG  = 8,  /* payload: htsn_flow_cfg_t             */
 };
 
 /* Telemetry kinds (endpoint -> CNC). */
@@ -53,6 +54,7 @@ enum {
     HTSN_KIND_TELEM_TSN_APPLIED= 6, /* payload: htsn_tsn_cfg_t + gcl[] + int32 features */
     HTSN_KIND_TELEM_PREEMPT    = 7, /* 802.3br: preemptible (low-pri) demo payload       */
     HTSN_KIND_TELEM_PREEMPT_URG= 8, /* 802.3br: preempting (high-pri) demo payload       */
+    HTSN_KIND_TELEM_FLOW       = 9, /* FrameFlows: one 802.1Q-tagged flow frame          */
 };
 
 /* ---- TSN config / applied-state binary layout (shared with the endpoint) ----
@@ -77,6 +79,36 @@ typedef struct {
 
 #define HTSN_TSN_GCL_ENTRY  9
 #define HTSN_TSN_MAX_GCL    16
+
+/* ---- FrameFlows (802.1Q per-flow config) — MUST match the STM32 header ---- */
+enum {
+    HTSN_ARRIVAL_SPORADIC    = 0,
+    HTSN_ARRIVAL_PERIODIC    = 1,
+    HTSN_ARRIVAL_MIXED       = 2,
+    HTSN_ARRIVAL_BURST       = 3,
+    HTSN_ARRIVAL_ISOCHRONOUS = 4,
+    HTSN_ARRIVAL_RANDOM      = 5,
+};
+
+#define HTSN_FLOW_MAX 16
+
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  pcp;
+    uint8_t  arrival_model;
+    uint16_t vlan_id;
+    uint32_t period_us;
+    uint32_t jitter_ns;
+    uint16_t burst;
+    uint16_t frame_bytes;
+} htsn_flow_t;               /* 16 bytes */
+
+typedef struct {
+    uint16_t count;
+    uint16_t reserved;
+    htsn_flow_t flows[HTSN_FLOW_MAX];
+} htsn_flow_cfg_t;           /* 4 + 16*16 = 260 bytes */
+#pragma pack(pop)
 
 /* Feature bitmap (endpoint reports what its HW actually enforces). */
 #define HTSN_TSN_F_VLAN       (1u << 0)

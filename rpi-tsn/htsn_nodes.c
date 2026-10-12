@@ -115,5 +115,6 @@ UA_UInt16 htsn_build_address_space(UA_Server *server) {
     add_scalar(&c, HTSN_ID_CMD_SONAR_TRIG,  "cmd_sonar_trig",    UA_TYPES_BOOLEAN, &b);
     add_scalar(&c, HTSN_ID_CMD_REBOOT,      "cmd_reboot",        UA_TYPES_BOOLEAN, &b);
     add_string(&c, HTSN_ID_CMD_TSN_CONFIG,  "cmd_tsn_config");
+    add_string(&c, HTSN_ID_CMD_FLOW_CONFIG, "cmd_flow_config");
     return c.ns;
 }
