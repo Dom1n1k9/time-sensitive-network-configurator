@@ -89,6 +89,25 @@ static int jintarr(const char *buf, const char *key, long long *out, int maxn) {
     return n;
 }
 
+/* Split a JSON string field by '|' into up to maxn NUL-terminated tokens (<=23 ch). */
+static int jstr_split(const char *buf, const char *key, char out[][24], int maxn) {
+    char pat[64]; snprintf(pat, sizeof(pat), "\"%s\":", key);
+    const char *p = strstr(buf, pat);
+    if (!p) return 0;
+    p += strlen(pat);
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p != '"') return 0;
+    p++;
+    int n = 0, c = 0;
+    while (n < maxn) {
+        char ch = *p++;
+        if (ch == '"' || ch == 0) { out[n][c] = 0; n++; break; }
+        if (ch == '|') { out[n][c] = 0; n++; c = 0; continue; }
+        if (c < 23) out[n][c++] = ch;
+    }
+    return n;
+}
+
 /* ---- OPC UA helpers ---- */
 static UA_Client *g_c = NULL;
 static UA_UInt16  g_ns = HTSN_OPCUA_NS;
@@ -244,6 +263,8 @@ static char last_flow[HTSN_FRAME_MAXPLEN + 1] = {0};
 static void push_flow_config(const char *json, int quiet) {
     long long pcp[HTSN_FLOW_MAX], vlan[HTSN_FLOW_MAX], model[HTSN_FLOW_MAX];
     long long per[HTSN_FLOW_MAX], jit[HTSN_FLOW_MAX], burst[HTSN_FLOW_MAX], size[HTSN_FLOW_MAX];
+    long long expr[HTSN_FLOW_MAX];
+    char labels[HTSN_FLOW_MAX][24];
     long long n = jint(json, "count", 0);
     if (n < 0) n = 0;
     if (n > HTSN_FLOW_MAX) n = HTSN_FLOW_MAX;
@@ -254,8 +275,11 @@ static void push_flow_config(const char *json, int quiet) {
     int e = jintarr(json, "jitter_ns", jit, HTSN_FLOW_MAX);
     int f = jintarr(json, "burst", burst, HTSN_FLOW_MAX);
     int g = jintarr(json, "size", size, HTSN_FLOW_MAX);
+    int x = jintarr(json, "express", expr, HTSN_FLOW_MAX);
+    int nl = jstr_split(json, "labels", labels, HTSN_FLOW_MAX);
     int m = a; if (b < m) m = b; if (c < m) m = c; if (d < m) m = d;
     if (e < m) m = e; if (f < m) m = f; if (g < m) m = g;
+    if (x > 0 && x < m) m = x;
     if (n > m) n = m;
     if (n < 0) n = 0;
 
@@ -269,11 +293,16 @@ static void push_flow_config(const char *json, int quiet) {
         htsn_flow_t fl; memset(&fl, 0, sizeof(fl));
         fl.pcp           = (uint8_t)(pcp[i] & 0x07);
         fl.arrival_model = (uint8_t)(model[i] & 0xFF);
-        fl.vlan_id       = (uint16_t)(vlan[i] & 0xFFFF);  /* 0xFFFF = untagged, 0 = use global */
+        fl.vlan_id       = (uint16_t)(vlan[i] & 0xFFFF);
         fl.period_us     = (uint32_t)(per[i] < 0 ? 0 : per[i]);
         fl.jitter_ns     = (uint32_t)(jit[i] < 0 ? 0 : jit[i]);
         fl.burst         = (uint16_t)(burst[i] < 0 ? 0 : burst[i]);
         fl.frame_bytes   = (uint16_t)(size[i] < 0 ? 0 : size[i]);
+        fl.express       = (uint8_t)((i < x && expr[i]) ? 1 : 0);
+        if (i < nl && labels[i][0]) {
+            strncpy(fl.label, labels[i], sizeof(fl.label) - 1);
+            fl.label[sizeof(fl.label) - 1] = 0;
+        }
         memcpy(&pl[off], &fl, sizeof(fl));
         off += (uint16_t)sizeof(fl);
     }

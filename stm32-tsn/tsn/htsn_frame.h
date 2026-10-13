@@ -98,24 +98,27 @@ enum {
     HTSN_ARRIVAL_RANDOM      = 5,  /* random interval in [0.5x, 2x] period */
 };
 
-#define HTSN_FLOW_MAX 16
+#define HTSN_FLOW_MAX 10
 
 #pragma pack(push, 1)
 typedef struct {
     uint8_t  pcp;            /* 802.1p PCP (0-7)                    */
     uint8_t  arrival_model;  /* HTSN_ARRIVAL_*                      */
-    uint16_t vlan_id;        /* 802.1Q VID (0-4094); 0 = untagged   */
+    uint8_t  express;        /* 1 = express -> emit at PCP 7        */
+    uint8_t  reserved;
+    uint16_t vlan_id;        /* 0 = endpoint global VLAN, 0xFFFF = untagged */
+    uint16_t burst;          /* frames per burst (burst/mixed)      */
     uint32_t period_us;      /* base period between frames          */
     uint32_t jitter_ns;      /* irregular spread for sporadic/random */
-    uint16_t burst;          /* frames per burst (burst/mixed)      */
     uint16_t frame_bytes;    /* emitted payload size (informational)*/
-} htsn_flow_t;               /* 16 bytes */
+    char     label[16];      /* traffic-class name (ASCII, NUL-padded) */
+} htsn_flow_t;               /* 34 bytes */
 
 typedef struct {
     uint16_t count;
     uint16_t reserved;
     htsn_flow_t flows[HTSN_FLOW_MAX];
-} htsn_flow_cfg_t;           /* 4 + 16*16 = 260 bytes */
+} htsn_flow_cfg_t;           /* 4 + 10*34 = 344 bytes */
 #pragma pack(pop)
 
 /* Feature bitmap (endpoint reports what its HW actually enforces). */

@@ -4238,7 +4238,7 @@
     "z": "FLOWTAB",
     "name": "validate frame flows",
     "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,receiver TEXT,pcp INTEGER,vlan_tagged INTEGER,arrival_model TEXT,period_ms INTEGER,jitter_ns INTEGER,burst INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM frame_flows\"});\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],size=[];\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nrows.forEach(function(r){\n  if(!r) return;\n  var sender=String(r.sender||'').trim();\n  var receiver=String(r.receiver||'').trim();\n  if(!sender && !receiver) return;\n  var P=C(r.pcp,0,7,0);\n  var tagged=r.tagged?1:0;\n  var am=MODELS.hasOwnProperty(r.arrival_model)?r.arrival_model:'Periodic';\n  var pm=C(r.period_ms,1,60000,100);\n  var jt=C(r.jitter_ns,0,1000000000,0);\n  var bu=C(r.burst,1,1000,1);\n  sql.push({topic:\"INSERT INTO frame_flows(sender,receiver,pcp,vlan_tagged,arrival_model,period_ms,jitter_ns,burst) VALUES('\"+E(sender)+\"','\"+E(receiver)+\"',\"+P+\",\"+tagged+\",'\"+am+\"',\"+pm+\",\"+jt+\",\"+bu+\")\"});\n  pcp.push(P); vlan.push(tagged?0:65535); model.push(MODELS[am]); per.push(pm*1000); jit.push(jt); burst.push(bu); size.push(64);\n  n++;\n});\nvar flat={count:n,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,size:size};\nnode.status({fill:'green',shape:'dot',text:'saved + push '+n+' flow(s)'});\nreturn [sql, {datatype:\"String\", topic:\"ns=1;i=52\", payload:JSON.stringify(flat)}];\n",
-    "outputs": 2,
+    "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
@@ -4248,9 +4248,6 @@
     "wires": [
       [
         "SQL_FLOW"
-      ],
-      [
-        "CLI_FLOW"
       ]
     ]
   },
@@ -4581,6 +4578,61 @@
     "y": 300,
     "wires": [
       []
+    ]
+  },
+  {
+    "id": "INJ_PUSH",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "push poll",
+    "repeat": "2",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "4",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "SQL_JOIN"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_JOIN",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "join flow+class+vlan",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT f.sender AS sender, f.receiver AS receiver, f.pcp AS pcp, f.vlan_tagged AS vlan_tagged, f.arrival_model AS arrival_model, f.period_ms AS period_ms, f.jitter_ns AS jitter_ns, f.burst AS burst, v.vlan_id AS vlan_id, v.vlan_name AS vlan_name, tc.express AS express, tc.scheduling AS scheduling, tc.name AS class_name FROM frame_flows f LEFT JOIN vlan_classifications v ON v.frame = (f.sender || ' -> ' || f.receiver) LEFT JOIN traffic_classes tc ON tc.flow = (f.sender || ' -> ' || f.receiver) ORDER BY f.id",
+    "x": 380,
+    "y": 160,
+    "wires": [
+      [
+        "FN_PUSH"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PUSH",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build enriched flow push",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],size=[],expr=[],labels=[];\nrows.forEach(function(r){\n  var tagged=r.vlan_tagged?1:0;\n  var vid;\n  if(r.vlan_id!==null && r.vlan_id!==undefined && r.vlan_id!==''){ vid=C(r.vlan_id,1,4094,0); }\n  else { vid = tagged?0:65535; }\n  pcp.push(C(r.pcp,0,7,0));\n  vlan.push(vid);\n  model.push(MODELS.hasOwnProperty(r.arrival_model)?MODELS[r.arrival_model]:1);\n  per.push(C(r.period_ms,1,60000,100)*1000);\n  jit.push(C(r.jitter_ns,0,1000000000,0));\n  burst.push(C(r.burst,1,1000,1));\n  size.push(64);\n  expr.push(r.express?1:0);\n  labels.push(String(r.class_name||'').replace(/[|\"]/g,''));\n});\nvar flat={count:rows.length,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,size:size,express:expr,labels:labels.join('|')};\nvar s=JSON.stringify(flat);\nif(s===(global.get('HTSN_FLOW_LAST')||'')){ return null; }\nglobal.set('HTSN_FLOW_LAST',s);\nnode.status({fill:'green',shape:'dot',text:'push '+rows.length+' flow(s)'});\nreturn {datatype:\"String\", topic:\"ns=1;i=52\", payload:s};\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 160,
+    "wires": [
+      [
+        "CLI_FLOW"
+      ]
     ]
   }
 ]
