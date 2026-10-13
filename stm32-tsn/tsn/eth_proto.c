@@ -370,6 +370,54 @@ int htsn_net_tsn_cfg(htsn_tsn_cfg_t *out)
 	return 0;
 }
 
+/* ---- gPTP (802.1AS) SyncConfig ----
+ * Grandmaster = the RPi (fixed); the endpoint is the SyncClient. Applying the
+ * config sets the PTP domain used by the slave and emits a readable frame so the
+ * configured values are visible on the wire (Wireshark). */
+static htsn_sync_cfg_t g_sync;
+static volatile int    g_sync_valid = 0;
+
+static void sync_report_applied(void)
+{
+	char pl[112];
+	int n = snprintf(pl, sizeof(pl),
+	                 "SYNC 802.1AS domain=%u gmpri=%u syncperiod=%ums tc=%u grandmaster=RPi client=STM32",
+	                 (unsigned)g_sync.domain, (unsigned)g_sync.gm_priority,
+	                 (unsigned)g_sync.sync_period_ms, (unsigned)g_sync.traffic_class);
+	if (n <= 0) return;
+	uint8_t fb[HTSN_FRAME_MAX];
+	int flen = htsn_frame_pack(fb, HTSN_TYPE_TELEM, HTSN_KIND_TELEM_SYNC_CFG,
+	                           (const uint8_t *)pl, (uint16_t)n);
+	if (flen <= 0) return;
+	uint8_t pcp = (uint8_t)(g_sync.traffic_class & 0x07);
+	if (g_vlan_id > 0 && g_raw_sock >= 0) {
+		uint8_t out[HTSN_FRAME_MAX + 32];
+		int olen = build_tagged_pcpvid(out, fb, (uint16_t)flen, pcp, g_vlan_id);
+		if (olen <= 0) return;
+		struct net_sockaddr_ll ll = {0};
+		ll.sll_family   = NET_AF_PACKET;
+		ll.sll_protocol = net_htons(NET_ETH_PTYPE_VLAN);
+		ll.sll_ifindex  = g_eth_if;
+		ll.sll_halen    = 6;
+		memcpy(ll.sll_addr, g_dst_mac, 6);
+		zsock_sendto(g_raw_sock, out, (size_t)olen, 0,
+		             (const struct net_sockaddr *)&ll, sizeof(ll));
+	} else if (g_sock >= 0) {
+		sendto(g_sock, fb, (size_t)flen, 0, (struct sockaddr *)&g_cnc, sizeof(g_cnc));
+	}
+}
+
+static void tsn_handle_sync_cfg(const uint8_t *p, uint16_t len)
+{
+	if (len < sizeof(htsn_sync_cfg_t)) { LOGW("sync cfg: bad len %u\n", (unsigned)len); return; }
+	memcpy(&g_sync, p, sizeof(g_sync));
+	g_sync_valid = 1;
+	htsn_ptp_set_domain(g_sync.domain);
+	LOGI("sync cfg: domain=%u gmpri=%u period=%ums tc=%u\n",
+	     g_sync.domain, g_sync.gm_priority, g_sync.sync_period_ms, g_sync.traffic_class);
+	sync_report_applied();
+}
+
 /* ---- FrameFlows: per-flow 802.1Q-tagged emission ----
  * A user-configured table of flows (PCP/VID/arrival model/period). The endpoint
  * emits one tagged frame per flow on a cadence set by the arrival model so each
@@ -401,9 +449,10 @@ static void flow_emit(int idx, const htsn_flow_t *f)
 
 	char pl[96];
 	int n = snprintf(pl, sizeof(pl),
-	                 "FLOW#%d pcp=%u vlan=%u model=%s jitter=%uns%s%s%s",
+	                 "FLOW#%d pcp=%u vlan=%u model=%s jitter=%uns txoff=%uus%s%s%s",
 	                 idx, (unsigned)pcp, (unsigned)(tag ? vid : 0),
 	                 arrival_name(f->arrival_model), (unsigned)f->jitter_ns,
+	                 (unsigned)f->tx_offset_us,
 	                 f->label[0] ? " class=" : "", f->label,
 	                 f->express ? " express" : "");
 	if (n <= 0) return;
@@ -446,7 +495,12 @@ static void flow_task_fn(void *a, void *b, void *c)
 			last_gen = g_flow_gen;
 			have = 1;
 			int64_t now = k_uptime_get();
-			for (int i = 0; i < HTSN_FLOW_MAX; i++) next_ms[i] = now;
+			uint16_t nn = g_flows.count;
+			if (nn > HTSN_FLOW_MAX) nn = HTSN_FLOW_MAX;
+			for (int i = 0; i < HTSN_FLOW_MAX; i++) {
+				int64_t off = (i < nn) ? (int64_t)(g_flows.flows[i].tx_offset_us / 1000) : 0;
+				next_ms[i] = now + off;   /* TxOffsetConfigs: phase the first frame */
+			}
 		}
 		if (have) {
 			int64_t now = k_uptime_get();
@@ -478,6 +532,8 @@ static void flow_task_fn(void *a, void *b, void *c)
 				next_ms[i] = now + period;
 			}
 		}
+		static int sync_tick = 0;
+		if (g_sync_valid && ++sync_tick >= 400) { sync_tick = 0; sync_report_applied(); }
 		k_msleep(5);
 	}
 }
@@ -522,6 +578,10 @@ static void cmd_task_fn(void *a, void *b, void *c)
 		}
 		if (kind == HTSN_KIND_CMD_FLOW_CFG) {
 			tsn_handle_flow_cfg(pl, (uint16_t)plen);
+			continue;
+		}
+		if (kind == HTSN_KIND_CMD_SYNC_CFG) {
+			tsn_handle_sync_cfg(pl, (uint16_t)plen);
 			continue;
 		}
 

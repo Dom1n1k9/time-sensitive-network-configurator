@@ -53,6 +53,7 @@ static volatile bool     g_have_t1 = false;
 static volatile uint64_t g_t1;
 static volatile uint64_t g_s3;
 static volatile uint8_t  g_domain = 0;
+static volatile bool     g_domain_locked = false;
 
 static int     g_ev_sock = -1;
 static int     g_ge_sock = -1;
@@ -72,6 +73,13 @@ static uint64_t raw_ns(void)
 uint64_t htsn_ptp_time_ns(void) { return raw_ns() + g_c_ns; }
 bool     htsn_ptp_is_locked(void) { return g_locked; }
 int64_t  htsn_ptp_offset_ns(void) { return g_last_offset_ns; }
+
+/* Pin the PTP domain from SyncConfigs 802.1AS (stops ANNOUNCE from overriding). */
+void htsn_ptp_set_domain(uint8_t domain)
+{
+	g_domain = (uint8_t)(domain & 0x7f);
+	g_domain_locked = true;
+}
 
 /* ---- PTP v2 accessors (RFC 5905) over the UDP payload ---- */
 static uint8_t  ptp_type(const uint8_t *b)      { return b[1]; }
@@ -157,7 +165,7 @@ static void handle_packet(const uint8_t *buf, int len)
 			break;
 		}
 		case PTP_ANNOUNCE:
-			g_domain = ptp_domain(buf);
+			if (!g_domain_locked) g_domain = ptp_domain(buf);
 			break;
 		case PTP_DELAY_RESP: {
 			uint64_t t4 = ptp_hdr_time_ns(buf);

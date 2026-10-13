@@ -47,6 +47,7 @@ enum {
     HTSN_KIND_CMD_REBOOT  = 6,   /* payload: none                            */
     HTSN_KIND_CMD_TSN_CFG = 7,   /* payload: htsn_tsn_cfg_t + gcl[]          */
     HTSN_KIND_CMD_FLOW_CFG= 8,   /* payload: htsn_flow_cfg_t                 */
+    HTSN_KIND_CMD_SYNC_CFG= 9,   /* payload: htsn_sync_cfg_t                 */
 };
 
 /* Telemetry kinds (endpoint -> CNC). */
@@ -60,6 +61,7 @@ enum {
     HTSN_KIND_TELEM_PREEMPT    =7,/* 802.3br: preemptible (low-pri) demo payload      */
     HTSN_KIND_TELEM_PREEMPT_URG=8,/* 802.3br: preempting (high-pri) demo payload      */
     HTSN_KIND_TELEM_FLOW      =9,/* FrameFlows: one 802.1Q-tagged flow frame          */
+    HTSN_KIND_TELEM_SYNC_CFG  =10,/* gPTP (802.1AS) applied sync config, readable       */
 };
 
 /* ---- TSN config / applied-state binary layout (shared with the RPi peer) ----
@@ -110,15 +112,27 @@ typedef struct {
     uint16_t burst;          /* frames per burst (burst/mixed)      */
     uint32_t period_us;      /* base period between frames          */
     uint32_t jitter_ns;      /* irregular spread for sporadic/random */
-    uint16_t frame_bytes;    /* emitted payload size (informational)*/
+    uint32_t tx_offset_us;   /* TxOffsetConfigs: phase offset applied to first frame */
     char     label[16];      /* traffic-class name (ASCII, NUL-padded) */
-} htsn_flow_t;               /* 34 bytes */
+} htsn_flow_t;               /* 36 bytes */
 
 typedef struct {
     uint16_t count;
     uint16_t reserved;
     htsn_flow_t flows[HTSN_FLOW_MAX];
-} htsn_flow_cfg_t;           /* 4 + 10*34 = 344 bytes */
+} htsn_flow_cfg_t;           /* 4 + 10*36 = 364 bytes */
+#pragma pack(pop)
+
+/* ---- gPTP (802.1AS) SyncConfig --------------------------------------------
+ * Grandmaster is the RPi (fixed); the endpoint here is the SyncClient. */
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  domain;          /* PTP domainNumber (0-127)            */
+    uint8_t  gm_priority;     /* grandmasterPriority1 (0-255)        */
+    uint8_t  traffic_class;   /* PCP carrying sync traffic (0-7)     */
+    uint8_t  reserved;
+    uint32_t sync_period_ms;  /* Sync message interval (ms)          */
+} htsn_sync_cfg_t;            /* 8 bytes */
 #pragma pack(pop)
 
 /* Feature bitmap (endpoint reports what its HW actually enforces). */

@@ -262,7 +262,7 @@ static char last_flow[HTSN_FRAME_MAXPLEN + 1] = {0};
 
 static void push_flow_config(const char *json, int quiet) {
     long long pcp[HTSN_FLOW_MAX], vlan[HTSN_FLOW_MAX], model[HTSN_FLOW_MAX];
-    long long per[HTSN_FLOW_MAX], jit[HTSN_FLOW_MAX], burst[HTSN_FLOW_MAX], size[HTSN_FLOW_MAX];
+    long long per[HTSN_FLOW_MAX], jit[HTSN_FLOW_MAX], burst[HTSN_FLOW_MAX], txoff[HTSN_FLOW_MAX];
     long long expr[HTSN_FLOW_MAX];
     char labels[HTSN_FLOW_MAX][24];
     long long n = jint(json, "count", 0);
@@ -274,7 +274,7 @@ static void push_flow_config(const char *json, int quiet) {
     int d = jintarr(json, "period_us", per, HTSN_FLOW_MAX);
     int e = jintarr(json, "jitter_ns", jit, HTSN_FLOW_MAX);
     int f = jintarr(json, "burst", burst, HTSN_FLOW_MAX);
-    int g = jintarr(json, "size", size, HTSN_FLOW_MAX);
+    int g = jintarr(json, "tx_offset_us", txoff, HTSN_FLOW_MAX);
     int x = jintarr(json, "express", expr, HTSN_FLOW_MAX);
     int nl = jstr_split(json, "labels", labels, HTSN_FLOW_MAX);
     int m = a; if (b < m) m = b; if (c < m) m = c; if (d < m) m = d;
@@ -297,7 +297,7 @@ static void push_flow_config(const char *json, int quiet) {
         fl.period_us     = (uint32_t)(per[i] < 0 ? 0 : per[i]);
         fl.jitter_ns     = (uint32_t)(jit[i] < 0 ? 0 : jit[i]);
         fl.burst         = (uint16_t)(burst[i] < 0 ? 0 : burst[i]);
-        fl.frame_bytes   = (uint16_t)(size[i] < 0 ? 0 : size[i]);
+        fl.tx_offset_us  = (uint32_t)(txoff[i] < 0 ? 0 : txoff[i]);
         fl.express       = (uint8_t)((i < x && expr[i]) ? 1 : 0);
         if (i < nl && labels[i][0]) {
             strncpy(fl.label, labels[i], sizeof(fl.label) - 1);
@@ -310,6 +310,24 @@ static void push_flow_config(const char *json, int quiet) {
         snprintf(last_flow, sizeof(last_flow), "%s", json);
         if (!quiet)
             fprintf(stderr, "bridge: FrameFlows -> endpoint (%lld flow(s))\n", n);
+    }
+}
+
+/* ---- SyncConfigs (802.1AS) -> endpoint ---- */
+static char last_sync[HTSN_FRAME_MAXPLEN + 1] = {0};
+
+static void push_sync_config(const char *json, int quiet) {
+    htsn_sync_cfg_t sc;
+    memset(&sc, 0, sizeof(sc));
+    sc.domain         = (uint8_t)jint(json, "domain", 0);
+    sc.gm_priority    = (uint8_t)jint(json, "gm_priority", 0);
+    sc.traffic_class  = (uint8_t)jint(json, "traffic_class", 0);
+    sc.sync_period_ms = (uint32_t)jint(json, "sync_period_ms", 1000);
+    if (send_cmd_kind(HTSN_KIND_CMD_SYNC_CFG, (const uint8_t *)&sc, (uint16_t)sizeof(sc)) >= 0) {
+        snprintf(last_sync, sizeof(last_sync), "%s", json);
+        if (!quiet)
+            fprintf(stderr, "bridge: SyncConfig -> endpoint (domain=%u gmpri=%u period=%ums tc=%u)\n",
+                    sc.domain, sc.gm_priority, sc.sync_period_ms, sc.traffic_class);
     }
 }
 
@@ -355,6 +373,19 @@ static void poll_commands(void) {
     }
     UA_Variant_clear(&v);
 
+    /* SyncConfigs (String) — forward whenever the GUI writes a new config. */
+    UA_Variant_init(&v);
+    if (UA_Client_readValueAttribute(g_c, UA_NODEID_NUMERIC(g_ns, HTSN_ID_CMD_SYNC_CONFIG), &v)
+        == UA_STATUSCODE_GOOD && v.data && v.type == &UA_TYPES[UA_TYPES_STRING]) {
+        UA_String *us = (UA_String *)v.data;
+        char s[HTSN_FRAME_MAXPLEN + 1];
+        size_t n = us->length < sizeof(s) - 1 ? us->length : sizeof(s) - 1;
+        memcpy(s, us->data, n); s[n] = 0;
+        if (s[0] && strcmp(s, last_sync) != 0)
+            push_sync_config(s, 0);
+    }
+    UA_Variant_clear(&v);
+
     /* Keepalive: the endpoint loses its applied TSN state on flash/reboot. The
      * one-shot boot frame is often missed (pre-ARP), so re-push the last config
      * periodically. The firmware stays quiet when the config is unchanged. */
@@ -372,6 +403,14 @@ static void poll_commands(void) {
         if (now - last_flow_ka >= 10) {
             push_flow_config(last_flow, 1);
             last_flow_ka = now;
+        }
+    }
+    static time_t last_sync_ka = 0;
+    if (last_sync[0]) {
+        time_t now = time(NULL);
+        if (now - last_sync_ka >= 10) {
+            push_sync_config(last_sync, 1);
+            last_sync_ka = now;
         }
     }
 

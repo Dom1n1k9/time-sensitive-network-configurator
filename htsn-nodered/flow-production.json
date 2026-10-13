@@ -4596,7 +4596,12 @@
     "y": 160,
     "wires": [
       [
-        "SQL_JOIN"
+        "SQL_JOIN",
+        "SQL_TXREFS",
+        "SQL_TXSAVED",
+        "SQL_SYNCREFS",
+        "SQL_SYNCPUSH",
+        "SQL_SYCSAVED"
       ]
     ]
   },
@@ -4607,7 +4612,7 @@
     "name": "join flow+class+vlan",
     "mydb": "SQLCFG",
     "sqlquery": "fixed",
-    "sql": "SELECT f.sender AS sender, f.receiver AS receiver, f.pcp AS pcp, f.vlan_tagged AS vlan_tagged, f.arrival_model AS arrival_model, f.period_ms AS period_ms, f.jitter_ns AS jitter_ns, f.burst AS burst, v.vlan_id AS vlan_id, v.vlan_name AS vlan_name, tc.express AS express, tc.scheduling AS scheduling, tc.name AS class_name FROM frame_flows f LEFT JOIN vlan_classifications v ON v.frame = (f.sender || ' -> ' || f.receiver) LEFT JOIN traffic_classes tc ON tc.flow = (f.sender || ' -> ' || f.receiver) ORDER BY f.id",
+    "sql": "SELECT f.sender AS sender, f.receiver AS receiver, f.pcp AS pcp, f.vlan_tagged AS vlan_tagged, f.arrival_model AS arrival_model, f.period_ms AS period_ms, f.jitter_ns AS jitter_ns, f.burst AS burst, v.vlan_id AS vlan_id, v.vlan_name AS vlan_name, tc.express AS express, tc.scheduling AS scheduling, tc.name AS class_name, tx.tx_offset_us AS tx_offset_us FROM frame_flows f LEFT JOIN vlan_classifications v ON v.frame = (f.sender || ' -> ' || f.receiver) LEFT JOIN traffic_classes tc ON tc.flow = (f.sender || ' -> ' || f.receiver) LEFT JOIN tx_offset_configs tx ON tx.flow = (f.sender || ' -> ' || f.receiver) ORDER BY f.id",
     "x": 380,
     "y": 160,
     "wires": [
@@ -4621,7 +4626,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "build enriched flow push",
-    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],size=[],expr=[],labels=[];\nrows.forEach(function(r){\n  var tagged=r.vlan_tagged?1:0;\n  var vid;\n  if(r.vlan_id!==null && r.vlan_id!==undefined && r.vlan_id!==''){ vid=C(r.vlan_id,1,4094,0); }\n  else { vid = tagged?0:65535; }\n  pcp.push(C(r.pcp,0,7,0));\n  vlan.push(vid);\n  model.push(MODELS.hasOwnProperty(r.arrival_model)?MODELS[r.arrival_model]:1);\n  per.push(C(r.period_ms,1,60000,100)*1000);\n  jit.push(C(r.jitter_ns,0,1000000000,0));\n  burst.push(C(r.burst,1,1000,1));\n  size.push(64);\n  expr.push(r.express?1:0);\n  labels.push(String(r.class_name||'').replace(/[|\"]/g,''));\n});\nvar flat={count:rows.length,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,size:size,express:expr,labels:labels.join('|')};\nvar s=JSON.stringify(flat);\nif(s===(global.get('HTSN_FLOW_LAST')||'')){ return null; }\nglobal.set('HTSN_FLOW_LAST',s);\nnode.status({fill:'green',shape:'dot',text:'push '+rows.length+' flow(s)'});\nreturn {datatype:\"String\", topic:\"ns=1;i=52\", payload:s};\n",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],txoff=[],expr=[],labels=[];\nrows.forEach(function(r){\n  var tagged=r.vlan_tagged?1:0;\n  var vid;\n  if(r.vlan_id!==null && r.vlan_id!==undefined && r.vlan_id!==''){ vid=C(r.vlan_id,1,4094,0); }\n  else { vid = tagged?0:65535; }\n  pcp.push(C(r.pcp,0,7,0));\n  vlan.push(vid);\n  model.push(MODELS.hasOwnProperty(r.arrival_model)?MODELS[r.arrival_model]:1);\n  per.push(C(r.period_ms,1,60000,100)*1000);\n  jit.push(C(r.jitter_ns,0,1000000000,0));\n  burst.push(C(r.burst,1,1000,1));\n  txoff.push(C(r.tx_offset_us,0,1000000000,0));\n  expr.push(r.express?1:0);\n  labels.push(String(r.class_name||'').replace(/[|\"]/g,''));\n});\nvar flat={count:rows.length,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,tx_offset_us:txoff,express:expr,labels:labels.join('|')};\nvar s=JSON.stringify(flat);\nif(s===(global.get('HTSN_FLOW_LAST')||'')){ return null; }\nglobal.set('HTSN_FLOW_LAST',s);\nnode.status({fill:'green',shape:'dot',text:'push '+rows.length+' flow(s)'});\nreturn {datatype:\"String\", topic:\"ns=1;i=52\", payload:s};\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -4633,6 +4638,372 @@
       [
         "CLI_FLOW"
       ]
+    ]
+  },
+  {
+    "id": "TAB_TXOFF",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "txoffset-8021q",
+    "order": 2.8,
+    "label": "TxOffsetConfigs 802.1Q",
+    "icon": "schedule"
+  },
+  {
+    "id": "GRP_TXOFF",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "TxOffsetConfigs",
+    "tab": "TAB_TXOFF",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "TxOffsetConfigs",
+      "tab": "TAB_TXOFF",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_TXOFF",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "txoffset form",
+    "group": "GRP_TXOFF",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .del:hover{background:#e57373;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\" ng-init=\"rows=[{sender:'',flow:'',period_ms:100,tx_offset_us:0}]\"><h3>TxOffsetConfigs</h3><div class=\"sub\">Per-flow transmit-time offset (phase). The endpoint shifts the first frame of the flow by TxOffset, then keeps the flow period.</div><table><thead><tr><th>Sender</th><th>FrameFlows</th><th>Period (ms)</th><th>TxOffset (us)</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><select ng-model=\"r.sender\"><option value=\"\">(sender)</option><option ng-repeat=\"o in (msg.payload||[]) | filter:{k:'dev'}\" value=\"{{o.v}}\">{{o.v}}</option></select></td><td><select ng-model=\"r.flow\"><option value=\"\">(flow)</option><option ng-repeat=\"o in (msg.payload||[]) | filter:{k:'flow'}\" value=\"{{o.v}}\">{{o.v}}</option></select></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.period_ms\"></td><td><input type=\"number\" min=\"0\" step=\"1\" ng-model=\"r.tx_offset_us\"></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"rows.push({sender:'',flow:'',period_ms:100,tx_offset_us:0})\">+ Add row</button><button class=\"btn\" ng-click=\"send({topic:'txoff', payload:rows})\">Create TxOffsetConfigs</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "9",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_TXOFF"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TXOFF",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build txoffset",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS tx_offset_configs(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,flow TEXT,period_ms INTEGER,tx_offset_us INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM tx_offset_configs\"});\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nrows.forEach(function(r){\n  if(!r) return;\n  var flow=String(r.flow||'').trim();\n  if(!flow) return;\n  var sender=String(r.sender||'').trim();\n  var pm=C(r.period_ms,1,60000,100);\n  var off=C(r.tx_offset_us,0,1000000000,0);\n  sql.push({topic:\"INSERT INTO tx_offset_configs(sender,flow,period_ms,tx_offset_us) VALUES('\"+E(sender)+\"','\"+E(flow)+\"',\"+pm+\",\"+off+\")\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'saved '+n+' txoffset(s)'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "SQL_TXOFF"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TXOFF",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write txoffset",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 710,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_TXREFS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read dev+flow",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT 'dev' AS k, COALESCE(name,id) AS v FROM devices UNION ALL SELECT 'flow', (sender || ' -> ' || receiver) FROM frame_flows WHERE (sender!='' OR receiver!='') ORDER BY k,v",
+    "x": 360,
+    "y": 240,
+    "wires": [
+      [
+        "HTML_TXOFF"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TXSAVED",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read txoffset",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT flow,period_ms,tx_offset_us FROM tx_offset_configs ORDER BY id",
+    "x": 370,
+    "y": 300,
+    "wires": [
+      [
+        "FN_SAVED_TXOFF"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SAVED_TXOFF",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt txoffset",
+    "func": "var rows=msg.payload||[];\nif(Object.prototype.toString.call(rows)!=='[object Array]'||rows.length===0){msg.payload='(no TxOffsetConfigs)';return msg;}\nmsg.payload=rows.map(function(r){return (r.flow||'-')+'  | period '+r.period_ms+'ms | TxOffset '+r.tx_offset_us+'us';}).join('\\n');\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 570,
+    "y": 300,
+    "wires": [
+      [
+        "T_TXSAVED"
+      ]
+    ]
+  },
+  {
+    "id": "T_TXSAVED",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "saved txoffset",
+    "group": "GRP_TXOFF",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .del:hover{background:#e57373;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>Saved</h3><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "5",
+    "x": 780,
+    "y": 300,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "TAB_SYNC",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "sync-8021as",
+    "order": 2.9,
+    "label": "SyncConfigs 802.1AS",
+    "icon": "sync"
+  },
+  {
+    "id": "GRP_SYNC",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "SyncConfigs 802.1AS",
+    "tab": "TAB_SYNC",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "SyncConfigs 802.1AS",
+      "tab": "TAB_SYNC",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_SYNC",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "sync form",
+    "group": "GRP_SYNC",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .del:hover{background:#e57373;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\" ng-init=\"rows=[{name:'',traffic_class:'',sync_period_ms:1000,domain_number:0,gm_priority:128,sync_client:'STM32'}]\"><h3>SyncConfigs 802.1AS</h3><div class=\"sub\">gPTP: the <b>Grandmaster</b> is the RPi (auto); the <b>SyncClient</b> is the STM32 endpoint.</div><table><thead><tr><th>Name</th><th>TrafficClass</th><th>SyncPeriod (ms)</th><th>DomainNumber</th><th>GMPriority</th><th>Grandmaster</th><th>SyncClient</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><input ng-model=\"r.name\" placeholder=\"name\"></td><td><select ng-model=\"r.traffic_class\"><option value=\"\">(class)</option><option ng-repeat=\"o in (msg.payload||[]) | filter:{k:'class'}\" value=\"{{o.v}}\">{{o.v}}</option></select></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.sync_period_ms\"></td><td><input type=\"number\" min=\"0\" max=\"127\" step=\"1\" ng-model=\"r.domain_number\"></td><td><input type=\"number\" min=\"0\" max=\"255\" step=\"1\" ng-model=\"r.gm_priority\"></td><td><input value=\"RPi\" readonly title=\"auto\"></td><td><select ng-model=\"r.sync_client\"><option ng-repeat=\"o in (msg.payload||[]) | filter:{k:'client'}\" value=\"{{o.v}}\">{{o.v}}</option></select></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"rows.push({name:'',traffic_class:'',sync_period_ms:1000,domain_number:0,gm_priority:128,sync_client:'STM32'})\">+ Add row</button><button class=\"btn\" ng-click=\"send({topic:'sync', payload:rows})\">Create SyncConfigs</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "9",
+    "x": 200,
+    "y": 140,
+    "wires": [
+      [
+        "FN_SYNC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SYNC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build sync",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS sync_configs(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,traffic_class TEXT,sync_period_ms INTEGER,domain_number INTEGER,gm_priority INTEGER,grandmaster TEXT,sync_client TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM sync_configs\"});\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nrows.forEach(function(r){\n  if(!r) return;\n  var name=String(r.name||'').trim();\n  if(!name) return;\n  var tc=String(r.traffic_class||'').trim();\n  var sp=C(r.sync_period_ms,1,600000,1000);\n  var dn=C(r.domain_number,0,127,0);\n  var gp=C(r.gm_priority,0,255,128);\n  var cl=String(r.sync_client||'STM32').trim();\n  sql.push({topic:\"INSERT INTO sync_configs(name,traffic_class,sync_period_ms,domain_number,gm_priority,grandmaster,sync_client) VALUES('\"+E(name)+\"','\"+E(tc)+\"',\"+sp+\",\"+dn+\",\"+gp+\",'RPi','\"+E(cl)+\"')\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'saved '+n+' sync cfg(s)'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 140,
+    "wires": [
+      [
+        "SQL_SYNC"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SYNC",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write sync",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 700,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_SYNCREFS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read class+client",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT 'class' AS k, name AS v FROM traffic_classes UNION ALL SELECT 'client', COALESCE(name,id) FROM devices WHERE kind=6 ORDER BY k,v",
+    "x": 370,
+    "y": 260,
+    "wires": [
+      [
+        "HTML_SYNC"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SYNCPUSH",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read sync for push",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT s.domain_number, s.gm_priority, s.sync_period_ms, f.pcp AS pcp FROM sync_configs s LEFT JOIN traffic_classes tc ON tc.name = s.traffic_class LEFT JOIN frame_flows f ON (f.sender || ' -> ' || f.receiver) = tc.flow ORDER BY s.id LIMIT 1",
+    "x": 380,
+    "y": 340,
+    "wires": [
+      [
+        "FN_SYNCPUSH"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SYNCPUSH",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build sync push",
+    "func": "var r = (msg.payload && msg.payload[0]) || null;\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar flat;\nif(!r){ flat = {domain:0,gm_priority:128,traffic_class:0,sync_period_ms:0}; }\nelse { flat = {domain:C(r.domain_number,0,127,0), gm_priority:C(r.gm_priority,0,255,128), traffic_class:C(r.pcp,0,7,0), sync_period_ms:C(r.sync_period_ms,1,600000,1000)}; }\nvar s=JSON.stringify(flat);\nif(s===(global.get('HTSN_SYNC_LAST')||'')){ return null; }\nglobal.set('HTSN_SYNC_LAST',s);\nnode.status({fill:'green',shape:'dot',text:'sync push'});\nreturn {datatype:\"String\", topic:\"ns=1;i=53\", payload:s};\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 610,
+    "y": 340,
+    "wires": [
+      [
+        "CLI_SYNC"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_SYCSAVED",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read sync",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT name,traffic_class,sync_period_ms,domain_number,gm_priority,grandmaster,sync_client FROM sync_configs ORDER BY id",
+    "x": 370,
+    "y": 400,
+    "wires": [
+      [
+        "FN_SAVED_SYNC"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SAVED_SYNC",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt sync",
+    "func": "var rows=msg.payload||[];\nif(Object.prototype.toString.call(rows)!=='[object Array]'||rows.length===0){msg.payload='(no SyncConfigs)';return msg;}\nmsg.payload=rows.map(function(r){return (r.name||'-')+' | class '+r.traffic_class+' | period '+r.sync_period_ms+'ms | domain '+r.domain_number+' | gmpri '+r.gm_priority+' | GM '+r.grandmaster+' -> client '+r.sync_client;}).join('\\n');\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 400,
+    "wires": [
+      [
+        "T_SYCSAVED"
+      ]
+    ]
+  },
+  {
+    "id": "T_SYCSAVED",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "saved sync",
+    "group": "GRP_SYNC",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .del:hover{background:#e57373;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>Saved</h3><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "5",
+    "x": 760,
+    "y": 400,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "CLI_SYNC",
+    "type": "OpcUa-Client",
+    "z": "FLOWTAB",
+    "name": "write cmd_sync_config",
+    "action": "write",
+    "endpoint": "EP1",
+    "time": "1000",
+    "timeUnit": "msecs",
+    "deadbandtype": "abs",
+    "deadbandvalue": "0",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "useTransport": false,
+    "maxChunkCount": "0",
+    "maxMessageSize": "0",
+    "receiveBufferSize": "0",
+    "sendBufferSize": "0",
+    "setstatusandtime": true,
+    "keepsessionalive": false,
+    "applicationName": "",
+    "applicationUri": "",
+    "x": 840,
+    "y": 340,
+    "wires": [
+      []
     ]
   }
 ]

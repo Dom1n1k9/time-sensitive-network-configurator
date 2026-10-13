@@ -31,4 +31,7 @@ void htsn_net_set_cmd_cb(htsn_cmd_cb cb, void *ud);
  * and acknowledges it over the link (see eth_proto.c). */
 int  htsn_net_tsn_cfg(htsn_tsn_cfg_t *out);
 
+/* Set the PTP domain used by the gPTP slave (from SyncConfigs 802.1AS). */
+void htsn_ptp_set_domain(uint8_t domain);
+
 #endif /* HTSN_NET_H */

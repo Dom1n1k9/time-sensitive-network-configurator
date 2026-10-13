@@ -47,5 +47,6 @@
 #define HTSN_ID_CMD_REBOOT        25  /* Boolean  */
 #define HTSN_ID_CMD_TSN_CONFIG    51  /* String   JSON TSN snapshot to apply */
 #define HTSN_ID_CMD_FLOW_CONFIG   52  /* String   JSON FrameFlows table to apply */
+#define HTSN_ID_CMD_SYNC_CONFIG   53  /* String   JSON SyncConfigs (802.1AS) to apply */
 
 #endif /* HTSN_OPCUA_IDS_H */
