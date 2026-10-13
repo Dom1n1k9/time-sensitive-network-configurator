@@ -4561,5 +4561,196 @@
     "wires": [
       []
     ]
+  },
+  {
+    "id": "TAB_TCL",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "traffic-class-8021q",
+    "order": 2.75,
+    "label": "TrafficClassifications 802.1Q",
+    "icon": "class"
+  },
+  {
+    "id": "GRP_TCL",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "TrafficClassifications (802.1Q)",
+    "tab": "TAB_TCL",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "TrafficClassifications (802.1Q)",
+      "tab": "TAB_TCL",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_TCL",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "traffic classifications",
+    "group": "GRP_TCL",
+    "groupMode": "fixed",
+    "format": "<style>.tc{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.tc h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tc h4{margin:16px 0 6px 0;font-size:14px;font-weight:500;color:#546e7a;}.tc .sub{margin:0 0 10px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tc table{border-collapse:collapse;width:100%;}.tc th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.tc td{padding:3px 5px;border-bottom:1px solid #eceff1;}.tc input,.tc select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.tc input:focus,.tc select:focus{outline:none;border-bottom:2px solid #009688;}.tc .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.tc .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.tc .del:hover{background:#e57373;}.tc .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tc .btn:hover{background:#00796b;}.tc pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"tc\" ng-init=\"tc=[{name:'',flow:'',express:false,scheduling:'CBS'}]; vcl=[{frame:'',vlan_name:'',vlan_id:100}]\"><h3>TrafficClassifications (802.1Q)</h3><div class=\"sub\">Assign each flow a traffic class (express + scheduling) and a VLAN classification.</div><h4>TrafficClasses</h4><table><thead><tr><th>Name</th><th>Flow</th><th>Express traffic</th><th>Scheduling policy</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in tc\"><td><input ng-model=\"r.name\" placeholder=\"class name\"></td><td><select ng-model=\"r.flow\"><option value=\"\">(select flow)</option><option ng-repeat=\"fl in (msg.payload||[])\" value=\"{{fl}}\">{{fl}}</option></select></td><td><select ng-model=\"r.express\"><option ng-value=\"true\">true</option><option ng-value=\"false\">false</option></select></td><td><select ng-model=\"r.scheduling\"><option>FIFO</option><option>CBS</option></select></td><td><button class=\"del\" ng-click=\"tc.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"tc.push({name:'',flow:'',express:false,scheduling:'CBS'})\">+ Add class</button><button class=\"btn\" ng-click=\"send({topic:'tc', payload:tc})\">Create TrafficClasses</button><h4>VLANClassifications</h4><table><thead><tr><th>Frames</th><th>VLAN name</th><th>VLAN ID</th><th></th></tr></thead><tbody><tr ng-repeat=\"v in vcl\"><td><select ng-model=\"v.frame\"><option value=\"\">(select frame)</option><option ng-repeat=\"fl in (msg.payload||[])\" value=\"{{fl}}\">{{fl}}</option></select></td><td><input ng-model=\"v.vlan_name\" placeholder=\"vlan name\"></td><td><input type=\"number\" min=\"1\" max=\"4094\" step=\"1\" ng-model=\"v.vlan_id\"></td><td><button class=\"del\" ng-click=\"vcl.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"vcl.push({frame:'',vlan_name:'',vlan_id:100})\">+ Add VLAN class</button><button class=\"btn\" ng-click=\"send({topic:'vcl', payload:vcl})\">Create VLANClassifications</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "13",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_TCL"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TCL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build classifications",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nif(msg.topic==='tc'){\n  sql.push({topic:\"CREATE TABLE IF NOT EXISTS traffic_classes(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,flow TEXT,express INTEGER,scheduling TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\n  sql.push({topic:\"DELETE FROM traffic_classes\"});\n  var n=0;\n  rows.forEach(function(r){\n    if(!r) return;\n    var name=String(r.name||'').trim();\n    if(!name) return;\n    var flow=String(r.flow||'').trim();\n    var exp=(r.express===true||r.express==='true')?1:0;\n    var sch=(r.scheduling==='CBS')?'CBS':'FIFO';\n    sql.push({topic:\"INSERT INTO traffic_classes(name,flow,express,scheduling) VALUES('\"+E(name)+\"','\"+E(flow)+\"',\"+exp+\",'\"+sch+\"')\"});\n    n++;\n  });\n  node.status({fill:'green',shape:'dot',text:'saved '+n+' class(es)'});\n} else if(msg.topic==='vcl'){\n  sql.push({topic:\"CREATE TABLE IF NOT EXISTS vlan_classifications(id INTEGER PRIMARY KEY AUTOINCREMENT,frame TEXT,vlan_name TEXT,vlan_id INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\n  sql.push({topic:\"DELETE FROM vlan_classifications\"});\n  var m=0;\n  rows.forEach(function(r){\n    if(!r) return;\n    var vname=String(r.vlan_name||'').trim();\n    if(!vname) return;\n    var frame=String(r.frame||'').trim();\n    var vid=C(r.vlan_id,1,4094,100);\n    sql.push({topic:\"INSERT INTO vlan_classifications(frame,vlan_name,vlan_id) VALUES('\"+E(frame)+\"','\"+E(vname)+\"',\"+vid+\")\"});\n    m++;\n  });\n  node.status({fill:'green',shape:'dot',text:'saved '+m+' vlan class(es)'});\n}\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 480,
+    "y": 120,
+    "wires": [
+      [
+        "SQL_TCL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TCL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write classifications",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 730,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "INJ_TCL",
+    "type": "inject",
+    "z": "FLOWTAB",
+    "name": "poll",
+    "repeat": "5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "3",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 260,
+    "wires": [
+      [
+        "SQL_TCLFLOWS",
+        "SQL_TCLSAVED"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TCLFLOWS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read flows",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT DISTINCT (sender || ' -> ' || receiver) AS flow FROM frame_flows WHERE (sender!='' OR receiver!='') ORDER BY flow",
+    "x": 360,
+    "y": 240,
+    "wires": [
+      [
+        "FN_TCLFLOWS"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TCLFLOWS",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "format flows",
+    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){ rows=[]; }\nmsg.payload = rows.map(function(r){ return r.flow; })\n  .filter(function(s){ return s && s.replace(/[\\s\\->]/g,'')!==''; });\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 240,
+    "wires": [
+      [
+        "HTML_TCL"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_TCLSAVED",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read saved",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT 'TrafficClass' AS kind, name AS a, flow AS b, (CASE express WHEN 1 THEN 'express' ELSE 'normal' END) || ' / ' || scheduling AS c FROM traffic_classes UNION ALL SELECT 'VLANClass', frame, vlan_name, 'vlan ' || vlan_id FROM vlan_classifications",
+    "x": 370,
+    "y": 300,
+    "wires": [
+      [
+        "FN_TCLSAVED"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TCLSAVED",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "format saved",
+    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows)!=='[object Array]' || rows.length===0){ msg.payload='(nothing saved yet)'; return msg; }\nmsg.payload = rows.map(function(r){ return r.kind+':  '+(r.a||'-')+'  |  '+(r.b||'-')+'  |  '+(r.c||''); }).join('\\n');\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 570,
+    "y": 300,
+    "wires": [
+      [
+        "T_TCLSAVED"
+      ]
+    ]
+  },
+  {
+    "id": "T_TCLSAVED",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "saved classifications",
+    "group": "GRP_TCL",
+    "groupMode": "fixed",
+    "format": "<style>.tc{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.tc h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tc h4{margin:16px 0 6px 0;font-size:14px;font-weight:500;color:#546e7a;}.tc .sub{margin:0 0 10px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tc table{border-collapse:collapse;width:100%;}.tc th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.tc td{padding:3px 5px;border-bottom:1px solid #eceff1;}.tc input,.tc select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.tc input:focus,.tc select:focus{outline:none;border-bottom:2px solid #009688;}.tc .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.tc .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.tc .del:hover{background:#e57373;}.tc .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tc .btn:hover{background:#00796b;}.tc pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"tc\"><h4>Saved classifications</h4><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "6",
+    "x": 780,
+    "y": 300,
+    "wires": [
+      []
+    ]
   }
 ]
