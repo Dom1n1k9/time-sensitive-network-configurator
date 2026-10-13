@@ -269,7 +269,7 @@ static void push_flow_config(const char *json, int quiet) {
         htsn_flow_t fl; memset(&fl, 0, sizeof(fl));
         fl.pcp           = (uint8_t)(pcp[i] & 0x07);
         fl.arrival_model = (uint8_t)(model[i] & 0xFF);
-        fl.vlan_id       = (uint16_t)(vlan[i] & 0x0FFF);
+        fl.vlan_id       = (uint16_t)(vlan[i] & 0xFFFF);  /* 0xFFFF = untagged, 0 = use global */
         fl.period_us     = (uint32_t)(per[i] < 0 ? 0 : per[i]);
         fl.jitter_ns     = (uint32_t)(jit[i] < 0 ? 0 : jit[i]);
         fl.burst         = (uint16_t)(burst[i] < 0 ? 0 : burst[i]);
