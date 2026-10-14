@@ -327,18 +327,21 @@
     "name": "tsn-config",
     "icon": "cog",
     "order": 1,
-    "label": "TSN Config"
+    "label": "Deploy & Apply"
   },
   {
     "id": "GRP_CFG",
     "type": "ui_group",
     "z": "FLOWTAB",
-    "name": "Apply config",
+    "name": "Endpoint base (802.1Q)",
     "tab": "TABCFG",
     "width": 24,
     "order": 0,
     "label": "Endpoint Base Config",
-    "className": ""
+    "className": "",
+    "config": {
+      "name": "Endpoint base (802.1Q)"
+    }
   },
   {
     "id": "GRP_APPLY",
@@ -1033,50 +1036,6 @@
     "className": ""
   },
   {
-    "id": "GRP_TAS",
-    "type": "ui_group",
-    "z": "FLOWTAB",
-    "name": "TAS/GCL (802.1Qbv)",
-    "tab": "TAB_TAS",
-    "width": 24,
-    "order": 0,
-    "label": "TAS Scheduling (Qbv)",
-    "className": ""
-  },
-  {
-    "id": "GRP_PRE",
-    "type": "ui_group",
-    "z": "FLOWTAB",
-    "name": "Preemption (802.1Qbu)",
-    "tab": "TAB_PRE",
-    "width": 24,
-    "order": 0,
-    "label": "Preemption (Qbu)",
-    "className": ""
-  },
-  {
-    "id": "GRP_STM",
-    "type": "ui_group",
-    "z": "FLOWTAB",
-    "name": "Streams (802.1Qcc)",
-    "tab": "TAB_STM",
-    "width": 24,
-    "order": 0,
-    "label": "Stream Reservation (Qcc)",
-    "className": ""
-  },
-  {
-    "id": "GRP_TSYNC",
-    "type": "ui_group",
-    "z": "FLOWTAB",
-    "name": "Timesync (802.1AS)",
-    "tab": "TAB_TSYNC",
-    "width": 24,
-    "order": 0,
-    "label": "Time Sync (802.1AS)",
-    "className": ""
-  },
-  {
     "id": "GRP_DEPLOY",
     "type": "ui_group",
     "z": "FLOWTAB",
@@ -1086,282 +1045,6 @@
     "order": 8,
     "label": "Deploy to All Devices",
     "className": ""
-  },
-  {
-    "id": "FN_TAS",
-    "type": "function",
-    "z": "FLOWTAB",
-    "name": "tas SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar n=f.name||'';if(!n){return null;}msg.topic='INSERT OR REPLACE INTO tas_schedules(id,name,cycle_time_ns,deploy_target) VALUES(?,?,?,?)';msg.params=[n,n,C(f.cycle_time_ns,1,1000000000,500000000),f.deploy_target||''];var gs=[];dur=[];(String(f.gcl||'')).trim().split(/\\s+/).forEach(function(p){var a=p.split(':');if(a.length===2){var s=parseInt(a[0],10),d=parseInt(a[1],10);if(!isNaN(s)&&!isNaN(d)){gs.push(s);dur.push(d);}}});msg._gcl=gs;msg._dur=dur;msg.topic=embedParams(msg.topic,msg.params);return msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "x": 300,
-    "y": 1480,
-    "wires": [
-      [
-        "SQL_TAS"
-      ]
-    ]
-  },
-  {
-    "id": "SQL_TAS",
-    "type": "sqlite",
-    "z": "FLOWTAB",
-    "name": "write tas",
-    "x": 480,
-    "y": 1480,
-    "wires": [
-      [
-        "FN_TASG"
-      ]
-    ],
-    "mydb": "SQLCFG",
-    "sqlquery": "batch"
-  },
-  {
-    "id": "FN_TASG",
-    "type": "function",
-    "z": "FLOWTAB",
-    "name": "write gcl",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar n=msg._name||'';var gs=msg._gcl||[];var dur=msg._dur||[];if(!gs.length){return null;}msg.topic='DELETE FROM gcl_entries WHERE schedule_id=?';msg.params=[n];msg.topic=embedParams(msg.topic,msg.params);return msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "x": 660,
-    "y": 1480,
-    "wires": [
-      [
-        "SQL_TASGD"
-      ]
-    ]
-  },
-  {
-    "id": "SQL_TASGD",
-    "type": "sqlite",
-    "z": "FLOWTAB",
-    "name": "del gcl",
-    "x": 840,
-    "y": 1480,
-    "wires": [
-      [
-        "T_TASOK"
-      ]
-    ],
-    "mydb": "SQLCFG",
-    "sqlquery": "batch"
-  },
-  {
-    "id": "T_TASOK",
-    "type": "ui_text",
-    "z": "FLOWTAB",
-    "group": "GRP_TAS",
-    "order": 1,
-    "width": "6",
-    "label": "TAS",
-    "format": "TAS saved",
-    "layout": "row-spread",
-    "style": "",
-    "font": "",
-    "fontSize": "14",
-    "color": "#00b500",
-    "x": 1020,
-    "y": 1480,
-    "wires": []
-  },
-  {
-    "id": "FN_PRE",
-    "type": "function",
-    "z": "FLOWTAB",
-    "name": "preemption SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar d=f.device_id||'';if(!d){return null;}msg.topic='INSERT OR REPLACE INTO preemption_configs(device_id,preemption,emac,pmac) VALUES(?,?,?,?)';msg.params=[d,C(f.preemption,0,1,0),f.emac||'',f.pmac||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "x": 300,
-    "y": 1560,
-    "wires": [
-      [
-        "SQL_PRE"
-      ]
-    ]
-  },
-  {
-    "id": "SQL_PRE",
-    "type": "sqlite",
-    "z": "FLOWTAB",
-    "name": "write pre",
-    "x": 480,
-    "y": 1560,
-    "wires": [
-      [
-        "T_PREOK"
-      ]
-    ],
-    "mydb": "SQLCFG",
-    "sqlquery": "batch"
-  },
-  {
-    "id": "T_PREOK",
-    "type": "ui_text",
-    "z": "FLOWTAB",
-    "group": "GRP_PRE",
-    "order": 1,
-    "width": "6",
-    "label": "Preemption",
-    "format": "Preemption saved",
-    "layout": "row-spread",
-    "style": "",
-    "font": "",
-    "fontSize": "14",
-    "color": "#00b500",
-    "x": 660,
-    "y": 1560,
-    "wires": []
-  },
-  {
-    "id": "FN_STM",
-    "type": "function",
-    "z": "FLOWTAB",
-    "name": "stream SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar n=f.name||'';var t=f.talker||'';if(!n||!t){return null;}msg.topic='INSERT OR REPLACE INTO tsn_streams(stream_id,name,talker,vlan_id,max_latency_ns,max_interval_ns,priority,data_frame_prio,status,comment) VALUES(?,?,?,?,100000000,1000000,5,5,0,\\'\\')';msg.params=[n,n,t,C(f.vlan_id,1,4094,100)];msg._listeners=(f.listeners||'').split(',').map(function(s){return s.trim();}).filter(Boolean);msg.topic=embedParams(msg.topic,msg.params);return msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "x": 300,
-    "y": 1640,
-    "wires": [
-      [
-        "SQL_STM"
-      ]
-    ]
-  },
-  {
-    "id": "SQL_STM",
-    "type": "sqlite",
-    "z": "FLOWTAB",
-    "name": "write stream",
-    "x": 480,
-    "y": 1640,
-    "wires": [
-      [
-        "FN_STMM"
-      ]
-    ],
-    "mydb": "SQLCFG",
-    "sqlquery": "batch"
-  },
-  {
-    "id": "FN_STMM",
-    "type": "function",
-    "z": "FLOWTAB",
-    "name": "stream members",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar sid=msg._sid||'';var lsn=msg._listeners||[];msg.topic='DELETE FROM tsn_stream_members WHERE stream_id=?';msg.params=[sid];msg.topic=embedParams(msg.topic,msg.params);return msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "x": 660,
-    "y": 1640,
-    "wires": [
-      [
-        "SQL_STMD"
-      ]
-    ]
-  },
-  {
-    "id": "SQL_STMD",
-    "type": "sqlite",
-    "z": "FLOWTAB",
-    "name": "del members",
-    "x": 840,
-    "y": 1640,
-    "wires": [
-      [
-        "T_STMOK"
-      ]
-    ],
-    "mydb": "SQLCFG",
-    "sqlquery": "batch"
-  },
-  {
-    "id": "T_STMOK",
-    "type": "ui_text",
-    "z": "FLOWTAB",
-    "group": "GRP_STM",
-    "order": 1,
-    "width": "6",
-    "label": "Stream",
-    "format": "Stream saved",
-    "layout": "row-spread",
-    "style": "",
-    "font": "",
-    "fontSize": "14",
-    "color": "#00b500",
-    "x": 1020,
-    "y": 1640,
-    "wires": []
-  },
-  {
-    "id": "FN_TSYNC",
-    "type": "function",
-    "z": "FLOWTAB",
-    "name": "tsync SQL",
-    "func": "function embedParams(sql,params){if(!params)return sql;params=params.slice();for(var i=0;i<params.length;i++){var idx=sql.indexOf('?');if(idx<0)break;var v=params[i];var ev;if(v===null){ev='NULL';}else if(typeof v==='boolean'){ev=v?'1':'0';}else if(typeof v==='number'){ev=String(v);}else{ev=\"'\"+String(v).replace(/'/g,\"''\")+\"'\";}sql=sql.substring(0,idx)+ev+sql.substring(idx+1);}return sql;}\nvar f=msg.payload||{};\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nmsg.topic='INSERT OR REPLACE INTO timesync_status(id,mode,grandmaster,offset_ns,quality) VALUES(\\'main\\',?,?,0,0)';msg.params=[C(f.mode,0,2,2),f.grandmaster||''];msg.topic=embedParams(msg.topic,msg.params);return msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "x": 300,
-    "y": 1720,
-    "wires": [
-      [
-        "SQL_TSYNC"
-      ]
-    ]
-  },
-  {
-    "id": "SQL_TSYNC",
-    "type": "sqlite",
-    "z": "FLOWTAB",
-    "name": "write tsync",
-    "x": 480,
-    "y": 1720,
-    "wires": [
-      [
-        "T_TSYNOK"
-      ]
-    ],
-    "mydb": "SQLCFG",
-    "sqlquery": "batch"
-  },
-  {
-    "id": "T_TSYNOK",
-    "type": "ui_text",
-    "z": "FLOWTAB",
-    "group": "GRP_TSYNC",
-    "order": 1,
-    "width": "6",
-    "label": "Timesync",
-    "format": "Timesync saved",
-    "layout": "row-spread",
-    "style": "",
-    "font": "",
-    "fontSize": "14",
-    "color": "#00b500",
-    "x": 660,
-    "y": 1720,
-    "wires": []
   },
   {
     "id": "BTN_DEPLOY",
@@ -3893,44 +3576,12 @@
     "func": "var s=(msg.payload||'').trim();var ok=(s==='active');\nmsg.payload=ok?'htsn-preempt ACTIVE - emitting 802.3br preemption (truncated PCP5 + 0xFFFF LFM -> urgent PCP7 -> retransmit) every 2s':'htsn-preempt '+s+' - software preemption demo NOT emitting';\nreturn msg;"
   },
   {
-    "id": "TAB_TAS",
-    "type": "ui_tab",
-    "z": "FLOWTAB",
-    "name": "tas-8021qbv",
-    "order": 4,
-    "label": "TAS 802.1Qbv"
-  },
-  {
-    "id": "TAB_PRE",
-    "type": "ui_tab",
-    "z": "FLOWTAB",
-    "name": "preempt-8021qbu",
-    "order": 5,
-    "label": "Preempt 802.1Qbu"
-  },
-  {
-    "id": "TAB_STM",
-    "type": "ui_tab",
-    "z": "FLOWTAB",
-    "name": "streams-8021qcc",
-    "order": 6,
-    "label": "Streams 802.1Qcc"
-  },
-  {
-    "id": "TAB_TSYNC",
-    "type": "ui_tab",
-    "z": "FLOWTAB",
-    "name": "timesync-8021as",
-    "order": 7,
-    "label": "Timesync 802.1AS"
-  },
-  {
     "id": "HTML_TSN",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "",
     "group": "GRP_CFG",
-    "format": "<style>ui-card-panel,nr-dashboard-card-panel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardpanel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardcontainer{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;}.nr-dashboard-cardtitle{display:block!important;width:100%!important;}.nr-dashboard-cardcontainer .md-card,.nr-dashboard-cardcontainer md-card{box-shadow:none!important;border:none!important;background:transparent!important;width:100%!important;}.nr-dashboard-cardcarat{display:none!important;}.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:4px 6px;max-width:900px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 46%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}</style>\n<div class=\"tsnf\" ng-init=\"f={}\"><h3>Endpoint Base Config</h3><div class=\"sub\">VLAN, PCP, traffic class, timesync + stream role. Apply pushes to the STM32 via OPC UA.</div>\n<div class=\"row\"><label>VLAN ID (0-4094, 0=no change)</label><input type=\"number\" min=\"0\" max=\"4094\" step=\"1\" ng-model=\"f.vlan_id\"></div><div class=\"row\"><label>PCP priority (0-7)</label><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"f.priority\"></div><div class=\"row\"><label>Traffic class (0-7)</label><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"f.traffic_class\"></div><div class=\"row\"><label>Preemption 802.1Qbb (0-1)</label><input type=\"number\" min=\"0\" max=\"1\" step=\"1\" ng-model=\"f.preemption\"></div><div class=\"row\"><label>Timesync mode</label><select ng-model=\"f.timesync_mode\"><option value=\"none\">none</option><option value=\"GM\">GM</option><option value=\"slave\">slave</option></select></div><div class=\"row\"><label>Stream role</label><select ng-model=\"f.st_role\"><option value=\"talker\">talker</option><option value=\"listener\">listener</option></select></div><div class=\"row\"><label>Stream VLAN (0-4094)</label><input type=\"number\" min=\"0\" max=\"4094\" step=\"1\" ng-model=\"f.st_vlan\"></div><div class=\"row\"><label>Stream PCP (0-7)</label><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"f.st_prio\"></div><div class=\"row\"><label>TAS cycle (ns)</label><input type=\"number\" min=\"1\" max=\"1000000000\" step=\"1\" ng-model=\"f.tas_cycle_ns\"></div><div class=\"row\"><label>GCL schedule (open:ns closed:ns ...)</label><input type=\"text\" ng-model=\"f.gcl\"></div>\n<button class=\"btn\" ng-click=\"send({payload:f})\">Apply to STM32</button></div>",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 14px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf label{display:block;margin:10px 0 4px 0;font-size:13px;color:#546e7a;font-weight:500;}.cf input{width:100%;box-sizing:border-box;padding:7px 6px;border:1px solid #cfd8dc;border-radius:4px;font-size:14px;}.cf .btn{margin-top:16px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}</style>\n<div class=\"cf\" ng-init=\"f={}\"><h3>Endpoint base (802.1Q)</h3><div class=\"sub\">Default/global VLAN+PCP the endpoint uses when a flow has no VLAN classification. Per-flow VLANs, classes, sync and switch live in their own cards.</div><label>Global VLAN ID (0-4094, 0=none)</label><input type=\"number\" min=\"0\" max=\"4094\" ng-model=\"f.vlan_id\"><label>PCP priority (0-7)</label><input type=\"number\" min=\"0\" max=\"7\" ng-model=\"f.priority\"><label>Traffic class (0-7)</label><input type=\"number\" min=\"0\" max=\"7\" ng-model=\"f.traffic_class\"><label>Preemption 802.1Qbb (0-1)</label><input type=\"number\" min=\"0\" max=\"1\" ng-model=\"f.preemption\"><button class=\"btn\" ng-click=\"send({payload:f})\">Apply to endpoint</button></div>",
     "storeOutMessages": "false",
     "cd": "false",
     "js": "",
@@ -3943,95 +3594,7 @@
       ]
     ],
     "groupMode": "fixed",
-    "height": "13",
-    "width": "24"
-  },
-  {
-    "id": "HTML_TAS",
-    "type": "ui_template",
-    "z": "FLOWTAB",
-    "name": "",
-    "group": "GRP_TAS",
-    "format": "<style>ui-card-panel,nr-dashboard-card-panel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardpanel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardcontainer{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;}.nr-dashboard-cardtitle{display:block!important;width:100%!important;}.nr-dashboard-cardcontainer .md-card,.nr-dashboard-cardcontainer md-card{box-shadow:none!important;border:none!important;background:transparent!important;width:100%!important;}.nr-dashboard-cardcarat{display:none!important;}.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:4px 6px;max-width:900px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 46%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}</style>\n<div class=\"tsnf\" ng-init=\"f={}\"><h3>TAS Scheduling (802.1Qbv)</h3><div class=\"sub\">Cycle (ns) = period; GCL = gate:ns gate:ns.</div>\n<div class=\"row\"><label>Schedule name</label><input type=\"text\" ng-model=\"f.name\"></div><div class=\"row\"><label>Cycle time (ns)</label><input type=\"number\" min=\"1\" max=\"1000000000\" step=\"1\" ng-model=\"f.cycle_time_ns\"></div><div class=\"row\"><label>Deploy target</label><input type=\"text\" ng-model=\"f.deploy_target\"></div><div class=\"row\"><label>GCL (gate:ns gate:ns ...)</label><input type=\"text\" ng-model=\"f.gcl\"></div>\n<button class=\"btn\" ng-click=\"send({payload:f})\">Save TAS</button></div>",
-    "storeOutMessages": "false",
-    "cd": "false",
-    "js": "",
-    "css": "",
-    "x": 100,
-    "y": 1480,
-    "wires": [
-      [
-        "FN_TAS"
-      ]
-    ],
-    "groupMode": "fixed",
-    "height": "7",
-    "width": "24"
-  },
-  {
-    "id": "HTML_PRE",
-    "type": "ui_template",
-    "z": "FLOWTAB",
-    "name": "",
-    "group": "GRP_PRE",
-    "format": "<style>ui-card-panel,nr-dashboard-card-panel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardpanel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardcontainer{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;}.nr-dashboard-cardtitle{display:block!important;width:100%!important;}.nr-dashboard-cardcontainer .md-card,.nr-dashboard-cardcontainer md-card{box-shadow:none!important;border:none!important;background:transparent!important;width:100%!important;}.nr-dashboard-cardcarat{display:none!important;}.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:4px 6px;max-width:900px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 46%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}</style>\n<div class=\"tsnf\" ng-init=\"f={}\"><h3>Frame Preemption (802.1Qbb)</h3><div class=\"sub\">Enable per device + eMAC/pMAC priority lists.</div>\n<div class=\"row\"><label>Device ID</label><input type=\"text\" ng-model=\"f.device_id\"></div><div class=\"row\"><label>Preemption (0-1)</label><input type=\"number\" min=\"0\" max=\"1\" step=\"1\" ng-model=\"f.preemption\"></div><div class=\"row\"><label>eMAC priorities</label><input type=\"text\" ng-model=\"f.emac\"></div><div class=\"row\"><label>pMAC priorities</label><input type=\"text\" ng-model=\"f.pmac\"></div>\n<button class=\"btn\" ng-click=\"send({payload:f})\">Save Preemption</button></div>",
-    "storeOutMessages": "false",
-    "cd": "false",
-    "js": "",
-    "css": "",
-    "x": 100,
-    "y": 1560,
-    "wires": [
-      [
-        "FN_PRE"
-      ]
-    ],
-    "groupMode": "fixed",
-    "height": "7",
-    "width": "24"
-  },
-  {
-    "id": "HTML_STM",
-    "type": "ui_template",
-    "z": "FLOWTAB",
-    "name": "",
-    "group": "GRP_STM",
-    "format": "<style>ui-card-panel,nr-dashboard-card-panel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardpanel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardcontainer{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;}.nr-dashboard-cardtitle{display:block!important;width:100%!important;}.nr-dashboard-cardcontainer .md-card,.nr-dashboard-cardcontainer md-card{box-shadow:none!important;border:none!important;background:transparent!important;width:100%!important;}.nr-dashboard-cardcarat{display:none!important;}.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:4px 6px;max-width:900px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 46%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}</style>\n<div class=\"tsnf\" ng-init=\"f={}\"><h3>Stream Reservation (802.1Qcc)</h3><div class=\"sub\">Talker -&gt; listener, VLAN.</div>\n<div class=\"row\"><label>Stream name</label><input type=\"text\" ng-model=\"f.name\"></div><div class=\"row\"><label>Talker device</label><input type=\"text\" ng-model=\"f.talker\"></div><div class=\"row\"><label>Listeners (comma-sep)</label><input type=\"text\" ng-model=\"f.listeners\"></div><div class=\"row\"><label>VLAN ID</label><input type=\"number\" min=\"1\" max=\"4094\" step=\"1\" ng-model=\"f.vlan_id\"></div>\n<button class=\"btn\" ng-click=\"send({payload:f})\">Save Stream</button></div>",
-    "storeOutMessages": "false",
-    "cd": "false",
-    "js": "",
-    "css": "",
-    "x": 100,
-    "y": 1640,
-    "wires": [
-      [
-        "FN_STM"
-      ]
-    ],
-    "groupMode": "fixed",
-    "height": "7",
-    "width": "24"
-  },
-  {
-    "id": "HTML_TSYNC",
-    "type": "ui_template",
-    "z": "FLOWTAB",
-    "name": "",
-    "group": "GRP_TSYNC",
-    "format": "<style>ui-card-panel,nr-dashboard-card-panel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardpanel{display:block!important;width:100%!important;max-width:none!important;}.nr-dashboard-cardcontainer{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;}.nr-dashboard-cardtitle{display:block!important;width:100%!important;}.nr-dashboard-cardcontainer .md-card,.nr-dashboard-cardcontainer md-card{box-shadow:none!important;border:none!important;background:transparent!important;width:100%!important;}.nr-dashboard-cardcarat{display:none!important;}.tsnf{font-family:Roboto,Arial,sans-serif;font-size:14px;color:#212121;padding:4px 6px;max-width:900px;}.tsnf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tsnf .sub{margin:0 0 16px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tsnf .row{display:flex;align-items:center;margin:0 0 14px 0;}.tsnf label{flex:0 0 46%;margin:0;font-size:14px;color:#37474f;}.tsnf input,.tsnf select{flex:1;box-sizing:border-box;padding:6px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:14px;color:#212121;border-radius:0;}.tsnf input:focus,.tsnf select:focus{outline:none;border-bottom:2px solid #009688;}.tsnf .btn{margin-top:10px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tsnf .btn:hover{background:#00796b;}</style>\n<div class=\"tsnf\" ng-init=\"f={}\"><h3>Time Sync (802.1AS gPTP)</h3><div class=\"sub\">Mode: 0=none, 1=GM (RPi leads), 2=slave (follow).</div>\n<div class=\"row\"><label>Mode (0=none 1=GM 2=slave)</label><input type=\"number\" min=\"0\" max=\"2\" step=\"1\" ng-model=\"f.mode\"></div><div class=\"row\"><label>Grandmaster device</label><input type=\"text\" ng-model=\"f.grandmaster\"></div>\n<button class=\"btn\" ng-click=\"send({payload:f})\">Save Time Sync</button></div>",
-    "storeOutMessages": "false",
-    "cd": "false",
-    "js": "",
-    "css": "",
-    "x": 100,
-    "y": 1720,
-    "wires": [
-      [
-        "FN_TSYNC"
-      ]
-    ],
-    "groupMode": "fixed",
-    "height": "5",
+    "height": "8",
     "width": "24"
   },
   {
@@ -4421,7 +3984,7 @@
     "name": "traffic classifications",
     "group": "GRP_TCL",
     "groupMode": "fixed",
-    "format": "<style>.tc{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.tc h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tc h4{margin:16px 0 6px 0;font-size:14px;font-weight:500;color:#546e7a;}.tc .sub{margin:0 0 10px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tc table{border-collapse:collapse;width:100%;}.tc th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.tc td{padding:3px 5px;border-bottom:1px solid #eceff1;}.tc input,.tc select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.tc input:focus,.tc select:focus{outline:none;border-bottom:2px solid #009688;}.tc .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.tc .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.tc .del:hover{background:#e57373;}.tc .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tc .btn:hover{background:#00796b;}.tc pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"tc\" ng-init=\"tc=[{name:'',flow:'',express:false,scheduling:'CBS'}]; vcl=[{frame:'',vlan_name:'',vlan_id:100}]\"><h3>TrafficClassifications (802.1Q)</h3><div class=\"sub\">Assign each flow a traffic class (express + scheduling) and a VLAN classification.</div><h4>TrafficClasses</h4><table><thead><tr><th>Name</th><th>Flow</th><th>Express traffic</th><th>Scheduling policy</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in tc\"><td><input ng-model=\"r.name\" placeholder=\"class name\"></td><td><select ng-model=\"r.flow\"><option value=\"\">(select flow)</option><option ng-repeat=\"fl in (msg.payload||[])\" value=\"{{fl}}\">{{fl}}</option></select></td><td><select ng-model=\"r.express\"><option ng-value=\"true\">true</option><option ng-value=\"false\">false</option></select></td><td><select ng-model=\"r.scheduling\"><option>FIFO</option><option>CBS</option></select></td><td><button class=\"del\" ng-click=\"tc.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"tc.push({name:'',flow:'',express:false,scheduling:'CBS'})\">+ Add class</button><button class=\"btn\" ng-click=\"send({topic:'tc', payload:tc})\">Create TrafficClasses</button><h4>VLANClassifications</h4><table><thead><tr><th>Frames</th><th>VLAN name</th><th>VLAN ID</th><th></th></tr></thead><tbody><tr ng-repeat=\"v in vcl\"><td><select ng-model=\"v.frame\"><option value=\"\">(select frame)</option><option ng-repeat=\"fl in (msg.payload||[])\" value=\"{{fl}}\">{{fl}}</option></select></td><td><input ng-model=\"v.vlan_name\" placeholder=\"vlan name\"></td><td><input type=\"number\" min=\"1\" max=\"4094\" step=\"1\" ng-model=\"v.vlan_id\"></td><td><button class=\"del\" ng-click=\"vcl.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"vcl.push({frame:'',vlan_name:'',vlan_id:100})\">+ Add VLAN class</button><button class=\"btn\" ng-click=\"send({topic:'vcl', payload:vcl})\">Create VLANClassifications</button></div>",
+    "format": "<style>.tc{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.tc h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tc h4{margin:16px 0 6px 0;font-size:14px;font-weight:500;color:#546e7a;}.tc .sub{margin:0 0 10px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tc table{border-collapse:collapse;width:100%;}.tc th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.tc td{padding:3px 5px;border-bottom:1px solid #eceff1;}.tc input,.tc select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.tc input:focus,.tc select:focus{outline:none;border-bottom:2px solid #009688;}.tc .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.tc .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.tc .del:hover{background:#e57373;}.tc .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.tc .btn:hover{background:#00796b;}.tc pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"tc\" ng-init=\"tc=[{name:'',flow:'',express:false,scheduling:'CBS',preempt:false,tas_gcl:''}]; vcl=[{frame:'',vlan_name:'',vlan_id:100}]\"><h3>TrafficClassifications (802.1Q)</h3><div class=\"sub\">Assign each flow a traffic class (express + scheduling) and a VLAN classification.</div><h4>TrafficClasses</h4><table><thead><tr><th>Name</th><th>Flow</th><th>Express traffic</th><th>Scheduling policy</th><th>Preempt</th><th>TAS GCL</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in tc\"><td><input ng-model=\"r.name\" placeholder=\"class name\"></td><td><select ng-model=\"r.flow\"><option value=\"\">(select flow)</option><option ng-repeat=\"fl in (msg.payload||[])\" value=\"{{fl}}\">{{fl}}</option></select></td><td><select ng-model=\"r.express\"><option ng-value=\"true\">true</option><option ng-value=\"false\">false</option></select></td><td><select ng-model=\"r.scheduling\"><option>FIFO</option><option>CBS</option></select></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.preempt\"></td><td><input ng-model=\"r.tas_gcl\" placeholder=\"1:250000000 0:250000000\"></td><td><button class=\"del\" ng-click=\"tc.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"tc.push({name:'',flow:'',express:false,scheduling:'CBS',preempt:false,tas_gcl:''})\">+ Add class</button><button class=\"btn\" ng-click=\"send({topic:'tc', payload:tc})\">Create TrafficClasses</button><h4>VLANClassifications</h4><table><thead><tr><th>Frames</th><th>VLAN name</th><th>VLAN ID</th><th></th></tr></thead><tbody><tr ng-repeat=\"v in vcl\"><td><select ng-model=\"v.frame\"><option value=\"\">(select frame)</option><option ng-repeat=\"fl in (msg.payload||[])\" value=\"{{fl}}\">{{fl}}</option></select></td><td><input ng-model=\"v.vlan_name\" placeholder=\"vlan name\"></td><td><input type=\"number\" min=\"1\" max=\"4094\" step=\"1\" ng-model=\"v.vlan_id\"></td><td><button class=\"del\" ng-click=\"vcl.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"vcl.push({frame:'',vlan_name:'',vlan_id:100})\">+ Add VLAN class</button><button class=\"btn\" ng-click=\"send({topic:'vcl', payload:vcl})\">Create VLANClassifications</button></div>",
     "storeOutMessages": "false",
     "cd": "false",
     "js": "",
@@ -4441,7 +4004,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "build classifications",
-    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nif(msg.topic==='tc'){\n  sql.push({topic:\"CREATE TABLE IF NOT EXISTS traffic_classes(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,flow TEXT,express INTEGER,scheduling TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\n  sql.push({topic:\"DELETE FROM traffic_classes\"});\n  var n=0;\n  rows.forEach(function(r){\n    if(!r) return;\n    var name=String(r.name||'').trim();\n    if(!name) return;\n    var flow=String(r.flow||'').trim();\n    var exp=(r.express===true||r.express==='true')?1:0;\n    var sch=(r.scheduling==='CBS')?'CBS':'FIFO';\n    sql.push({topic:\"INSERT INTO traffic_classes(name,flow,express,scheduling) VALUES('\"+E(name)+\"','\"+E(flow)+\"',\"+exp+\",'\"+sch+\"')\"});\n    n++;\n  });\n  node.status({fill:'green',shape:'dot',text:'saved '+n+' class(es)'});\n} else if(msg.topic==='vcl'){\n  sql.push({topic:\"CREATE TABLE IF NOT EXISTS vlan_classifications(id INTEGER PRIMARY KEY AUTOINCREMENT,frame TEXT,vlan_name TEXT,vlan_id INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\n  sql.push({topic:\"DELETE FROM vlan_classifications\"});\n  var m=0;\n  rows.forEach(function(r){\n    if(!r) return;\n    var vname=String(r.vlan_name||'').trim();\n    if(!vname) return;\n    var frame=String(r.frame||'').trim();\n    var vid=C(r.vlan_id,1,4094,100);\n    sql.push({topic:\"INSERT INTO vlan_classifications(frame,vlan_name,vlan_id) VALUES('\"+E(frame)+\"','\"+E(vname)+\"',\"+vid+\")\"});\n    m++;\n  });\n  node.status({fill:'green',shape:'dot',text:'saved '+m+' vlan class(es)'});\n}\nreturn sql;\n",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nif(msg.topic==='tc'){\n  sql.push({topic:\"CREATE TABLE IF NOT EXISTS traffic_classes(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,flow TEXT,express INTEGER,scheduling TEXT,preempt INTEGER,tas_gcl TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\n  sql.push({topic:\"DELETE FROM traffic_classes\"});\n  var n=0;\n  rows.forEach(function(r){\n    if(!r) return;\n    var name=String(r.name||'').trim();\n    if(!name) return;\n    var flow=String(r.flow||'').trim();\n    var exp=(r.express===true||r.express==='true')?1:0;\n    var sch=(r.scheduling==='CBS')?'CBS':'FIFO';\n    var pre=r.preempt?1:0;\n    var gcl=String(r.tas_gcl||'').trim();\n    sql.push({topic:\"INSERT INTO traffic_classes(name,flow,express,scheduling,preempt,tas_gcl) VALUES('\"+E(name)+\"','\"+E(flow)+\"',\"+exp+\",'\"+sch+\"',\"+pre+\",'\"+E(gcl)+\"')\"});\n    n++;\n  });\n  node.status({fill:'green',shape:'dot',text:'saved '+n+' class(es)'});\n} else if(msg.topic==='vcl'){\n  sql.push({topic:\"CREATE TABLE IF NOT EXISTS vlan_classifications(id INTEGER PRIMARY KEY AUTOINCREMENT,frame TEXT,vlan_name TEXT,vlan_id INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\n  sql.push({topic:\"DELETE FROM vlan_classifications\"});\n  var m=0;\n  rows.forEach(function(r){\n    if(!r) return;\n    var vname=String(r.vlan_name||'').trim();\n    if(!vname) return;\n    var frame=String(r.frame||'').trim();\n    var vid=C(r.vlan_id,1,4094,100);\n    sql.push({topic:\"INSERT INTO vlan_classifications(frame,vlan_name,vlan_id) VALUES('\"+E(frame)+\"','\"+E(vname)+\"',\"+vid+\")\"});\n    m++;\n  });\n  node.status({fill:'green',shape:'dot',text:'saved '+m+' vlan class(es)'});\n}\nreturn sql;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -4824,7 +4387,8 @@
       "name": "SyncConfigs 802.1AS",
       "tab": "TAB_SYNC",
       "width": "24"
-    }
+    },
+    "height": 1
   },
   {
     "id": "HTML_SYNC",
@@ -5283,36 +4847,11 @@
     ]
   },
   {
-    "id": "TAB_GST",
-    "type": "ui_tab",
-    "z": "FLOWTAB",
-    "name": "gptp-streams",
-    "order": 3.0,
-    "label": "gPTP Streams",
-    "icon": "share-alt"
-  },
-  {
-    "id": "GRP_GST",
-    "type": "ui_group",
-    "z": "FLOWTAB",
-    "name": "gPTP Streams (802.1AS-2020)",
-    "tab": "TAB_GST",
-    "width": "24",
-    "order": 0,
-    "label": "QoS Policy",
-    "className": "",
-    "config": {
-      "name": "gPTP Streams (802.1AS-2020)",
-      "tab": "TAB_GST",
-      "width": "24"
-    }
-  },
-  {
     "id": "HTML_GST",
     "type": "ui_template",
     "z": "FLOWTAB",
     "name": "gptp streams",
-    "group": "GRP_GST",
+    "group": "GRP_SYNC",
     "groupMode": "fixed",
     "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf h4{margin:14px 0 6px 0;font-size:13px;font-weight:500;color:#546e7a;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox],.cf input[type=radio]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 8px 0 0;padding:9px 22px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf .ok{color:#43a047;font-weight:500;}.cf .miss{color:#e53935;font-weight:500;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>gPTP Streams (802.1AS-2020)</h3><div class=\"sub\">Topology / SyncConfigs / gPTP Streams. Generate the synchronization streams from the SyncConfigs (Grandmaster RPi &rarr; SyncClient). Frame-chain routes and per-message routes are listed below; the same paths are drawn on the Topology view.</div><button class=\"btn\" ng-click=\"send({topic:'genstreams'})\">Create 802.1AS-2020 streams</button><h4>Frame Chain Routes</h4><pre>{{ (msg.payload && msg.payload.chains) || '(none)' }}</pre><h4>Frame Routes (sync messages)</h4><pre>{{ (msg.payload && msg.payload.messages) || '(none)' }}</pre></div>",
     "storeOutMessages": "false",
