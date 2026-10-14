@@ -4601,7 +4601,9 @@
         "SQL_TXSAVED",
         "SQL_SYNCREFS",
         "SQL_SYNCPUSH",
-        "SQL_SYCSAVED"
+        "SQL_SYCSAVED",
+        "SQL_VCREFS",
+        "SQL_VCSAVED"
       ]
     ]
   },
@@ -4612,7 +4614,7 @@
     "name": "join flow+class+vlan",
     "mydb": "SQLCFG",
     "sqlquery": "fixed",
-    "sql": "SELECT f.sender AS sender, f.receiver AS receiver, f.pcp AS pcp, f.vlan_tagged AS vlan_tagged, f.arrival_model AS arrival_model, f.period_ms AS period_ms, f.jitter_ns AS jitter_ns, f.burst AS burst, v.vlan_id AS vlan_id, v.vlan_name AS vlan_name, tc.express AS express, tc.scheduling AS scheduling, tc.name AS class_name, tx.tx_offset_us AS tx_offset_us FROM frame_flows f LEFT JOIN vlan_classifications v ON v.frame = (f.sender || ' -> ' || f.receiver) LEFT JOIN traffic_classes tc ON tc.flow = (f.sender || ' -> ' || f.receiver) LEFT JOIN tx_offset_configs tx ON tx.flow = (f.sender || ' -> ' || f.receiver) ORDER BY f.id",
+    "sql": "SELECT f.sender AS sender, f.receiver AS receiver, f.pcp AS pcp, f.vlan_tagged AS vlan_tagged, f.arrival_model AS arrival_model, f.period_ms AS period_ms, f.jitter_ns AS jitter_ns, f.burst AS burst, v.vlan_id AS vlan_id, v.vlan_name AS vlan_name, vc.send_activity AS send_activity, tc.express AS express, tc.scheduling AS scheduling, tc.name AS class_name, tc.flow AS class_flow, tx.tx_offset_us AS tx_offset_us FROM frame_flows f LEFT JOIN vlan_classifications v ON v.frame = (f.sender || ' -> ' || f.receiver) LEFT JOIN vlan_configs vc ON vc.vlan = v.vlan_name LEFT JOIN traffic_classes tc ON tc.flow = (f.sender || ' -> ' || f.receiver) LEFT JOIN tx_offset_configs tx ON tx.flow = (f.sender || ' -> ' || f.receiver) ORDER BY f.id",
     "x": 380,
     "y": 160,
     "wires": [
@@ -4626,7 +4628,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "build enriched flow push",
-    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],txoff=[],expr=[],labels=[];\nrows.forEach(function(r){\n  var tagged=r.vlan_tagged?1:0;\n  var vid;\n  if(r.vlan_id!==null && r.vlan_id!==undefined && r.vlan_id!==''){ vid=C(r.vlan_id,1,4094,0); }\n  else { vid = tagged?0:65535; }\n  pcp.push(C(r.pcp,0,7,0));\n  vlan.push(vid);\n  model.push(MODELS.hasOwnProperty(r.arrival_model)?MODELS[r.arrival_model]:1);\n  per.push(C(r.period_ms,1,60000,100)*1000);\n  jit.push(C(r.jitter_ns,0,1000000000,0));\n  burst.push(C(r.burst,1,1000,1));\n  txoff.push(C(r.tx_offset_us,0,1000000000,0));\n  expr.push(r.express?1:0);\n  labels.push(String(r.class_name||'').replace(/[|\"]/g,''));\n});\nvar flat={count:rows.length,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,tx_offset_us:txoff,express:expr,labels:labels.join('|')};\nvar s=JSON.stringify(flat);\nif(s===(global.get('HTSN_FLOW_LAST')||'')){ return null; }\nglobal.set('HTSN_FLOW_LAST',s);\nnode.status({fill:'green',shape:'dot',text:'push '+rows.length+' flow(s)'});\nreturn {datatype:\"String\", topic:\"ns=1;i=52\", payload:s};\n",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],txoff=[],expr=[],labels=[];\nrows.forEach(function(r){\n  var sa=String(r.send_activity||'');\n  var vid;\n  if(sa==='Untagged'){ vid=65535; }             /* untagged */\n  else if(sa==='Priority-tagged'){ vid=65534; }    /* priority-tagged (VID 0) */\n  else if(r.vlan_id!==null && r.vlan_id!==undefined && r.vlan_id!==''){ vid=C(r.vlan_id,1,4094,0); }\n  else { vid = (r.vlan_tagged?0:65535); }\n  pcp.push(C(r.pcp,0,7,0));\n  vlan.push(vid);\n  model.push(MODELS.hasOwnProperty(r.arrival_model)?MODELS[r.arrival_model]:1);\n  per.push(C(r.period_ms,1,60000,100)*1000);\n  jit.push(C(r.jitter_ns,0,1000000000,0));\n  burst.push(C(r.burst,1,1000,1));\n  txoff.push(C(r.tx_offset_us,0,1000000000,0));\n  expr.push(r.express?1:0);\n  labels.push(String(r.class_name||'').replace(/[|\"]/g,''));\n});\nvar flat={count:rows.length,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,tx_offset_us:txoff,express:expr,labels:labels.join('|')};\nvar s=JSON.stringify(flat);\nif(s===(global.get('HTSN_FLOW_LAST')||'')){ return null; }\nglobal.set('HTSN_FLOW_LAST',s);\nnode.status({fill:'green',shape:'dot',text:'push '+rows.length+' flow(s)'});\nreturn {datatype:\"String\", topic:\"ns=1;i=52\", payload:s};\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -5002,6 +5004,157 @@
     "applicationUri": "",
     "x": 840,
     "y": 340,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "TAB_VCFG",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "vlanconfigs-8021q",
+    "order": 2.6,
+    "label": "VLANConfigs 802.1Q",
+    "icon": "lan"
+  },
+  {
+    "id": "GRP_VCFG",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "VLANConfigs (802.1Q)",
+    "tab": "TAB_VCFG",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "VLANConfigs (802.1Q)",
+      "tab": "TAB_VCFG",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_VCFG",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "vlanconfigs form",
+    "group": "GRP_VCFG",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .del:hover{background:#e57373;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\" ng-init=\"rows=[{vlan:'',send_activity:'Tagged',port:''}]\"><h3>VLANConfigs</h3><div class=\"sub\">VLAN membership: assign a created VLAN classification to the VLAN, choose the frame transmission method, and the device port it is sent on.</div><table><thead><tr><th>VLAN (classification)</th><th>SendActivity</th><th>Device Port</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><select ng-model=\"r.vlan\"><option value=\"\">(vlan)</option><option ng-repeat=\"o in (msg.payload||[]) | filter:{k:'vlan'}\" value=\"{{o.v}}\">{{o.v}}</option></select></td><td><select ng-model=\"r.send_activity\"><option>Untagged</option><option>Priority-tagged</option><option>Tagged</option></select></td><td><select ng-model=\"r.port\"><option value=\"\">(port)</option><option ng-repeat=\"o in (msg.payload||[]) | filter:{k:'port'}\" value=\"{{o.v}}\">{{o.v}}</option></select></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"rows.push({vlan:'',send_activity:'Tagged',port:''})\">+ Add membership</button><button class=\"btn\" ng-click=\"send({topic:'vcfg', payload:rows})\">Create VLANConfigs</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "9",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_VCFG"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VCFG",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build vlanconfigs",
+    "func": "var rows = msg.payload || [];\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS vlan_configs(id INTEGER PRIMARY KEY AUTOINCREMENT,vlan TEXT,send_activity TEXT,port TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM vlan_configs\"});\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nrows.forEach(function(r){\n  if(!r) return;\n  var vlan=String(r.vlan||'').trim();\n  if(!vlan) return;\n  var sa=String(r.send_activity||'Tagged').trim();\n  if(sa!=='Untagged'&&sa!=='Priority-tagged'&&sa!=='Tagged') sa='Tagged';\n  var port=String(r.port||'').trim();\n  sql.push({topic:\"INSERT INTO vlan_configs(vlan,send_activity,port) VALUES('\"+E(vlan)+\"','\"+E(sa)+\"','\"+E(port)+\"')\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'saved '+n+' membership(s)'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "SQL_VCFG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VCFG",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write vlanconfigs",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 710,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_VCREFS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read vlan+port",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT 'vlan' AS k, vlan_name AS v FROM vlan_classifications UNION ALL SELECT 'port', COALESCE(name,id) FROM devices ORDER BY k,v",
+    "x": 360,
+    "y": 240,
+    "wires": [
+      [
+        "HTML_VCFG"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VCSAVED",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read vlanconfigs",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT vlan,send_activity,port FROM vlan_configs ORDER BY id",
+    "x": 370,
+    "y": 300,
+    "wires": [
+      [
+        "FN_SAVED_VCFG"
+      ]
+    ]
+  },
+  {
+    "id": "FN_SAVED_VCFG",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt vlanconfigs",
+    "func": "var rows=msg.payload||[];\nif(Object.prototype.toString.call(rows)!=='[object Array]'||rows.length===0){msg.payload='(no VLANConfigs)';return msg;}\nmsg.payload=rows.map(function(r){return 'vlan '+r.vlan+' | '+r.send_activity+' | port '+(r.port||'-');}).join('\\n');\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 570,
+    "y": 300,
+    "wires": [
+      [
+        "T_VCSAVED"
+      ]
+    ]
+  },
+  {
+    "id": "T_VCSAVED",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "saved vlanconfigs",
+    "group": "GRP_VCFG",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .del:hover{background:#e57373;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>Saved</h3><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "5",
+    "x": 780,
+    "y": 300,
     "wires": [
       []
     ]

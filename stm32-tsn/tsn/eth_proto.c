@@ -443,9 +443,10 @@ static void flow_emit(int idx, const htsn_flow_t *f)
 {
 	uint8_t pcp = f->express ? 7 : (uint8_t)(f->pcp & 0x07);
 	uint16_t vid = f->vlan_id;
-	int tag = 1;
-	if (vid == 0xFFFF) { tag = 0; }          /* explicit "untagged"  */
-	else if (vid == 0) { vid = g_vlan_id; }  /* 0 -> endpoint's global VLAN */
+	int tag = 1, force = 0;
+	if (vid == 0xFFFF) { tag = 0; }                 /* untagged             */
+	else if (vid == 0xFFFE) { vid = 0; force = 1; } /* priority-tagged (VID0)*/
+	else if (vid == 0) { vid = g_vlan_id; }         /* endpoint global VLAN */
 
 	char pl[96];
 	int n = snprintf(pl, sizeof(pl),
@@ -461,7 +462,7 @@ static void flow_emit(int idx, const htsn_flow_t *f)
 	                           (const uint8_t *)pl, (uint16_t)n);
 	if (flen <= 0) return;
 
-	if (tag && vid > 0 && g_raw_sock >= 0) {
+	if (tag && (vid > 0 || force) && g_raw_sock >= 0) {
 		uint8_t out[HTSN_FRAME_MAX + 32];
 		int olen = build_tagged_pcpvid(out, fb, (uint16_t)flen, pcp, vid);
 		if (olen <= 0) return;
