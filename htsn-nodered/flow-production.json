@@ -4609,7 +4609,9 @@
         "SQL_GSTFEED",
         "SQL_NETSTAT",
         "SQL_NETCLASS",
-        "SQL_NETREPL"
+        "SQL_NETREPL",
+        "SQL_VSWSTAT",
+        "SQL_VSWLOAD"
       ]
     ]
   },
@@ -5611,6 +5613,196 @@
       [
         "T_NETREP"
       ]
+    ]
+  },
+  {
+    "id": "TAB_VSW",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "vswitch",
+    "order": 3.3,
+    "label": "Virtual TSN Switch",
+    "icon": "exchange"
+  },
+  {
+    "id": "GRP_VSW",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Virtual TSN Switch",
+    "tab": "TAB_VSW",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "Virtual TSN Switch",
+      "tab": "TAB_VSW",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_VSW",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "vswitch form",
+    "group": "GRP_VSW",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\" ng-init=\"rows=[{port:'1',pvid:1,allowed:'',pcpmap:'',cbs_kbps:0,preempt:false}]\"><h3>Virtual TSN Switch</h3><div class=\"sub\">A software TSN switch inside the RPi (isolated network namespace, so it never disturbs the TSN link). Configure the ports, VLAN membership, priority mapping, CBS and preemption; the service applies them and emits tagged test frames visible in Wireshark.</div><table><thead><tr><th>Port</th><th>PVID</th><th>Allowed VLANs</th><th>PCP map</th><th>CBS (kbps)</th><th>Preempt</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><input ng-model=\"r.port\"></td><td><input type=\"number\" min=\"1\" max=\"4094\" ng-model=\"r.pvid\"></td><td><input ng-model=\"r.allowed\" placeholder=\"100,200\"></td><td><input ng-model=\"r.pcpmap\" placeholder=\"0,1,2..7\"></td><td><input type=\"number\" min=\"0\" ng-model=\"r.cbs_kbps\"></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.preempt\"></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"rows.push({port:'1',pvid:1,allowed:'',pcpmap:'',cbs_kbps:0,preempt:false})\">+ Add port</button><button class=\"btn\" ng-click=\"send({topic:'vsw', payload:rows})\">Create Switch Config</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "11",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_VSW"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSW",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "build vswitch",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS vswitch_ports(id INTEGER PRIMARY KEY AUTOINCREMENT,port TEXT,pvid INTEGER,allowed TEXT,pcpmap TEXT,cbs_kbps INTEGER,preempt INTEGER)\"});\nsql.push({topic:\"DELETE FROM vswitch_ports\"});\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nrows.forEach(function(r){\n  if(!r) return;\n  var port=String(r.port||'').trim();\n  if(!port) return;\n  var pvid=C(r.pvid,1,4094,1);\n  var allowed=String(r.allowed||'').trim();\n  var pcpmap=String(r.pcpmap||'').trim();\n  var cbs=C(r.cbs_kbps,0,1000000,0);\n  var pre=r.preempt?1:0;\n  sql.push({topic:\"INSERT INTO vswitch_ports(port,pvid,allowed,pcpmap,cbs_kbps,preempt) VALUES('\"+E(port)+\"',\"+pvid+\",'\"+E(allowed)+\"','\"+E(pcpmap)+\"',\"+cbs+\",\"+pre+\")\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'switch: '+n+' port(s)'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "SQL_VSW"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_VSW",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write vswitch",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 700,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_VSWSTAT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read vswitch status",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT name,value FROM vswitch_status",
+    "x": 370,
+    "y": 240,
+    "wires": [
+      [
+        "FN_VSWSTAT"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSWSTAT",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt vswitch status",
+    "func": "var rows=msg.payload||[];\nvar kv={};\n(rows||[]).forEach(function(r){ kv[r.name]=r.value; });\nmsg.payload='namespace='+(kv.namespace||'-')+'  bridge='+(kv.bridge||'-')+'  ports='+(kv.ports||'-');\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 240,
+    "wires": [
+      [
+        "T_VSWSTAT"
+      ]
+    ]
+  },
+  {
+    "id": "T_VSWSTAT",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "vswitch status",
+    "group": "GRP_VSW",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>Switch status</h3><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "5",
+    "x": 790,
+    "y": 240,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_VSWLOAD",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read vswitch ports",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT port,pvid,allowed,pcpmap,cbs_kbps,preempt FROM vswitch_ports ORDER BY id",
+    "x": 370,
+    "y": 300,
+    "wires": [
+      [
+        "FN_VSWLOAD"
+      ]
+    ]
+  },
+  {
+    "id": "FN_VSWLOAD",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt vswitch ports",
+    "func": "var rows=msg.payload||[]; if(!Array.isArray(rows)||rows.length===0){msg.payload='(no switch ports configured)';return msg;} msg.payload=rows.map(function(r){return 'port '+r.port+' | pvid '+r.pvid+' | allowed '+(r.allowed||'-')+' | pcp '+(r.pcpmap||'-')+' | cbs '+r.cbs_kbps+' | preempt '+r.preempt;}).join('\\n'); return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 300,
+    "wires": [
+      [
+        "T_VSWLOAD"
+      ]
+    ]
+  },
+  {
+    "id": "T_VSWLOAD",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "saved vswitch",
+    "group": "GRP_VSW",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>Saved ports</h3><pre>{{msg.payload}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "5",
+    "x": 780,
+    "y": 300,
+    "wires": [
+      []
     ]
   }
 ]
