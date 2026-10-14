@@ -4603,7 +4603,8 @@
         "SQL_SYNCPUSH",
         "SQL_SYCSAVED",
         "SQL_VCREFS",
-        "SQL_VCSAVED"
+        "SQL_VCSAVED",
+        "SQL_TOPOL"
       ]
     ]
   },
@@ -5157,6 +5158,121 @@
     "y": 300,
     "wires": [
       []
+    ]
+  },
+  {
+    "id": "TAB_TOPO",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "topology",
+    "order": 3.1,
+    "label": "Topology",
+    "icon": "sitemap"
+  },
+  {
+    "id": "GRP_TOPO",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Topology & Routing",
+    "tab": "TAB_TOPO",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "Topology & Routing",
+      "tab": "TAB_TOPO",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_TOPO",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "topology view",
+    "group": "GRP_TOPO",
+    "groupMode": "fixed",
+    "format": "<style>.tp{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.tp h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.tp .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.tp .row{margin:8px 0;}.tp select{padding:5px 6px;border:1px solid #cfd8dc;border-radius:4px;font-size:13px;}.tp .btn{margin:0 0 0 8px;padding:8px 18px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:13px;font-weight:500;cursor:pointer;}.tp .btn:hover{background:#00796b;}.tp svg{background:#fafafa;border:1px solid #eceff1;border-radius:6px;}.tp .node{fill:#fff;stroke:#90a4ae;stroke-width:2;}.tp .hub{fill:#e0f2f1;stroke:#009688;stroke-width:3;}.tp .lbl{font-size:11px;fill:#37474f;text-anchor:middle;}.tp .edge{stroke:#cfd8dc;stroke-width:2;}.tp .vlan{stroke:#43a047;stroke-width:4;fill:none;}.tp .fpath{stroke:#e53935;stroke-width:2.5;stroke-dasharray:7 5;fill:none;marker-end:url(#arw);}.tp pre{margin:8px 0 0 0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"tp\" ng-init=\"sel=''\"><h3>Topology &amp; Routing</h3><div class=\"sub\">Configure / Create Routing computes a path per flow (Sender &rarr; RPi hub &rarr; Receiver). Green = VLAN classification path; red dashed = the selected flow (Sender/Receiver highlighted).</div><div class=\"row\"><select ng-model=\"sel\"><option value=\"\">(monitor flow)</option><option ng-repeat=\"fl in (msg.payload && msg.payload.flows || [])\" value=\"{{fl}}\">{{fl}}</option></select><button class=\"btn\" ng-click=\"send({topic:'route', frows:(msg.payload&&msg.payload.flowrows)||[]})\">Create Routing</button></div><svg width=\"100%\" height=\"360\" viewBox=\"0 0 900 360\"><defs><marker id=\"arw\" markerWidth=\"10\" markerHeight=\"10\" refX=\"8\" refY=\"3\" orient=\"auto\"><path d=\"M0,0 L8,3 L0,6 Z\" fill=\"#e53935\"/></marker></defs><line ng-repeat=\"e in (msg.payload && msg.payload.edges || [])\" class=\"edge\" x1=\"{{e.x1}}\" y1=\"{{e.y1}}\" x2=\"{{e.x2}}\" y2=\"{{e.y2}}\"/><line ng-repeat=\"v in (msg.payload && msg.payload.vlans || [])\" class=\"vlan\" x1=\"{{v.x1}}\" y1=\"{{v.y1}}\" x2=\"{{v.x2}}\" y2=\"{{v.y2}}\"/><line ng-repeat=\"p in (msg.payload && msg.payload.paths || [])\" class=\"fpath\" x1=\"{{p.x1}}\" y1=\"{{p.y1}}\" x2=\"{{p.x2}}\" y2=\"{{p.y2}}\"/><g ng-repeat=\"n in (msg.payload && msg.payload.nodes || [])\"><circle ng-class=\"n.hub?'hub':'node'\" cx=\"{{n.x}}\" cy=\"{{n.y}}\" r=\"{{n.hub?28:20}}\"/><text class=\"lbl\" x=\"{{n.x}}\" y=\"{{n.y+38}}\">{{n.name}}</text></g></svg><select ng-model=\"sel2\" style=\"display:none\"></select><pre>{{msg.payload && msg.payload.routings}}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "12",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_ROUTE"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ROUTE",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "create routing",
+    "func": "var sql=[];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS routings(id INTEGER PRIMARY KEY AUTOINCREMENT,flow TEXT,path TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM routings\"});\nvar rows=[];\nvar frows=msg.frows||[];\nfrows.forEach(function(f){\n  var s=String(f.sender||'').trim(), rc=String(f.receiver||'').trim();\n  if(!s && !rc) return;\n  var flow=s+' -> '+rc;\n  var path=s+' -> RPi -> '+rc;\n  sql.push({topic:\"INSERT INTO routings(flow,path) VALUES('\"+flow.replace(/'/g,\"''\")+\"','\"+path.replace(/'/g,\"''\")+\"')\"});\n});\nnode.status({fill:'green',shape:'dot',text:'routings created'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 260,
+    "wires": [
+      [
+        "SQL_ROUTE"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_ROUTE",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write routings",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 700,
+    "y": 260,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_TOPOL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read topology",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT 'node' AS k, COALESCE(name,id) AS a, CAST(kind AS TEXT) AS b FROM devices UNION ALL SELECT 'flow', (sender || '|' || receiver), '' FROM frame_flows WHERE (sender!='' OR receiver!='') ORDER BY k,a",
+    "x": 360,
+    "y": 160,
+    "wires": [
+      [
+        "FN_TOPOL"
+      ]
+    ]
+  },
+  {
+    "id": "FN_TOPOL",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "layout topology",
+    "func": "var rows = msg.payload || [];\nfunction num(o,k,df){var v=parseInt(o[k],10);return isNaN(v)?df:v;}\nvar nodes=[{name:'RPi (CNC)',hub:true,x:450,y:180}];\nvar kinds={};\n(rows||[]).forEach(function(r){ if(r.k==='node'){ kinds[r.a]=num(r,'b',0); } });\nvar dev=[];\n(rows||[]).forEach(function(r){ if(r.k==='node') dev.push(r.a); });\ndev=dev.filter(function(v,i){return dev.indexOf(v)===i;});\nvar devn=dev.length||1;\ndev.forEach(function(name,i){\n  var ang = (2*Math.PI*i/devn) - Math.PI/2;\n  nodes.push({name:name,hub:false,x:Math.round(450+250*Math.cos(ang)),y:Math.round(180+140*Math.sin(ang))});\n});\nfunction find(name){ for(var i=0;i<nodes.length;i++) if(nodes[i].name===name) return nodes[i]; return null; }\nvar hub=find('RPi (CNC)');\nvar edges=[]; nodes.forEach(function(n){ if(!n.hub) edges.push({x1:hub.x,y1:hub.y,x2:n.x,y2:n.y}); });\nvar flows=[], vlans=[], routings=[];\n(rows||[]).forEach(function(r){ if(r.k==='flow'){ flows.push(r.a); } });\nfunction seg(a,b){ var A=find(a),B=find(b); if(!A||!B) return null; return [{x1:A.x,y1:A.y,x2:hub.x,y2:hub.y},{x1:hub.x,y1:hub.y,x2:B.x,y2:B.y}]; }\nflows.forEach(function(f){\n  var parts=f.split('|'); var s=parts[0], rc=parts[1];\n  var sg=seg(s,rc); if(!sg) return;\n  sg.forEach(function(x){ vlans.push(x); });\n});\nvar paths=[];\nflows.forEach(function(f){ var parts=f.split('|'); var s=parts[0], rc=parts[1]; var sg=seg(s,rc); if(sg) sg.forEach(function(x){ paths.push(x); }); if(sg) routings.push(s+' -> RPi -> '+rc); });\nvar flist=flows.map(function(f){ return f.replace('|',' -> '); });\nvar flowrows=[];\n(rows||[]).forEach(function(r){ if(r.k==='flow'){ var pp=r.a.split('|'); flowrows.push({sender:pp[0],receiver:pp[1]}); } });\nreturn {payload:{nodes:nodes,edges:edges,vlans:vlans,paths:paths,routings:routings.join('\\n'),flows:flist,flowrows:flowrows}};\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 160,
+    "wires": [
+      [
+        "HTML_TOPO"
+      ]
     ]
   }
 ]
