@@ -4604,7 +4604,12 @@
         "SQL_SYCSAVED",
         "SQL_VCREFS",
         "SQL_VCSAVED",
-        "SQL_TOPOL"
+        "SQL_TOPOL",
+        "SQL_GSTIN",
+        "SQL_GSTFEED",
+        "SQL_NETSTAT",
+        "SQL_NETCLASS",
+        "SQL_NETREPL"
       ]
     ]
   },
@@ -5272,6 +5277,339 @@
     "wires": [
       [
         "HTML_TOPO"
+      ]
+    ]
+  },
+  {
+    "id": "TAB_GST",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "gptp-streams",
+    "order": 3.0,
+    "label": "gPTP Streams",
+    "icon": "share-alt"
+  },
+  {
+    "id": "GRP_GST",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "gPTP Streams (802.1AS-2020)",
+    "tab": "TAB_GST",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "gPTP Streams (802.1AS-2020)",
+      "tab": "TAB_GST",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_GST",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "gptp streams",
+    "group": "GRP_GST",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf h4{margin:14px 0 6px 0;font-size:13px;font-weight:500;color:#546e7a;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox],.cf input[type=radio]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 8px 0 0;padding:9px 22px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf .ok{color:#43a047;font-weight:500;}.cf .miss{color:#e53935;font-weight:500;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>gPTP Streams (802.1AS-2020)</h3><div class=\"sub\">Topology / SyncConfigs / gPTP Streams. Generate the synchronization streams from the SyncConfigs (Grandmaster RPi &rarr; SyncClient). Frame-chain routes and per-message routes are listed below; the same paths are drawn on the Topology view.</div><button class=\"btn\" ng-click=\"send({topic:'genstreams'})\">Create 802.1AS-2020 streams</button><h4>Frame Chain Routes</h4><pre>{{ (msg.payload && msg.payload.chains) || '(none)' }}</pre><h4>Frame Routes (sync messages)</h4><pre>{{ (msg.payload && msg.payload.messages) || '(none)' }}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "10",
+    "x": 200,
+    "y": 120,
+    "wires": [
+      [
+        "FN_GST"
+      ]
+    ]
+  },
+  {
+    "id": "FN_GST",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "gen streams",
+    "func": "function E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar sc = msg.syncs || [];\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS ptp_streams(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,chain TEXT,domain INTEGER,messages TEXT,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM ptp_streams\"});\nvar n=0;\nif(Object.prototype.toString.call(sc)!=='[object Array]'){sc=[];}\nsc.forEach(function(s){\n  if(!s) return;\n  var nm=String(s.name||'sync').trim();\n  var dom=parseInt(s.domain_number,10); if(isNaN(dom))dom=0;\n  var client=String(s.sync_client||'STM32').trim();\n  var chain='RPi(GM) -> '+client;\n  var msgs='Announce, Sync, Follow_Up, Delay_Req, Delay_Resp';\n  sql.push({topic:\"INSERT INTO ptp_streams(name,chain,domain,messages) VALUES('\"+E(nm)+\"','\"+E(chain)+\"',\"+dom+\",'\"+E(msgs)+\"')\"});\n  n++;\n});\nnode.status({fill:'green',shape:'dot',text:'generated '+n+' stream(s)'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "SQL_GST"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_GST",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write streams",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 700,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_GSTIN",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read sync cfg",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT name,domain_number,sync_client FROM sync_configs ORDER BY id",
+    "x": 360,
+    "y": 200,
+    "wires": [
+      [
+        "FN_GSTLOAD"
+      ]
+    ]
+  },
+  {
+    "id": "FN_GSTLOAD",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "fmt streams",
+    "func": "var rows=msg.payload||[];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nvar chains=[],msgs=[];\nrows.forEach(function(r){\n  chains.push('gPTP Stream '+(r.name||'')+'  [domain '+r.domain+'] : '+(r.chain||''));\n  msgs.push('  '+(r.name||'')+' : '+(r.messages||''));\n});\nreturn {payload:{chains:chains.join('\\n'),messages:msgs.join('\\n')}};\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 200,
+    "wires": [
+      [
+        "HTML_GST"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_GSTFEED",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "feed syncs",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT name,domain_number,sync_client FROM sync_configs ORDER BY id",
+    "x": 360,
+    "y": 260,
+    "wires": [
+      [
+        "FN_GSTFEED"
+      ]
+    ]
+  },
+  {
+    "id": "FN_GSTFEED",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "attach syncs",
+    "func": "msg.syncs=msg.payload||[]; return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 260,
+    "wires": [
+      [
+        "FN_GST"
+      ]
+    ]
+  },
+  {
+    "id": "TAB_NETCFG",
+    "type": "ui_tab",
+    "z": "FLOWTAB",
+    "name": "network-config",
+    "order": 3.2,
+    "label": "Network Config",
+    "icon": "cogs"
+  },
+  {
+    "id": "GRP_NETCFG",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Generate Network Configuration",
+    "tab": "TAB_NETCFG",
+    "width": "24",
+    "order": 0,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "Generate Network Configuration",
+      "tab": "TAB_NETCFG",
+      "width": "24"
+    }
+  },
+  {
+    "id": "GRP_REPORT",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Reports",
+    "tab": "TAB_NETCFG",
+    "width": "24",
+    "order": 1,
+    "label": "QoS Policy",
+    "className": "",
+    "config": {
+      "name": "Reports",
+      "tab": "TAB_NETCFG",
+      "width": "24"
+    }
+  },
+  {
+    "id": "HTML_NETCFG",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "netcfg wizard",
+    "group": "GRP_NETCFG",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf h4{margin:14px 0 6px 0;font-size:13px;font-weight:500;color:#546e7a;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox],.cf input[type=radio]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 8px 0 0;padding:9px 22px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf .ok{color:#43a047;font-weight:500;}.cf .miss{color:#e53935;font-weight:500;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\" ng-init=\"mech={CBS:false,Preemption:true,TAS:true}; cls='user'\"><h3>Generate Network Configuration</h3><div class=\"sub\">Checks the model, lets you pick the traffic classification and TSN mechanisms, then generates a Configuration Report.</div><h4>Model completeness</h4><div>Flows: {{st.n_flows}} | TrafficClasses: {{st.n_classes}} | VLANClassifications: {{st.n_vlan}} | VLANConfigs: {{st.n_vcfg}} | TxOffsets: {{st.n_tx}} | SyncConfigs: {{st.n_sync}} | Routings: {{st.n_route}}</div><div ng-if=\"st.complete\" class=\"ok\">Model complete &#10003;</div><div ng-if=\"!st.complete\" class=\"miss\">Missing: {{st.missing}}</div><h4>Traffic classification</h4><label><input type=\"radio\" ng-model=\"cls\" value=\"user\"> User Classification and Priorities</label> <label><input type=\"radio\" ng-model=\"cls\" value=\"default\"> Default (all best-effort)</label><h4>TSN mechanisms</h4><label><input type=\"checkbox\" ng-model=\"mech.CBS\"> CBS (credit-based shaping)</label> <label><input type=\"checkbox\" ng-model=\"mech.Preemption\"> Preemption</label> <label><input type=\"checkbox\" ng-model=\"mech.TAS\"> TAS</label><h4>Scheduling (per traffic class)</h4><table><thead><tr><th>Class</th><th>Scheduling</th></tr></thead><tbody><tr ng-repeat=\"c in (st.classes||[])\"><td>{{c}}</td><td><select ng-model=\"sch[c]\"><option>Critical</option><option>FIFO</option><option>Best Effort</option></select></td></tr></tbody></table><button class=\"btn\" ng-click=\"send({topic:'gen', mech:mech, cls:cls, sch:sch})\">Generate Configuration</button></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "14",
+    "x": 220,
+    "y": 140,
+    "wires": [
+      [
+        "FN_NETCFG"
+      ]
+    ]
+  },
+  {
+    "id": "FN_NETCFG",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "gen config report",
+    "func": "function E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar mech=msg.mech||{}; var cls=msg.cls||'user'; var sch=msg.sch||{};\nvar st=msg.st||{};\nvar mechs=[]; if(mech.CBS)mechs.push('CBS'); if(mech.Preemption)mechs.push('Preemption'); if(mech.TAS)mechs.push('TAS');\nvar schtxt=Object.keys(sch).map(function(k){ return k+'='+sch[k]; }).join(', ');\nvar lines=[];\nlines.push('CONFIGURATION REPORT  '+new Date().toISOString());\nlines.push('Model complete: '+(st.complete?'YES':'NO'+(st.missing?(' (missing: '+st.missing+')'):'')));\nlines.push('Flows='+st.n_flows+' TrafficClasses='+st.n_classes+' VLANClassifications='+st.n_vlan+' VLANConfigs='+st.n_vcfg+' TxOffsets='+st.n_tx+' SyncConfigs='+st.n_sync+' Routings='+st.n_route);\nlines.push('Traffic classification: '+(cls==='user'?'User Classification and Priorities':'Default (best-effort)'));\nlines.push('TSN mechanisms: '+(mechs.length?mechs.join(', '):'none'));\nlines.push('Scheduling: '+(schtxt||'(default)'));\nlines.push('');\nlines.push('Note: CBS and TAS are not HW-enforced on the F767 MAC (no credit shaper / gate engine) - carried as configuration. Preemption + PCP/VLAN/express/tx-offset are applied on the wire.');\nvar report=lines.join('\\n');\nvar sql=[];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS config_reports(id INTEGER PRIMARY KEY AUTOINCREMENT,created_at INTEGER DEFAULT (strftime('%s','now')),complete INTEGER,mechanisms TEXT,classification TEXT,scheduling TEXT,report TEXT)\"});\nsql.push({topic:\"INSERT INTO config_reports(complete,mechanisms,classification,scheduling,report) VALUES(\"+(st.complete?1:0)+\",'\"+E(mechs.join(','))+\"','\"+E(cls)+\"','\"+E(schtxt)+\"','\"+E(report)+\"')\"});\nnode.status({fill:'green',shape:'dot',text:'config report generated'});\nreturn sql;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 500,
+    "y": 300,
+    "wires": [
+      [
+        "SQL_NETREP"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_NETREP",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "write report",
+    "mydb": "SQLCFG",
+    "sqlquery": "batch",
+    "sql": "",
+    "x": 710,
+    "y": 300,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_NETSTAT",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "model stats",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT 'frame_flows' AS t, COUNT(*) AS n FROM frame_flows UNION ALL SELECT 'traffic_classes',COUNT(*) FROM traffic_classes UNION ALL SELECT 'vlan_classifications',COUNT(*) FROM vlan_classifications UNION ALL SELECT 'vlan_configs',COUNT(*) FROM vlan_configs UNION ALL SELECT 'tx_offset_configs',COUNT(*) FROM tx_offset_configs UNION ALL SELECT 'sync_configs',COUNT(*) FROM sync_configs UNION ALL SELECT 'routings',COUNT(*) FROM routings",
+    "x": 360,
+    "y": 220,
+    "wires": [
+      [
+        "FN_NETSTAT"
+      ]
+    ]
+  },
+  {
+    "id": "SQL_NETCLASS",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read classes",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT name FROM traffic_classes ORDER BY id",
+    "x": 360,
+    "y": 260,
+    "wires": [
+      [
+        "FN_NETSTAT2"
+      ]
+    ]
+  },
+  {
+    "id": "FN_NETSTAT2",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "attach classes",
+    "func": "msg.classes=(msg.payload||[]).map(function(r){return r.name;}); return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 260,
+    "wires": [
+      [
+        "FN_NETSTAT"
+      ]
+    ]
+  },
+  {
+    "id": "T_NETREP",
+    "type": "ui_template",
+    "z": "FLOWTAB",
+    "name": "config report",
+    "group": "GRP_REPORT",
+    "groupMode": "fixed",
+    "format": "<style>.cf{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.cf h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.cf h4{margin:14px 0 6px 0;font-size:13px;font-weight:500;color:#546e7a;}.cf .sub{margin:0 0 12px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.cf table{border-collapse:collapse;width:100%;}.cf th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px;border-bottom:2px solid #cfd8dc;}.cf td{padding:3px 5px;border-bottom:1px solid #eceff1;}.cf input,.cf select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;border-radius:0;}.cf input:focus,.cf select:focus{outline:none;border-bottom:2px solid #009688;}.cf input[type=checkbox],.cf input[type=radio]{width:auto;}.cf .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.cf .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.cf .btn{margin:12px 8px 0 0;padding:9px 22px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.cf .btn:hover{background:#00796b;}.cf .ok{color:#43a047;font-weight:500;}.cf .miss{color:#e53935;font-weight:500;}.cf pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"cf\"><h3>Configuration Report</h3><pre>{{ (msg.payload && msg.payload[0] && msg.payload[0].report) || '(none yet - click Generate Configuration)' }}</pre></div>",
+    "storeOutMessages": "false",
+    "cd": "false",
+    "js": "",
+    "css": "",
+    "width": "24",
+    "height": "10",
+    "x": 780,
+    "y": 360,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "SQL_NETREPL",
+    "type": "sqlite",
+    "z": "FLOWTAB",
+    "name": "read report",
+    "mydb": "SQLCFG",
+    "sqlquery": "fixed",
+    "sql": "SELECT report FROM config_reports ORDER BY id DESC LIMIT 1",
+    "x": 360,
+    "y": 360,
+    "wires": [
+      [
+        "T_NETREP"
       ]
     ]
   }
