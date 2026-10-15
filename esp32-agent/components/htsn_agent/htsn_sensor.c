@@ -80,6 +80,7 @@ static int  g_prev_pir = -1;
 static int  g_actor_mode = 0;
 static int64_t g_pir_latch = -1000000000LL;  /* monotonic us of last motion */
 static volatile int g_pir_flag = 0;          /* set by PIR ISR, consumed by buzzer task */
+static volatile int64_t g_motion_until_us = 0; /* motion LED on until this time */
 
 /* One-time I2C bus setup used by both htsn_sensor_probe() and htsn_sensor_init().
  * Keeps a flag so the driver is NEVER installed twice (a second
@@ -345,7 +346,7 @@ void htsn_sensor_init(const char *device_id, htsn_mqtt *mq) {
     io.pin_bit_mask = (1ULL << HTSN_PIR_GPIO);
     io.mode = GPIO_MODE_INPUT;
     io.pull_up_en = GPIO_PULLUP_DISABLE;
-    io.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io.pull_down_en = GPIO_PULLDOWN_ENABLE;   /* idle = LOW -> motion LED off */
     gpio_config(&io);
 
     /* Movement-indication LED (GPIO33): drive it from the PIR level. */
@@ -428,6 +429,7 @@ static void IRAM_ATTR pir_isr(void *arg) {
     (void)arg;
     if (gpio_get_level(HTSN_PIR_GPIO) != 0) {
         g_pir_latch = esp_timer_get_time();
+        g_motion_until_us = g_pir_latch + 1500000LL;   /* LED on 1.5 s */
         /* Most esp_timer / ledc calls are not ISR-safe in every IDF version, so
          * we only latch here and use a deferral flag; the actual beep is done
          * from the background buzzer task. */
@@ -439,8 +441,8 @@ static void pir_isr_task(void *arg) {
     (void)arg;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(50));
-        /* Movement indication: mirror the PIR output on the LED. */
-        gpio_set_level(HTSN_MOTION_LED_GPIO, gpio_get_level(HTSN_PIR_GPIO) ? 1 : 0);
+        /* Movement indication: light for 1.5 s after each motion event. */
+        gpio_set_level(HTSN_MOTION_LED_GPIO, (esp_timer_get_time() < g_motion_until_us) ? 1 : 0);
         if (g_pir_flag) {
             g_pir_flag = 0;
             buzzer_beep(880, 200);
