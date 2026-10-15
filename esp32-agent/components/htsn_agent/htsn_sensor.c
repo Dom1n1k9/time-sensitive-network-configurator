@@ -39,10 +39,14 @@ static const char *TAG = "sensor";
 #ifndef HTSN_SENSOR_DEV_ID
 #define HTSN_SENSOR_DEV_ID "esp32-01"
 #endif
-#define HTSN_ADC_CH ADC1_CHANNEL_5
+#define HTSN_ADC_CH ADC1_CHANNEL_0   /* LDR/light on GPIO36 (GPIO33 now = motion LED) */
 /* HC-SR501 PIR motion on GPIO27 */
 #ifndef HTSN_PIR_GPIO
 #define HTSN_PIR_GPIO GPIO_NUM_27
+#endif
+/* Movement-indication LED on GPIO33 (lights while PIR sees motion) */
+#ifndef HTSN_MOTION_LED_GPIO
+#define HTSN_MOTION_LED_GPIO GPIO_NUM_33
 #endif
 /* Actor relay/switch on GPIO26 */
 #ifndef HTSN_ACTOR_GPIO
@@ -344,6 +348,13 @@ void htsn_sensor_init(const char *device_id, htsn_mqtt *mq) {
     io.pull_down_en = GPIO_PULLDOWN_DISABLE;
     gpio_config(&io);
 
+    /* Movement-indication LED (GPIO33): drive it from the PIR level. */
+    gpio_config_t led = {0};
+    led.pin_bit_mask = (1ULL << HTSN_MOTION_LED_GPIO);
+    led.mode = GPIO_MODE_OUTPUT;
+    gpio_config(&led);
+    gpio_set_level(HTSN_MOTION_LED_GPIO, 0);
+
     /* ADC light */
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(HTSN_ADC_CH, ADC_ATTEN_DB_12);
@@ -428,6 +439,8 @@ static void pir_isr_task(void *arg) {
     (void)arg;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(50));
+        /* Movement indication: mirror the PIR output on the LED. */
+        gpio_set_level(HTSN_MOTION_LED_GPIO, gpio_get_level(HTSN_PIR_GPIO) ? 1 : 0);
         if (g_pir_flag) {
             g_pir_flag = 0;
             buzzer_beep(880, 200);
