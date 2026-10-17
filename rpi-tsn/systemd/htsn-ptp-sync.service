@@ -1,0 +1,17 @@
+[Unit]
+Description=HTSN SyncConfigs -> ptp4l grandmaster config watcher
+After=network-online.target htsn-ptp.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=HTSN_DB=/home/wtsn/wtsn-configurator/build/htsn_gui.db
+Environment=HTSN_PTPD_CONF=/etc/htsn/ptpd.conf
+Environment=HTSN_PTP_SVC=htsn-ptp
+ExecStart=/usr/bin/python3 /home/wtsn/wtsn-configurator/rpi-tsn/htsn_ptp_sync.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

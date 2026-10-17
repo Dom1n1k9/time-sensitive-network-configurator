@@ -13,7 +13,7 @@ Type=simple
 # HW timestamp); the STM32 slave auto-detects 1-step vs 2-step (stm32-tsn/tsn/ptp.c:
 # a SYNC that carries a timestamp is treated as 1-step, otherwise it reads the
 # Follow_Up), so the sync stays locked either way.
-ExecStart=/usr/sbin/ptp4l -i eth0 -m -H
+ExecStart=/usr/sbin/ptp4l -i eth0 -m -H -f /etc/htsn/ptpd.conf
 Restart=always
 RestartSec=3
 
