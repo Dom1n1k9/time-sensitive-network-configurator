@@ -30,6 +30,11 @@
 #define TSN_PCP          6u
 #define TSN_VID          0u
 
+/* PTP (802.1AS) domain number. Must match the RPi grandmaster's ptpd.conf
+ * (domainNumber). The RPi pushes its SyncConfigs domain to the endpoint at
+ * runtime; this is the boot default so the slave works before the first push. */
+#define HTSN_PTP_DOMAIN  50u
+
 /* Servo timing (SG90). */
 #define SERVO_FREQ_HZ    50u
 #define SERVO_MIN_US     1000u            /* 0 deg */

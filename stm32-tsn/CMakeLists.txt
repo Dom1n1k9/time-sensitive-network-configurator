@@ -20,6 +20,7 @@ target_sources(app PRIVATE
   Board/board.c
   Board/pwm.c
   tsn/ptp.c
+  tsn/htsn_clock.c
   tsn/eth_proto.c
   actuators/htsn_sonar.c
   actuators/htsn_display.c

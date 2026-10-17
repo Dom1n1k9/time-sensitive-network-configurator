@@ -1,5 +1,5 @@
 [Unit]
-Description=HTSN PTP grandmaster (ptp4l, master-only, HW time-stamped) on eth0
+Description=HTSN PTP grandmaster (ptp4l, master-only, SW time-stamped) on eth0
 After=network-online.target
 Wants=network-online.target
 
@@ -10,14 +10,14 @@ Type=simple
 # Pin the PTP group to the TSN segment before ptp4l starts.
 ExecStartPre=/bin/sh -c 'ip route replace 224.0.1.129 dev eth0'
 # ptp4l needs CAP_NET_ADMIN -> run as root (default, no User=).
-# -H enables hardware time-stamping: the macb NIC exposes a PHC (/dev/ptp0) with
-# IEEE-1588-precise HW time-stamping, so ptp4l selects it as the PTP clock and
-# the per-frame timestamps are taken at the NIC rather than in the kernel (lower
-# timestamp jitter). With HW timestamps ptp4l runs 1-step (the SYNC carries the
-# HW timestamp); the STM32 slave auto-detects 1-step vs 2-step (stm32-tsn/tsn/ptp.c:
-# a SYNC that carries a timestamp is treated as 1-step, otherwise it reads the
-# Follow_Up), so the sync stays locked either way.
-ExecStart=/usr/sbin/ptp4l -i eth0 -m -H -f /etc/htsn/ptpd.conf
+# -S (software time-stamping): the RPi's macb NIC exposes a PHC (/dev/ptp0) but
+# its driver does NOT attach a hardware RX timestamp to inbound frames, so with
+# -H ptp4l logs "received DELAY_REQ without timestamp" and drops every slave
+# Delay_Req (no Delay_Resp is ever sent). Software timestamps are taken in the
+# kernel for every frame, so the GM accepts the STM32/helper Delay_Req and
+# replies with a Delay_Resp. The STM32 slave auto-detects 1-step vs 2-step
+# (stm32-tsn/tsn/ptp.c), so the sync stays locked either way.
+ExecStart=/usr/sbin/ptp4l -i eth0 -m -S -f /etc/htsn/ptpd.conf
 Restart=always
 RestartSec=3
 
