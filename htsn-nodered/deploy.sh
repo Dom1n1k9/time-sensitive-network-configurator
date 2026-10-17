@@ -73,6 +73,30 @@ if [ -f "$BASE_DIR/snapshot.py" ]; then
     sshpass -p "$RPI_PASS" scp $SSH_OPTS "$BASE_DIR/snapshot.py" "${RPI_USER}@${RPI_IP}:${RPI_NRED}/snapshot.py"
 fi
 
+echo "==> Migrating DB schema (sync_configs 802.1AS-Rev)..."
+sshpass -p "$RPI_PASS" ssh $SSH_OPTS "${RPI_USER}@${RPI_IP}" "python3 - <<'PYEOF'
+import sqlite3
+db = '/home/wtsn/wtsn-configurator/build/htsn_gui.db'
+c = sqlite3.connect(db)
+cols = [r[1] for r in c.execute('PRAGMA table_info(sync_configs)')]
+if cols and 'delay_mechanism' not in cols:
+    c.executescript(\"\"\"
+BEGIN;
+CREATE TABLE sync_configs_new(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,traffic_class TEXT,grandmaster TEXT,sync_client TEXT,delay_mechanism TEXT DEFAULT 'E2E',peer_delay INTEGER DEFAULT 0,domain_number INTEGER,gm_priority INTEGER,clock_class INTEGER DEFAULT 6,clock_accuracy INTEGER DEFAULT 192,sync_period_ms INTEGER,announce_interval_ms INTEGER DEFAULT 2000,delay_req_interval_ms INTEGER DEFAULT 1000,created_at INTEGER DEFAULT (strftime('%s','now')));
+INSERT INTO sync_configs_new(id,name,traffic_class,grandmaster,sync_client,domain_number,gm_priority,sync_period_ms,created_at)
+  SELECT id,name,traffic_class,grandmaster,sync_client,domain_number,gm_priority,sync_period_ms,created_at FROM sync_configs;
+DROP TABLE sync_configs;
+ALTER TABLE sync_configs_new RENAME TO sync_configs;
+COMMIT;
+\"\"\")
+    c.close()
+    print('    sync_configs migrated to 802.1AS-Rev schema')
+else:
+    c.close()
+    print('    sync_configs schema OK')
+PYEOF
+"
+
 echo "==> Restarting Node-RED..."
 sshpass -p "$RPI_PASS" ssh $SSH_OPTS "${RPI_USER}@${RPI_IP}" "
     sudo systemctl restart htsn-nodered 2>/dev/null || echo '    (htsn-nodered service not running - start manually)'
