@@ -5,6 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# The kernel's default multicast egress for 224.0.1.129 follows the default
+# route (wlan0 on this RPi), which would silently send all PTP out the WiFi.
+# Pin the PTP group to the TSN segment before ptp4l starts.
+ExecStartPre=/bin/sh -c 'ip route replace 224.0.1.129 dev eth0'
 # ptp4l needs CAP_NET_ADMIN -> run as root (default, no User=).
 # -H enables hardware time-stamping: the macb NIC exposes a PHC (/dev/ptp0) with
 # IEEE-1588-precise HW time-stamping, so ptp4l selects it as the PTP clock and

@@ -16,10 +16,13 @@ sync_configs column -> ptp4l option mapping:
   sync_period_ms         -> logSyncInterval = round(log2(period_seconds))
   announce_interval_ms   -> logAnnounceInterval
   delay_req_interval_ms  -> logMinDelayReqInterval
-  peer_delay / P2P       -> peerDelayReqSupported (P2P implies peer delay)
+  peer_delay / P2P       -> delay_mechanism P2P|E2E (linuxptp >= 4.x)
+                           peerDelayReqSupported true (linuxptp 3.x)
+  (always)               -> asCapable true (genuine 802.1AS on the wire)
 """
 import math
 import os
+import re
 import sqlite3
 import subprocess
 import time
@@ -28,6 +31,19 @@ DB = os.environ.get("HTSN_DB", "/home/wtsn/wtsn-configurator/build/htsn_gui.db")
 CONF = os.environ.get("HTSN_PTPD_CONF", "/etc/htsn/ptpd.conf")
 SVC = os.environ.get("HTSN_PTP_SVC", "htsn-ptp")
 POLL = 5.0
+
+
+def ptp4l_major():
+    """Major version of the installed ptp4l (3 or 4+)."""
+    try:
+        out = subprocess.run(["/usr/sbin/ptp4l", "-v"],
+                             capture_output=True, text=True, timeout=5)
+        m = re.search(r"(\d+)\.(\d+)", out.stdout + out.stderr)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 3
 
 
 def log2ms(ms, default):
@@ -62,20 +78,21 @@ def build_conf():
     lsi = log2ms(r["sync_period_ms"], 1000)
     lai = log2ms(r["announce_interval_ms"], 2000)
     ldr = log2ms(r["delay_req_interval_ms"], 1000)
-    pd = (int(r["peer_delay"] or 0) == 1) or \
+    p2p = (int(r["peer_delay"] or 0) == 1) or \
         (str(r["delay_mechanism"] or "").strip().upper() == "P2P")
-    return ("[global]\n"
+    # delay_mechanism is accepted by both linuxptp 3.x and 4.x
+    conf = ("[global]\n"
             "domainNumber %d\n"
             "priority1 %d\n"
             "priority2 %d\n"
             "clockClass %d\n"
             "clockAccuracy %d\n"
-            "logSyncInterval %d\n"
-            "logAnnounceInterval %d\n"
-            "logMinDelayReqInterval %d\n"
-            "peerDelayReqSupported %s\n"
-            % (dom, p1, p1, cc, ca, lsi, lai, ldr,
-               "true" if pd else "false"))
+            "asCapable true\n") % (dom, p1, p1, cc, ca)
+    conf += "delay_mechanism %s\n" % ("P2P" if p2p else "E2E")
+    conf += ("logSyncInterval %d\n"
+             "logAnnounceInterval %d\n"
+             "logMinDelayReqInterval %d\n") % (lsi, lai, ldr)
+    return conf
 
 
 def main():
