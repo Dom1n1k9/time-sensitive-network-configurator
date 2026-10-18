@@ -32,9 +32,11 @@
 #include <zephyr/posix/sys/select.h>
 #include <zephyr/posix/netinet/in.h>
 #include <zephyr/net/net_ip.h>
+#include <zephyr/net/net_if.h>
 
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 
 /* PTP v2 UDP ports + the standard PTP multicast group 224.0.1.129. */
 #define PTP_EVENT_PORT   319
@@ -207,9 +209,21 @@ static void handle_packet(const uint8_t *buf, int n, int is_event,
 static void ptp_thread_fn(void *a, void *b, void *c)
 {
 	(void)a; (void)b; (void)c;
+	/* Enable promiscuous mode: the STM32 DWc MAC driver cannot program its
+	 * hardware multicast filter, so the NIC would drop the 224.0.1.129 frames
+	 * at L2 even after the IGMP join below records the L3 membership. Promisc
+	 * lets the NIC pass them up; the join then makes the IPv4 layer accept them. */
+	{
+		struct net_if *def = net_if_get_default();
+		if (def != NULL) {
+			int pr = net_if_set_promisc(def);
+			LOGI("ptp: NIC promisc (PTP mcast) %s\n",
+			     (pr == 0 || pr == -EALREADY) ? "on" : "failed");
+		}
+	}
 	/* Join the PTP multicast group so the GM's multicast Sync/Follow_Up is
-	 * received (needed for the clock lock). On this NIC the IGMP join can fail
-	 * (net_ipv4_igmp_join runs out of net buffers -> -ENOMEM), so re-issue a
+	 * accepted at L3 (needed for the clock lock). Requires CONFIG_NET_IPV4_IGMP
+	 * (without it net_ipv4_igmp_join is a stub returning -ENOSYS). Re-issue a
 	 * few times while the interface settles. The Delay_Req path below does not
 	 * depend on the join, so a failed join is non-fatal: we still show up on the
 	 * wire and the GM still answers with a Delay_Resp. */
