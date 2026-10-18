@@ -280,9 +280,12 @@ int htsn_ptp_init(void)
 	join_ptp_multicast(g_ev_sock);
 	join_ptp_multicast(g_gen_sock);
 
+	/* Prio 4: above the net TX (~7), flow (6) and cmd (5) threads so PTP
+	 * timestamp reads / Delay_Req sends are prompt, but below the RX thread
+	 * (prio 2) and heartbeat (3) which must run first. */
 	k_thread_create(&ptp_thread, ptp_stack, K_THREAD_STACK_SIZEOF(ptp_stack),
 	                (k_thread_entry_t)ptp_thread_fn, NULL, NULL, NULL,
-	                7, 0, K_NO_WAIT);
+	                4, 0, K_NO_WAIT);
 	LOGI("ptp: 802.1AS slave up (domain %u, GM=%s)\n", g_domain, CNC_IP);
 	return 0;
 }
