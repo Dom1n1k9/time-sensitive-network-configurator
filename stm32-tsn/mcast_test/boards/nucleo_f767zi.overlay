@@ -1,0 +1,4 @@
+&mac {
+	status = "okay";
+	local-mac-address = [ 70 b3 d5 a8 10 2c ];
+};

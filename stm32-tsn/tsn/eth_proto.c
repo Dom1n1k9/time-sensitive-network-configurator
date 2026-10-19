@@ -633,9 +633,11 @@ int htsn_net_init(void)
 		LOGE("bind %d failed\n", STM32_CMD_PORT);
 	set_cnc_addr(&g_cnc);
 
-	/* Raw AF_PACKET socket for 802.1Q-tagged egress (used only once a TSN
-	 * config with vlan_id>0 is applied). Bind it to the Ethernet interface
-	 * with our source MAC; the destination (CNC) MAC is set per-send. */
+	/* NOTE: creating the raw AF_PACKET VLAN socket at init breaks inbound
+	 * IPv4 multicast reception on this board: once it is bound, the PTP
+	 * 224.0.1.129 Sync/Follow_Up stop reaching the PTP UDP socket entirely
+	 * (verified with an isolated test). Keep it disabled at boot; tagged
+	 * egress is a TSN-config feature, not needed for the PTP slave. */
 	struct net_if *iface = net_if_get_default();
 	if (iface) {
 		g_eth_if = net_if_get_by_iface(iface);
@@ -645,22 +647,7 @@ int htsn_net_init(void)
 	}
 	if (mac_parse(CNC_MAC, g_dst_mac) != 0)
 		LOGW("CNC_MAC parse failed; tagged egress disabled\n");
-	g_raw_sock = zsock_socket(NET_AF_PACKET, NET_SOCK_DGRAM,
-	                          net_htons(NET_ETH_PTYPE_VLAN));
-	if (g_raw_sock >= 0) {
-		struct net_sockaddr_ll ll = {0};
-		ll.sll_family  = NET_AF_PACKET;
-		ll.sll_ifindex = g_eth_if;
-		ll.sll_halen   = 6;
-		memcpy(ll.sll_addr, g_src_mac, 6);
-		if (zsock_bind(g_raw_sock, (const struct net_sockaddr *)&ll, sizeof(ll)) < 0) {
-			LOGW("raw socket bind failed; tagged egress disabled\n");
-			zsock_close(g_raw_sock);
-			g_raw_sock = -1;
-		}
-	} else {
-		LOGW("raw AF_PACKET socket failed; tagged egress disabled\n");
-	}
+	g_raw_sock = -1;
 
 	/* 802.3br preemption demo: periodic, active only once a config with
 	 * preemption>0 and vlan>0 is applied. */
