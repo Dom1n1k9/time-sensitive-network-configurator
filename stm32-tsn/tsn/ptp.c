@@ -78,6 +78,17 @@ static uint64_t g_s2;             /* T3: local time of the Sync we saw    */
 static uint64_t g_s3;             /* T4: local time of the Delay_Req sent */
 static volatile int have_t1 = 0;
 static volatile int have_t2 = 0;
+static volatile int have_s2 = 0;      /* local Sync-receive timestamp valid */
+static volatile int have_s3 = 0;      /* local Delay_Req-send timestamp valid */
+static uint16_t g_sync_seq = 0;       /* seq of the Sync we timestamped */
+static uint16_t g_dr_seq = 0;         /* seq of the Delay_Req we timestamped */
+static uint16_t g_dr_next = 0;        /* next Delay_Req sequence id */
+static volatile int g_use_e2e = 0;    /* 4-timestamp path active */
+static volatile int g_dresp = 0;      /* Delay_Resp messages received */
+static volatile int g_off_valid = 0;  /* g_off_ns holds a fresh measurement */
+static volatile int64_t g_off_ns = 0; /* last measured (slave - master) */
+static volatile int g_ccalls = 0;     /* ptp_correct() invocations */
+static volatile int g_aligns = 0;     /* full epoch alignments applied */
 static struct sockaddr_in g_gm;   /* GM's unicast address (from Sync source) */
 static volatile int g_gm_known = 0;
 static volatile int g_joined = 0; /* multicast join confirmed on both sockets */
@@ -87,6 +98,7 @@ static int g_l2_sock = -1;        /* DIAG: ingress AF_PACKET (count L2 IP frames
 static uint8_t ptp_type(const uint8_t *b)    { return b[0] & 0x0f; }
 static uint8_t ptp_version(const uint8_t *b) { return b[1] & 0x0f; }
 static uint8_t ptp_domain(const uint8_t *b)  { return b[4]; }
+static uint16_t ptp_seq(const uint8_t *b)    { return (uint16_t)((b[28] << 8) | b[29]); }
 
 /* 8-byte PTP timestamp (4B seconds + 4B nanoseconds, big-endian) at `off`. */
 static uint64_t ptp_ts64(const uint8_t *b, size_t off)
@@ -104,24 +116,38 @@ static uint64_t ptp_body_time_ns(const uint8_t *b)
 	return ptp_ts64(b, PTP_BODY_TIME_OFF);
 }
 
-static void steer(int64_t off)
+/* Apply a measured correction `corr` = (master - slave): positive means our
+ * clock is behind the GM. The first correction is a full epoch alignment;
+ * afterwards only bounded fine steering. Records the measured error. */
+static void ptp_correct(int64_t corr)
 {
-	/* One-time epoch alignment: the GM's absolute PTP time is far ahead of
-	 * this board's boot-relative counter. Apply the full correction once so
-	 * the reported offset converges to ~0; afterwards only fine-steer. */
-	static int aligned = 0;
+	g_ccalls++;
 
-	if (!aligned) {
-		htsn_clock_apply_offset(off);
-		aligned = 1;
+	/* Once converged (last offset small), ignore wildly-out-of-range samples
+	 * (measurement glitches from the coarse DWT timestamp) instead of
+	 * re-aligning on them. Before convergence we must accept them to align. */
+	if (g_off_valid && g_off_ns < 100000000LL && g_off_ns > -100000000LL &&
+	    (corr > 10000000000LL || corr < -10000000000LL)) {
 		return;
 	}
 
-	/* Fine steering: bounded corrections only. */
-	if (off > 100000000LL)       off = 100000000LL;
-	else if (off < -100000000LL) off = -100000000LL;
-	if (off > 50000)       htsn_clock_apply_offset(off);
-	else if (off < -50000) htsn_clock_apply_offset(off);
+	g_off_ns = -corr;          /* measured slave-minus-master error */
+	g_off_valid = 1;
+
+	/* Coarse/epoch scale: apply in full. Idempotent — moves our clock onto
+	 * the GM, so the next measurement is ~0. */
+	if (corr > 1000000000LL || corr < -1000000000LL) {
+		htsn_clock_apply_offset(corr);
+		g_aligns++;
+		return;
+	}
+
+	/* Fine scale: bounded steps with a dead-band. */
+	if (corr > 100000000LL)       corr = 100000000LL;
+	else if (corr < -100000000LL) corr = -100000000LL;
+	if (corr > 1000 || corr < -1000) {
+		htsn_clock_apply_offset(corr);
+	}
 }
 
 static uint64_t raw_ns(void) { return htsn_ptp_time_ns(); }
@@ -153,6 +179,10 @@ static uint64_t send_delay_req(void)
 	m[2]  = (uint8_t)(44u >> 8);       /* messageLength hi */
 	m[3]  = (uint8_t)(44u & 0xFF);     /* messageLength lo */
 	m[4]  = g_domain;                  /* domainNumber */
+	uint16_t seq = g_dr_next++;        /* sequenceId (echoed in Delay_Resp) */
+	m[28] = (uint8_t)(seq >> 8);
+	m[29] = (uint8_t)(seq & 0xFF);
+	g_dr_seq = seq;
 	uint64_t now = htsn_ptp_time_ns();
 	uint32_t sec = (uint32_t)(now / 1000000000ULL);
 	uint32_t ns  = (uint32_t)(now % 1000000000ULL);
@@ -195,32 +225,52 @@ static void handle_packet(const uint8_t *buf, int n, int is_event,
 		break;
 
 	case PTP_SYNC: {
-		g_s2 = raw_ns();
-		uint64_t t1 = ptp_body_time_ns(buf);
+		g_sync_seq = ptp_seq(buf);
+		g_s2 = raw_ns();                    /* T2: local Sync receive time */
+		have_s2 = 1;
+		have_t1 = 0;                        /* start a fresh sync round */
 		if (!g_gm_known) { memcpy(&g_gm, src, sizeof(g_gm)); g_gm_known = 1; }
-		g_t1 = t1;
-		if (t1 > 0 && !have_t1) {           /* 1-step GM: T1 is in the Sync body */
-			steer((int64_t)t1 - (int64_t)g_s2);
-			have_t1 = 1;
+		{
+			uint64_t t1 = ptp_body_time_ns(buf);
+
+			if (t1 > 0) {               /* 1-step GM: T1 in the Sync body */
+				g_t1 = t1;
+				have_t1 = 1;
+				if (!g_use_e2e) {
+					ptp_correct((int64_t)g_t1 - (int64_t)g_s2);
+				}
+			}
 		}
 		break;
 	}
 
 	case PTP_FOLLOW_UP:
-		g_t1 = ptp_body_time_ns(buf);       /* 2-step GM: T1 is in the Follow_Up */
-		have_t1 = 1;
-		if (have_t2)
-			steer(((((int64_t)g_t1) + (int64_t)g_t2) -
-			       ((int64_t)g_s2 + (int64_t)g_s3)) / 2);
+		/* Only pair with the Sync it belongs to (matching sequenceId). */
+		if (have_s2 && ptp_seq(buf) == g_sync_seq) {
+			g_t1 = ptp_body_time_ns(buf);   /* 2-step GM: T1 here */
+			have_t1 = 1;
+			if (!g_use_e2e) {
+				/* One-way (T1 vs T2): converges even without a
+				 * working Delay_Resp leg. */
+				ptp_correct((int64_t)g_t1 - (int64_t)g_s2);
+			}
+		}
 		break;
 
 	case PTP_DELAY_RESP:
-		g_t2 = ptp_body_time_ns(buf);       /* T2: when the GM saw our Delay_Req */
-		have_t2 = 1;
-		if (have_t1)
-			steer(((((int64_t)g_t1) + (int64_t)g_t2) -
-			       ((int64_t)g_s2 + (int64_t)g_s3)) / 2);
-		have_t1 = 0; have_t2 = 0;           /* one offset round complete */
+		g_dresp++;
+		/* Pair with the Delay_Req it answers (matching sequenceId). */
+		if (have_s3 && ptp_seq(buf) == g_dr_seq) {
+			g_t2 = ptp_body_time_ns(buf);   /* T4: GM saw our Delay_Req */
+			have_s3 = 0;
+			if (have_s2 && have_t1) {
+				/* Full E2E round: offset = ((t1+t4)-(t2+t3))/2 */
+				ptp_correct(((((int64_t)g_t1) + (int64_t)g_t2) -
+				             ((int64_t)g_s2 + (int64_t)g_s3)) / 2);
+				g_use_e2e = 1;
+			}
+		}
+		have_t2 = 0;
 		break;
 
 	default:
@@ -347,11 +397,13 @@ static void ptp_thread_fn(void *a, void *b, void *c)
 						ie = (unsigned long)nd->stats.ip_errors.chkerr;
 					}
 					snprintf(js, sizeof(js),
-					         "{\"offset_ns\":%lld,\"locked\":%d,\"l2_ip\":%d,\"l2_ptp\":%d,\"rx_ev\":%d,\"rx_gen\":%d,\"t1\":%d,\"t2\":%d,\"mfound\":%d,\"mjoin\":%d,\"ip4rx\":%lu,\"ip4drop\":%lu,\"udprx\":%lu,\"udpdrop\":%lu,\"udpchk\":%lu,\"ipchk\":%lu,\"evb\":%d,\"genb\":%d,\"evlp\":%d,\"genlp\":%d,\"l2h\":\"%s\"}",
+					         "{\"offset_ns\":%lld,\"locked\":%d,\"l2_ip\":%d,\"l2_ptp\":%d,\"rx_ev\":%d,\"rx_gen\":%d,\"t1\":%d,\"t2\":%d,\"dresp\":%d,\"e2e\":%d,\"base_ms\":%lld,\"cc\":%d,\"al\":%d,\"mfound\":%d,\"mjoin\":%d,\"ip4rx\":%lu,\"ip4drop\":%lu,\"udprx\":%lu,\"udpdrop\":%lu,\"udpchk\":%lu,\"ipchk\":%lu,\"evb\":%d,\"genb\":%d,\"evlp\":%d,\"genlp\":%d,\"l2h\":\"%s\"}",
 					         (long long)htsn_ptp_offset_ns(),
 					         htsn_ptp_is_locked() ? 1 : 0,
 					         l2_total, l2_ptp, g_rx_ev, g_rx_gen,
-					         have_t1, have_t2,
+					         have_t1, have_t2, g_dresp, g_use_e2e,
+					         (long long)(htsn_clock_base_ns() / 1000000),
+					         g_ccalls, g_aligns,
 					         (ma != NULL) ? 1 : 0,
 					         (ma != NULL && net_if_ipv4_maddr_is_joined(ma)) ? 1 : 0,
 					         ir, id, ur, ud, uc, ie,
@@ -366,6 +418,7 @@ static void ptp_thread_fn(void *a, void *b, void *c)
 		 * NIC); the GM still replies with a Delay_Resp, so both directions
 		 * appear on the wire. */
 		g_s3 = send_delay_req();
+		have_s3 = 1;
 		k_sleep(K_MSEC(50));
 	}
 }
@@ -430,11 +483,12 @@ void htsn_ptp_set_domain(uint8_t domain)
 
 bool htsn_ptp_is_locked(void)
 {
-	return g_gm_known && have_t1;
+	/* Locked = we have a fresh offset measurement within 1 ms of the GM. */
+	return g_gm_known && g_off_valid &&
+	       g_off_ns < 1000000LL && g_off_ns > -1000000LL;
 }
 
 int64_t htsn_ptp_offset_ns(void)
 {
-	return (int64_t)(((int64_t)g_t1 + (int64_t)g_t2) -
-	                    ((int64_t)g_s2 + (int64_t)g_s3)) / 2;
+	return g_off_ns;
 }

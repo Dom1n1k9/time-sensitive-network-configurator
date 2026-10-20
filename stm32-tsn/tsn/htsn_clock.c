@@ -37,3 +37,8 @@ void htsn_clock_apply_offset(int64_t offset_ns)
 	 * absolute PTP time vs our boot-relative counter) and fine corrections. */
 	g_base_ns += offset_ns;
 }
+
+int64_t htsn_clock_base_ns(void)
+{
+	return g_base_ns;
+}
