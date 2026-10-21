@@ -32,11 +32,9 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/posix/sys/socket.h>
-#include <zephyr/posix/sys/select.h>
 #include <zephyr/posix/netinet/in.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_if.h>
-#include <zephyr/net/ethernet.h>
 #include <zephyr/net/socket.h>
 
 #include <string.h>
@@ -63,36 +61,24 @@
 
 static int      g_ev_sock  = -1;   /* event port 319 */
 static int      g_gen_sock = -1;   /* general port 320 */
-static volatile int g_rx_ev = 0;   /* DIAG: recvfrom() returns on event port */
-static volatile int g_rx_gen = 0;  /* DIAG: recvfrom() returns on general port */
-static int g_ev_bind = -999;       /* DIAG: bind() result, event port */
-static int g_gen_bind = -999;      /* DIAG: bind() result, general port */
-static int g_ev_lport = -1;        /* DIAG: getsockname local port */
-static int g_gen_lport = -1;       /* DIAG: getsockname local port */
-static char g_l2_head[24] = "";    /* DIAG: first bytes of last PTP frame */
-static uint8_t  g_domain   = HTSN_PTP_DOMAIN;   /* default = the RPi GM's domain */
+static uint8_t  g_domain   = HTSN_PTP_DOMAIN;   /* PTP domainNumber */
 static volatile int g_domain_pinned = 0;
-static uint64_t g_t1;             /* T1: GM's Sync/Follow_Up origin time  */
-static uint64_t g_t2;             /* T2: GM's Delay_Resp origin time      */
-static uint64_t g_s2;             /* T3: local time of the Sync we saw    */
-static uint64_t g_s3;             /* T4: local time of the Delay_Req sent */
+static uint64_t g_t1;             /* GM Sync/Follow_Up origin time (T1) */
+static uint64_t g_t2;             /* GM Delay_Resp origin time (T4)     */
+static uint64_t g_s2;             /* local Sync receive time (T2)       */
+static uint64_t g_s3;             /* local Delay_Req send time (T3)     */
 static volatile int have_t1 = 0;
-static volatile int have_t2 = 0;
 static volatile int have_s2 = 0;      /* local Sync-receive timestamp valid */
 static volatile int have_s3 = 0;      /* local Delay_Req-send timestamp valid */
 static uint16_t g_sync_seq = 0;       /* seq of the Sync we timestamped */
 static uint16_t g_dr_seq = 0;         /* seq of the Delay_Req we timestamped */
 static uint16_t g_dr_next = 0;        /* next Delay_Req sequence id */
 static volatile int g_use_e2e = 0;    /* 4-timestamp path active */
-static volatile int g_dresp = 0;      /* Delay_Resp messages received */
 static volatile int g_off_valid = 0;  /* g_off_ns holds a fresh measurement */
 static volatile int64_t g_off_ns = 0; /* last measured (slave - master) */
-static volatile int g_ccalls = 0;     /* ptp_correct() invocations */
-static volatile int g_aligns = 0;     /* full epoch alignments applied */
-static struct sockaddr_in g_gm;   /* GM's unicast address (from Sync source) */
+static struct sockaddr_in g_gm;   /* GM's source address (from Sync) */
 static volatile int g_gm_known = 0;
 static volatile int g_joined = 0; /* multicast join confirmed on both sockets */
-static int g_l2_sock = -1;        /* DIAG: ingress AF_PACKET (count L2 IP frames) */
 
 /* ---- 1588-2019 header accessors ---- */
 static uint8_t ptp_type(const uint8_t *b)    { return b[0] & 0x0f; }
@@ -121,8 +107,6 @@ static uint64_t ptp_body_time_ns(const uint8_t *b)
  * afterwards only bounded fine steering. Records the measured error. */
 static void ptp_correct(int64_t corr)
 {
-	g_ccalls++;
-
 	/* Once converged (last offset small), ignore wildly-out-of-range samples
 	 * (measurement glitches from the coarse DWT timestamp) instead of
 	 * re-aligning on them. Before convergence we must accept them to align. */
@@ -138,7 +122,6 @@ static void ptp_correct(int64_t corr)
 	 * the GM, so the next measurement is ~0. */
 	if (corr > 1000000000LL || corr < -1000000000LL) {
 		htsn_clock_apply_offset(corr);
-		g_aligns++;
 		return;
 	}
 
@@ -258,7 +241,6 @@ static void handle_packet(const uint8_t *buf, int n, int is_event,
 		break;
 
 	case PTP_DELAY_RESP:
-		g_dresp++;
 		/* Pair with the Delay_Req it answers (matching sequenceId). */
 		if (have_s3 && ptp_seq(buf) == g_dr_seq) {
 			g_t2 = ptp_body_time_ns(buf);   /* T4: GM saw our Delay_Req */
@@ -270,7 +252,6 @@ static void handle_packet(const uint8_t *buf, int n, int is_event,
 				g_use_e2e = 1;
 			}
 		}
-		have_t2 = 0;
 		break;
 
 	default:
@@ -281,16 +262,6 @@ static void handle_packet(const uint8_t *buf, int n, int is_event,
 static void ptp_thread_fn(void *a, void *b, void *c)
 {
 	(void)a; (void)b; (void)c;
-	/* Enable promiscuous mode: the STM32 DWc MAC driver cannot program its
-	 * hardware multicast filter, so the NIC would drop the 224.0.1.129 frames
-	 * at L2 even after the IGMP join below records the L3 membership. Promisc
-	 * lets the NIC pass them up; the join then makes the IPv4 layer accept them. */
-	/* NOTE: no promiscuous mode and no raw AF_PACKET sockets here. Binding a
-	 * raw AF_PACKET socket anywhere in the app breaks inbound IPv4 multicast
-	 * reception on this board (verified with an isolated test): the PTP
-	 * 224.0.1.129 Sync would never reach this UDP socket. The plain
-	 * IGMP-joined UDP socket receives the multicast fine on its own. */
-	g_l2_sock = -1;
 	/* Join the PTP multicast group so the GM's multicast Sync/Follow_Up is
 	 * accepted at L3 (needed for the clock lock). Requires CONFIG_NET_IPV4_IGMP
 	 * (without it net_ipv4_igmp_join is a stub returning -ENOSYS). Re-issue a
@@ -308,24 +279,9 @@ static void ptp_thread_fn(void *a, void *b, void *c)
 	if (g_joined)
 		LOGI("ptp: multicast 224.0.1.129 joined\n");
 	else
-		LOGW("ptp: multicast join failed (net buffers); Delay_Req fire-and-forget\n");
-	/* DIAG: confirm the L3 actually holds the membership the IPv4 input
-	 * checks (net_if_ipv4_maddr_lookup + is_joined). If found/joined are both
-	 * "no" the L3 drops the GM's multicast before it reaches the UDP socket. */
-	{
-		struct net_if *def = net_if_get_default();
-		if (def != NULL) {
-			struct net_in_addr maddr;
-			struct net_if_mcast_addr *ma = NULL;
-			memset(&maddr, 0, sizeof(maddr));
-			maddr.s_addr = htonl(PTP_MCAST_ADDR);
-			ma = net_if_ipv4_maddr_lookup(&maddr, &def);
-			LOGI("ptp diag: L3 mcast 224.0.1.129 found=%s joined=%s\n",
-			     (ma != NULL) ? "yes" : "no",
-			     (ma != NULL && net_if_ipv4_maddr_is_joined(ma)) ? "yes" : "no");
-		}
-	}
+		LOGW("ptp: multicast join failed; Delay_Req fire-and-forget\n");
 	for (;;) {
+		static int pub_tick = 0;
 		{
 			uint8_t buf[128];
 			struct sockaddr_in src;
@@ -334,91 +290,33 @@ static void ptp_thread_fn(void *a, void *b, void *c)
 				sl = sizeof(src);
 				int n = recvfrom(g_ev_sock, buf, sizeof(buf), MSG_DONTWAIT,
 				                 (struct sockaddr *)&src, &sl);
-				if (n > 0) { g_rx_ev++; handle_packet(buf, n, 1, &src); }
+				if (n > 0) handle_packet(buf, n, 1, &src);
 			}
 			if (g_gen_sock >= 0) {
 				sl = sizeof(src);
 				int n = recvfrom(g_gen_sock, buf, sizeof(buf), MSG_DONTWAIT,
 				                 (struct sockaddr *)&src, &sl);
-				if (n > 0) { g_rx_gen++; handle_packet(buf, n, 0, &src); }
+				if (n > 0) handle_packet(buf, n, 0, &src);
 			}
 		}
-		/* DIAG: drain the L2 AF_PACKET socket, count IP frames (esp. PTP mcast).
-		 * Frame layout: [0..13]=eth hdr, [14..]=IP hdr, ip dst at [30..33]. */
-		static int l2_total = 0, l2_ptp = 0, l2_tick = 0;
-		if (g_l2_sock >= 0) {
-			uint8_t lb[220];
-			int ln;
-			while ((ln = zsock_recvfrom(g_l2_sock, lb, sizeof(lb), MSG_DONTWAIT, NULL, NULL)) > 0) {
-				l2_total++;
-				/* SOCK_DGRAM packet socket strips the L2 header, so the IPv4
-				 * header starts at [0]; dst IP at [16..19]. */
-				if (ln >= 20 && lb[16] == 0xE0 && lb[17] == 0x00 &&
-				    lb[18] == 0x01 && lb[19] == 0x81) {
-					l2_ptp++;
-					int ihl = (lb[0] & 0x0F) * 4;
-					int off = ihl + 8;
-					if (ihl >= 20 && ln > off) {
-						snprintf(g_l2_head, sizeof(g_l2_head),
-						         "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-						         lb[off], lb[off + 1], lb[off + 2], lb[off + 3],
-						         lb[off + 4], lb[off + 5], lb[off + 6],
-						         lb[off + 7], lb[off + 8], lb[off + 9]);
-						struct sockaddr_in s;
-						memset(&s, 0, sizeof(s));
-						s.sin_family = AF_INET;
-						memcpy(&s.sin_addr.s_addr, &lb[12], 4);
-						handle_packet(&lb[off], ln - off, 0, &s);
-					}
-				}
-			}
-		}
-		if (++l2_tick >= 10) {  /* ~1s */
-			l2_tick = 0;
-			LOGI("ptp diag: L2 ip_frames=%d ptp_mcast=%d\n", l2_total, l2_ptp);
-			/* DIAG over UDP: the serial console is dead on this board,
-			 * so publish the PTP offset + L2 counters through the normal
-			 * telemetry path (visible on the RPi at UDP :4001). */
-				{
-					char js[320];
-					struct net_if *nd = net_if_get_default();
-					struct net_in_addr md;
-					struct net_if_mcast_addr *ma;
-					unsigned long ir = 0, id = 0, ur = 0, ud = 0, uc = 0, ie = 0;
-					memset(&md, 0, sizeof(md));
-					md.s_addr = htonl(PTP_MCAST_ADDR);
-					ma = (nd != NULL) ? net_if_ipv4_maddr_lookup(&md, &nd) : NULL;
-					if (nd != NULL) {
-						ir = (unsigned long)nd->stats.ipv4.recv;
-						id = (unsigned long)nd->stats.ipv4.drop;
-						ur = (unsigned long)nd->stats.udp.recv;
-						ud = (unsigned long)nd->stats.udp.drop;
-						uc = (unsigned long)nd->stats.udp.chkerr;
-						ie = (unsigned long)nd->stats.ip_errors.chkerr;
-					}
-					snprintf(js, sizeof(js),
-					         "{\"offset_ns\":%lld,\"locked\":%d,\"l2_ip\":%d,\"l2_ptp\":%d,\"rx_ev\":%d,\"rx_gen\":%d,\"t1\":%d,\"t2\":%d,\"dresp\":%d,\"e2e\":%d,\"base_ms\":%lld,\"cc\":%d,\"al\":%d,\"mfound\":%d,\"mjoin\":%d,\"ip4rx\":%lu,\"ip4drop\":%lu,\"udprx\":%lu,\"udpdrop\":%lu,\"udpchk\":%lu,\"ipchk\":%lu,\"evb\":%d,\"genb\":%d,\"evlp\":%d,\"genlp\":%d,\"l2h\":\"%s\"}",
-					         (long long)htsn_ptp_offset_ns(),
-					         htsn_ptp_is_locked() ? 1 : 0,
-					         l2_total, l2_ptp, g_rx_ev, g_rx_gen,
-					         have_t1, have_t2, g_dresp, g_use_e2e,
-					         (long long)(htsn_clock_base_ns() / 1000000),
-					         g_ccalls, g_aligns,
-					         (ma != NULL) ? 1 : 0,
-					         (ma != NULL && net_if_ipv4_maddr_is_joined(ma)) ? 1 : 0,
-					         ir, id, ur, ud, uc, ie,
-					         g_ev_bind, g_gen_bind, g_ev_lport, g_gen_lport,
-					         g_l2_head);
-					htsn_net_publish_telemetry("ptp", js);
-				}
-			l2_total = 0; l2_ptp = 0;
-		}
-		/* Periodic E2E exchange: one Delay_Req per second. Sent even before
-		 * the GM's multicast Sync is seen (the IGMP join can fail on this
-		 * NIC); the GM still replies with a Delay_Resp, so both directions
-		 * appear on the wire. */
+		/* Periodic E2E exchange: one Delay_Req per loop iteration. Sent even
+		 * before the GM's multicast Sync is seen; the GM replies with a
+		 * Delay_Resp, so both directions appear on the wire. */
 		g_s3 = send_delay_req();
 		have_s3 = 1;
+
+		/* Report sync status (~1 Hz) via the HTSN PTP telemetry kind. */
+		if (++pub_tick >= 20) {
+			pub_tick = 0;
+			char js[64];
+			int jn = snprintf(js, sizeof(js),
+			                  "{\"offset_ns\":%lld,\"locked\":%d}",
+			                  (long long)htsn_ptp_offset_ns(),
+			                  htsn_ptp_is_locked() ? 1 : 0);
+			if (jn > 0) {
+				htsn_net_publish_telemetry("ptp", js);
+			}
+		}
 		k_sleep(K_MSEC(50));
 	}
 }
@@ -439,22 +337,11 @@ int htsn_ptp_init(void)
 	b.sin_family = AF_INET;
 	b.sin_port = htons(PTP_EVENT_PORT);
 	b.sin_addr.s_addr = htonl(INADDR_ANY);
-	g_ev_bind = bind(g_ev_sock, (struct sockaddr *)&b, sizeof(b));
+	bind(g_ev_sock, (struct sockaddr *)&b, sizeof(b));
 	b.sin_port = htons(PTP_GENERAL_PORT);
-	g_gen_bind = bind(g_gen_sock, (struct sockaddr *)&b, sizeof(b));
+	bind(g_gen_sock, (struct sockaddr *)&b, sizeof(b));
 	{
-		struct sockaddr_in sn; socklen_t sl = sizeof(sn);
-		if (getsockname(g_ev_sock, (struct sockaddr *)&sn, &sl) == 0) {
-			g_ev_lport = net_ntohs(sn.sin_port);
-		}
-		sl = sizeof(sn);
-		if (getsockname(g_gen_sock, (struct sockaddr *)&sn, &sl) == 0) {
-			g_gen_lport = net_ntohs(sn.sin_port);
-		}
-	}
-	{
-		/* Don't loop our own multicast Delay_Req back into RX (it would be
-		 * counted as "received PTP" and confuse the offset logic). */
+		/* Don't loop our own multicast Delay_Req back into RX. */
 		int loop = 0;
 		setsockopt(g_ev_sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 		setsockopt(g_gen_sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));

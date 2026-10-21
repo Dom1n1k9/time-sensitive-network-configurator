@@ -14,9 +14,6 @@
 /* Current PTP time base, nanoseconds (monotonic, wraps with the DWT counter). */
 uint64_t htsn_ptp_time_ns(void);
 
-/* DIAG: current absolute base offset (ns). */
-int64_t  htsn_clock_base_ns(void);
-
 /* Coarsely step the time base by `offset_ns` (positive = faster/advance). */
 void     htsn_clock_apply_offset(int64_t offset_ns);
 
