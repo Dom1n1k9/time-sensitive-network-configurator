@@ -25,6 +25,8 @@
  * won't deliver a packet for an address that arrived on a *different*
  * interface, so the tag rides the matching tagged IP. */
 #define CNC_TAG_IP       "192.168.1.11"
+/* Source address used in the hand-built tagged IPv4 header (the STM32 base IP). */
+#define CNC_TAG_SRC_IP   "192.168.1.20"
 
 /* 802.1Q priority for TSN control traffic (6 = highest, VO/AC_VO). */
 #define TSN_PCP          6u

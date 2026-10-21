@@ -62,7 +62,11 @@ static uint16_t ipv4_hdr_sum(const uint8_t *h, size_t len)
 	return (uint16_t)(~s & 0xffff);
 }
 
-/* Build [TCI][0x0800][IPv4][UDP][frame] into `out`; returns byte length. */
+/* Build [TCI][0x0800][IPv4][UDP][frame] into `out`; returns byte length.
+ * Sent via a SOCK_DGRAM AF_PACKET socket: Zephyr prepends the Ethernet header
+ * (dst from the per-send sll_addr, src from the iface). The socket is left
+ * UNBOUND — binding a packet socket sets promisc and breaks RX on this board;
+ * the trade-off is a zero source MAC (acceptable on the point-to-point link). */
 static int build_tagged_pcpvid(uint8_t *out, const uint8_t *frame, uint16_t flen, uint8_t pcp, uint16_t vid)
 {
 	uint16_t udp_len = 8 + flen;
@@ -84,7 +88,7 @@ static int build_tagged_pcpvid(uint8_t *out, const uint8_t *frame, uint16_t flen
 	ip[9] = 17;                                     /* UDP */
 	uint8_t s4[4], d4[4];
 	unsigned a, b, c, e;
-	sscanf("192.168.1.20", "%u.%u.%u.%u", &a, &b, &c, &e);
+	sscanf(CNC_TAG_SRC_IP, "%u.%u.%u.%u", &a, &b, &c, &e);
 	s4[0]=(uint8_t)a; s4[1]=(uint8_t)b; s4[2]=(uint8_t)c; s4[3]=(uint8_t)e;
 	sscanf(CNC_TAG_IP, "%u.%u.%u.%u", &a, &b, &c, &e);
 	d4[0]=(uint8_t)a; d4[1]=(uint8_t)b; d4[2]=(uint8_t)c; d4[3]=(uint8_t)e;
@@ -126,7 +130,7 @@ static void send_preempt_seq(void)
 {
 	if (g_raw_sock < 0 || g_vlan_id == 0) return;
 
-	static uint8_t fbuf[48], full[80], part[80], ubuf[80];
+	static uint8_t fbuf[48], full[128], part[128], ubuf[128];
 	static uint32_t seq = 0;
 	seq++;
 
@@ -242,7 +246,7 @@ static void set_cnc_addr(struct sockaddr_in *d)
 
 static void send_frame_tagged(uint8_t *frame, int flen)
 {
-	uint8_t buf[HTSN_FRAME_MAX + 32];
+	uint8_t buf[HTSN_FRAME_MAX + 64];
 	int blen = build_tagged(buf, frame, (uint16_t)flen);
 	if (blen <= 0 || g_raw_sock < 0) return;
 	struct net_sockaddr_ll ll = {0};
@@ -391,7 +395,7 @@ static void sync_report_applied(void)
 	if (flen <= 0) return;
 	uint8_t pcp = (uint8_t)(g_sync.traffic_class & 0x07);
 	if (g_vlan_id > 0 && g_raw_sock >= 0) {
-		uint8_t out[HTSN_FRAME_MAX + 32];
+		uint8_t out[HTSN_FRAME_MAX + 64];
 		int olen = build_tagged_pcpvid(out, fb, (uint16_t)flen, pcp, g_vlan_id);
 		if (olen <= 0) return;
 		struct net_sockaddr_ll ll = {0};
@@ -463,7 +467,7 @@ static void flow_emit(int idx, const htsn_flow_t *f)
 	if (flen <= 0) return;
 
 	if (tag && (vid > 0 || force) && g_raw_sock >= 0) {
-		uint8_t out[HTSN_FRAME_MAX + 32];
+		uint8_t out[HTSN_FRAME_MAX + 64];
 		int olen = build_tagged_pcpvid(out, fb, (uint16_t)flen, pcp, vid);
 		if (olen <= 0) return;
 		struct net_sockaddr_ll ll = {0};
@@ -647,7 +651,15 @@ int htsn_net_init(void)
 	}
 	if (mac_parse(CNC_MAC, g_dst_mac) != 0)
 		LOGW("CNC_MAC parse failed; tagged egress disabled\n");
-	g_raw_sock = -1;
+	/* Raw AF_PACKET for 802.1Q-tagged egress, created WITHOUT bind(). Binding a
+	 * packet socket puts the interface into promiscuous mode on this board,
+	 * which was found to break inbound IPv4 multicast reception (the PTP
+	 * Sync/Follow_Up). The TX paths pass a per-send sockaddr_ll (ifindex + dst
+	 * MAC), so no bind is needed and untagged RX is unaffected. */
+	g_raw_sock = zsock_socket(NET_AF_PACKET, NET_SOCK_DGRAM,
+	                          net_htons(NET_ETH_PTYPE_VLAN));
+	if (g_raw_sock < 0)
+		LOGW("raw AF_PACKET socket failed; tagged egress disabled\n");
 
 	/* 802.3br preemption demo: periodic, active only once a config with
 	 * preemption>0 and vlan>0 is applied. */
