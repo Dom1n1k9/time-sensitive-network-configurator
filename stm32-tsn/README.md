@@ -141,6 +141,33 @@ is standard Zephyr API.
   undeclared, the CMSIS *device* header isn't on the include path — pull it in
   (`#include <stm32f7xx.h>` after the SoC defines) in `Board/pwm.c`.
 
+## Known gotchas (hard-won)
+
+- **Never `bind()` a raw `AF_PACKET` socket.** On this board, binding a packet
+  socket puts the interface into promiscuous mode and silently breaks inbound
+  IPv4 multicast — the PTP `224.0.1.129` Sync/Follow_Up then never reach the UDP
+  socket and the clock never locks. The tagged-egress socket in `tsn/eth_proto.c`
+  is therefore created **unbound** (`SOCK_DGRAM`, per-send `sockaddr_ll`). A
+  `SOCK_RAW` packet socket is also unsafe: Zephyr's matcher skips the protocol
+  check for `NET_SOCK_RAW`, so it swallows unicast too (ping/commands die).
+- **VLAN-tagged egress** (telemetry to `192.168.1.11:4001`, VID/PCP from the
+  applied TSN config) rides that unbound `SOCK_DGRAM` packet socket, so the
+  frames carry source MAC `00:00:00:00:00:00`. Harmless on the point-to-point
+  link; fixing it would need a real `CONFIG_NET_VLAN` interface, which conflicts
+  with the current dual `192.168.1.0/24` addressing.
+- **Config persistence across reboot** is delegated to the CNC: it re-pushes the
+  TSN config on a ~100 ms keepalive and the endpoint re-applies it (so tagged
+  egress resumes within ~100 ms of boot). Do **not** stash the config in
+  `.noinit`/retained RAM — on this build that destabilised boot (CPU idled, net
+  never came up). A flash-backed NVS store would need a sector-aligned partition
+  (the board's default `storage_partition` overlaps the app and assumes 64 KB
+  sectors; the F76x uses large sectors).
+- **PTP offset**: `tsn/ptp.c` steers the DWT time base onto the GM's absolute
+  time. The first Sync/Follow_Up does a full epoch alignment, then it fine-steers
+  with a dead-band; `htsn_ptp_is_locked()` is `|offset| < 1 ms`. On a direct link
+  the offset settles to ~0. One-way (T1/T2) is used until the E2E Delay_Resp leg
+  pairs by sequenceId.
+
 ## RPi (CNC) side
 
 The RPi peer lives in the main repo (`rpi-tsn/`). It is the CNC and runs:

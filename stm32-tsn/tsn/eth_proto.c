@@ -637,11 +637,6 @@ int htsn_net_init(void)
 		LOGE("bind %d failed\n", STM32_CMD_PORT);
 	set_cnc_addr(&g_cnc);
 
-	/* NOTE: creating the raw AF_PACKET VLAN socket at init breaks inbound
-	 * IPv4 multicast reception on this board: once it is bound, the PTP
-	 * 224.0.1.129 Sync/Follow_Up stop reaching the PTP UDP socket entirely
-	 * (verified with an isolated test). Keep it disabled at boot; tagged
-	 * egress is a TSN-config feature, not needed for the PTP slave. */
 	struct net_if *iface = net_if_get_default();
 	if (iface) {
 		g_eth_if = net_if_get_by_iface(iface);
