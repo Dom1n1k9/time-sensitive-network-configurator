@@ -47,8 +47,19 @@ if [ -f /etc/systemd/system/htsn-cnc.service ]; then
   if [ -f "$STAGE/htsn-cnc-uadp-vlan.conf" ]; then
     $SUDO install -m 0644 "$STAGE/htsn-cnc-uadp-vlan.conf" /etc/systemd/system/htsn-cnc.service.d/uadp-vlan.conf
   fi
+  if [ -f "$STAGE/htsn-cnc-zz-kill.conf" ]; then
+    $SUDO install -m 0644 "$STAGE/htsn-cnc-zz-kill.conf" /etc/systemd/system/htsn-cnc.service.d/zz-kill.conf
+  fi
+  # Stop/restart the data-plane clients together with cnc_opcua, so a
+  # `systemctl restart htsn-cnc` brings bridge+poller back automatically.
+  for u in htsn-bridge htsn-poller; do
+    if [ -f "/etc/systemd/system/$u.service" ] && [ -f "$STAGE/$u-partof.conf" ]; then
+      $SUDO install -d "/etc/systemd/system/$u.service.d"
+      $SUDO install -m 0644 "$STAGE/$u-partof.conf" "/etc/systemd/system/$u.service.d/partof.conf"
+    fi
+  done
   $SUDO systemctl daemon-reload
-  echo "  installed: re-applies TSN config + routes UADP data plane onto VLAN 100"
+  echo "  installed: re-applies TSN config, routes UADP onto VLAN 100, guards teardown, couples bridge/poller"
 else
   echo "  WARN: /etc/systemd/system/htsn-cnc.service not found; skipping drop-in"
 fi
