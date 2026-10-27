@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 static const char *TAG = "sensor";
 
@@ -320,14 +321,19 @@ static int bme280_read(float *temp_c, float *press_hpa, float *hum_pct) {
         if (hum < 0.0f) hum = 0.0f;
         *hum_pct = hum;
     }
+    /* Log a BME reading only when it actually changes (small deadband) so the
+     * console stays quiet while the sensor is stable. */
     {
-        static int64_t last_ok_log;
-        int64_t now_us = esp_timer_get_time();
-        if (now_us - last_ok_log > 10000000LL) {
-            last_ok_log = now_us;
-            ESP_LOGI(TAG, "BME280 T=%.1f C P=%.1f hPa H=%.1f %%",
-                     temp_c ? *temp_c : 0.0f, press_hpa ? *press_hpa : 0.0f,
-                     hum_pct ? *hum_pct : 0.0f);
+        static float lt = -9999.0f, lp = -9999.0f, lh = -9999.0f;
+        if (temp_c && press_hpa && hum_pct) {
+            if (lt < -9000.0f ||
+                fabsf(*temp_c - lt) > 0.05f ||
+                fabsf(*press_hpa - lp) > 0.2f ||
+                fabsf(*hum_pct - lh) > 0.3f) {
+                lt = *temp_c; lp = *press_hpa; lh = *hum_pct;
+                ESP_LOGI(TAG, "BME280 T=%.1f C P=%.1f hPa H=%.1f %%",
+                         *temp_c, *press_hpa, *hum_pct);
+            }
         }
     }
     return 0;
@@ -692,7 +698,7 @@ void htsn_sensor_tick(void) {
     if (pir == 1) g_pir_latch = now_us;
     int pir_report = (pir == 1) ? 1 : ((now_us - g_pir_latch) < 5000000LL ? 1 : 0);
 
-    char buf[512];
+    char buf[768];
     int n = snprintf(buf, sizeof(buf) - 1,
             "{\"id\":\"%s\",\"ts\":%lld,\"sensors\":[", g_dev_id, (long long)time(NULL));
     size_t m = (size_t)n;
