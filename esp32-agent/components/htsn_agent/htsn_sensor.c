@@ -53,7 +53,7 @@ static const char *TAG = "sensor";
 #define HTSN_ACTOR_GPIO GPIO_NUM_26
 #endif
 
-#define HTSN_I2C_FREQ_HZ 100000
+#define HTSN_I2C_FREQ_HZ 10000
 #define BME280_ADDR     0x76
 #define BME280_ID_REG   0xD0
 #define BME280_CTRL_MEAS 0xF4
@@ -63,8 +63,10 @@ static const char *TAG = "sensor";
 #define BME280_PRESS_MSB  0xF7
 #define BME280_CALIB00_MSB 0x88
 #define BME280_CALIB26_MSB 0xE1
+#define BME280_ADDR_ALT  0x77
 
 static char g_dev_id[32] = "esp32-01";
+static uint8_t s_bme_addr = BME280_ADDR;  /* 0x76 or 0x77, set by the probe */
 static htsn_mqtt *g_mq = NULL;
 
 /* Last RSSI std-dev (dB) measured by the WiFi motion sensor, kept for the
@@ -126,10 +128,10 @@ static esp_err_t bme_reg_read8(uint8_t reg, uint8_t *out) {
     i2c_cmd_handle_t c = i2c_cmd_link_create();
     esp_err_t err;
     i2c_master_start(c);
-    i2c_master_write_byte(c, (BME280_ADDR << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c, (s_bme_addr << 1) | I2C_MASTER_WRITE, 1);
     i2c_master_write_byte(c, reg, 1);
     i2c_master_start(c);
-    i2c_master_write_byte(c, (BME280_ADDR << 1) | I2C_MASTER_READ, 1);
+    i2c_master_write_byte(c, (s_bme_addr << 1) | I2C_MASTER_READ, 1);
     i2c_master_read_byte(c, out, I2C_MASTER_NACK);
     i2c_master_stop(c);
     err = i2c_master_cmd_begin(HTSN_I2C_PORT, c, pdMS_TO_TICKS(100));
@@ -141,10 +143,10 @@ static esp_err_t bme_reg_read(uint8_t reg, uint8_t *buf, size_t n) {
     i2c_cmd_handle_t c = i2c_cmd_link_create();
     esp_err_t err;
     i2c_master_start(c);
-    i2c_master_write_byte(c, (BME280_ADDR << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c, (s_bme_addr << 1) | I2C_MASTER_WRITE, 1);
     i2c_master_write_byte(c, reg, 1);
     i2c_master_start(c);
-    i2c_master_write_byte(c, (BME280_ADDR << 1) | I2C_MASTER_READ, 1);
+    i2c_master_write_byte(c, (s_bme_addr << 1) | I2C_MASTER_READ, 1);
     if (n > 1) i2c_master_read(c, buf, n - 1, I2C_MASTER_ACK);
     i2c_master_read_byte(c, buf + n - 1, I2C_MASTER_NACK);
     i2c_master_stop(c);
@@ -156,7 +158,7 @@ static esp_err_t bme_reg_read(uint8_t reg, uint8_t *buf, size_t n) {
 static void bme_write8(uint8_t reg, uint8_t val) {
     i2c_cmd_handle_t c = i2c_cmd_link_create();
     i2c_master_start(c);
-    i2c_master_write_byte(c, (BME280_ADDR << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_write_byte(c, (s_bme_addr << 1) | I2C_MASTER_WRITE, 1);
     i2c_master_write_byte(c, reg, 1);
     i2c_master_write_byte(c, val, 1);
     i2c_master_stop(c);
@@ -164,12 +166,36 @@ static void bme_write8(uint8_t reg, uint8_t val) {
     i2c_cmd_link_delete(c);
 }
 
+/* Probe both possible BME280 strap addresses (SDO low = 0x76, SDO high = 0x77)
+ * and remember which one answered, so the rest of the driver uses it. */
+static uint8_t bme_find(uint8_t *chip_out) {
+    static const uint8_t addrs[] = { BME280_ADDR, BME280_ADDR_ALT };
+    for (int attempt = 0; attempt < 3; attempt++) {
+        for (size_t i = 0; i < sizeof(addrs) / sizeof(addrs[0]); i++) {
+            s_bme_addr = addrs[i];
+            uint8_t chip = 0;
+            esp_err_t err = bme_reg_read8(BME280_ID_REG, &chip);
+            ESP_LOGI(TAG, "BME280 probe %d 0x%02x: %s id=0x%02x",
+                     attempt + 1, addrs[i], err == ESP_OK ? "ack" : "no-ack", chip);
+            if (err == ESP_OK && chip == 0x60) {
+                if (chip_out) *chip_out = chip;
+                return addrs[i];
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    s_bme_addr = BME280_ADDR;
+    if (chip_out) *chip_out = 0;
+    return 0;
+}
+
 static int bme280_init(void) {
     uint8_t chip = 0;
-    if (bme_reg_read8(BME280_ID_REG, &chip) != ESP_OK || chip != 0x60) {
-        ESP_LOGW(TAG, "BME280 not found (chip=0x%02x)", chip);
+    if (!bme_find(&chip)) {
+        ESP_LOGW(TAG, "BME280 not found at 0x%02x/0x%02x", BME280_ADDR, BME280_ADDR_ALT);
         return -1;
     }
+    ESP_LOGI(TAG, "BME280 detected at 0x%02x", s_bme_addr);
     uint8_t buf[26];
     if (bme_reg_read(BME280_CALIB00_MSB, buf, 26) != ESP_OK) return -1;
     calib_temp[0] = (uint16_t)((buf[1] << 8) | buf[0]);
@@ -214,7 +240,7 @@ bool htsn_sensor_probe(void) {
     i2c_ensure_installed();
 
     uint8_t chip = 0;
-    bool ok = (bme_reg_read8(BME280_ID_REG, &chip) == ESP_OK && chip == 0x60);
+    bool ok = bme_find(&chip) != 0;
     ESP_LOGI(TAG, "sensor probe: %s (BME280 chip=0x%02x)", ok ? "BME280 present" : "no BME280", chip);
     return ok;
 }
@@ -222,7 +248,16 @@ bool htsn_sensor_probe(void) {
 static int bme280_read(float *temp_c, float *press_hpa, float *hum_pct) {
     if (!g_bme_ok) return -1;
     uint8_t buf[8];
-    if (bme_reg_read(BME280_PRESS_MSB, buf, 8) != ESP_OK) return -1;
+    esp_err_t rerr = bme_reg_read(BME280_PRESS_MSB, buf, 8);
+    if (rerr != ESP_OK) {
+        static int64_t last_err_log;
+        int64_t now_us = esp_timer_get_time();
+        if (now_us - last_err_log > 5000000LL) {
+            last_err_log = now_us;
+            ESP_LOGW(TAG, "BME280 data read failed: %s", esp_err_to_name(rerr));
+        }
+        return -1;
+    }
     int32_t adc_p = (int32_t)(((uint32_t)buf[0] << 12) | ((uint32_t)buf[1] << 4) | ((uint32_t)buf[2] >> 4));
     int32_t adc_t = (int32_t)(((uint32_t)buf[3] << 12) | ((uint32_t)buf[4] << 4) | ((uint32_t)buf[5] >> 4));
     int32_t adc_h = (int32_t)(((uint32_t)buf[6] << 8) | (uint32_t)buf[7]);
@@ -285,6 +320,16 @@ static int bme280_read(float *temp_c, float *press_hpa, float *hum_pct) {
         if (hum < 0.0f) hum = 0.0f;
         *hum_pct = hum;
     }
+    {
+        static int64_t last_ok_log;
+        int64_t now_us = esp_timer_get_time();
+        if (now_us - last_ok_log > 10000000LL) {
+            last_ok_log = now_us;
+            ESP_LOGI(TAG, "BME280 T=%.1f C P=%.1f hPa H=%.1f %%",
+                     temp_c ? *temp_c : 0.0f, press_hpa ? *press_hpa : 0.0f,
+                     hum_pct ? *hum_pct : 0.0f);
+        }
+    }
     return 0;
 }
 
@@ -335,6 +380,119 @@ void htsn_sensor_actor_set_pin(void) {
     gpio_config(&io);
 }
 
+/* Full I2C address scan, used as a one-shot diagnostic when the BME280 is not
+ * found. Reports every address that ACKs plus the idle SDA/SCL line levels. */
+static void i2c_scan_bus(void) {
+    ESP_LOGI(TAG, "I2C scan on SDA=%d SCL=%d (levels SDA=%d SCL=%d)",
+             HTSN_I2C_SDA, HTSN_I2C_SCL,
+             gpio_get_level(HTSN_I2C_SDA), gpio_get_level(HTSN_I2C_SCL));
+    int found = 0;
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        i2c_cmd_handle_t c = i2c_cmd_link_create();
+        i2c_master_start(c);
+        i2c_master_write_byte(c, (addr << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_stop(c);
+        esp_err_t err = i2c_master_cmd_begin(HTSN_I2C_PORT, c, pdMS_TO_TICKS(20));
+        i2c_cmd_link_delete(c);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "I2C device found at 0x%02x", addr);
+            found++;
+        }
+    }
+    ESP_LOGI(TAG, "I2C scan done: %d device(s)", found);
+}
+
+/* Electrical check of the two I2C pins: drive them low as open-drain GPIOs and
+ * read them back. If a line cannot be pulled low, it is shorted/damaged. */
+static void i2c_line_test(void) {
+    if (g_i2c_owned) {
+        i2c_driver_delete(HTSN_I2C_PORT);
+        g_i2c_owned = false;
+    }
+    gpio_config_t io = {
+        .pin_bit_mask = (1ULL << HTSN_I2C_SDA) | (1ULL << HTSN_I2C_SCL),
+        .mode = GPIO_MODE_INPUT_OUTPUT_OD,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io);
+    gpio_set_level(HTSN_I2C_SDA, 1);
+    gpio_set_level(HTSN_I2C_SCL, 1);
+    vTaskDelay(pdMS_TO_TICKS(5));
+    ESP_LOGI(TAG, "I2C line idle:   SDA=%d SCL=%d",
+             gpio_get_level(HTSN_I2C_SDA), gpio_get_level(HTSN_I2C_SCL));
+    gpio_set_level(HTSN_I2C_SDA, 0);
+    gpio_set_level(HTSN_I2C_SCL, 0);
+    vTaskDelay(pdMS_TO_TICKS(5));
+    ESP_LOGI(TAG, "I2C line low:    SDA=%d SCL=%d",
+             gpio_get_level(HTSN_I2C_SDA), gpio_get_level(HTSN_I2C_SCL));
+    gpio_set_level(HTSN_I2C_SDA, 1);
+    gpio_set_level(HTSN_I2C_SCL, 1);
+    vTaskDelay(pdMS_TO_TICKS(5));
+    ESP_LOGI(TAG, "I2C line release:SDA=%d SCL=%d",
+             gpio_get_level(HTSN_I2C_SDA), gpio_get_level(HTSN_I2C_SCL));
+    i2c_ensure_installed();
+}
+
+/* Search the BME280 across plausible I2C pin pairs. Runs only when the normal
+ * SDA=21/SCL=22 bus shows no device, so a mislabeled header can still be found. */
+static bool i2c_install_pair(int sda, int scl) {
+    if (g_i2c_owned) {
+        i2c_driver_delete(HTSN_I2C_PORT);
+        g_i2c_owned = false;
+    }
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = sda,
+        .scl_io_num = scl,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master = { .clk_speed = HTSN_I2C_FREQ_HZ },
+    };
+    if (i2c_param_config(HTSN_I2C_PORT, &conf) != ESP_OK ||
+        i2c_driver_install(HTSN_I2C_PORT, I2C_MODE_MASTER, 0, 0, 0) != ESP_OK) {
+        return false;
+    }
+    g_i2c_owned = true;
+    return true;
+}
+
+static bool bme_probe_quick(uint8_t *addr_out) {
+    static const uint8_t addrs[] = { BME280_ADDR, BME280_ADDR_ALT };
+    for (size_t i = 0; i < sizeof(addrs) / sizeof(addrs[0]); i++) {
+        s_bme_addr = addrs[i];
+        uint8_t chip = 0;
+        if (bme_reg_read8(BME280_ID_REG, &chip) == ESP_OK && chip == 0x60) {
+            if (addr_out) *addr_out = addrs[i];
+            return true;
+        }
+    }
+    return false;
+}
+
+static void i2c_sweep_pairs(void) {
+    static const int pairs[][2] = {
+        {18, 19}, {19, 18}, {23, 22}, {22, 23}, {16, 17}, {17, 16},
+        {4, 5}, {5, 4}, {0, 2}, {2, 0}, {2, 15}, {15, 2}, {12, 13},
+        {13, 12}, {14, 15}, {15, 14}, {5, 18}, {18, 5}, {17, 18},
+        {18, 23}, {19, 23}, {32, 18}, {18, 32},
+    };
+    for (size_t i = 0; i < sizeof(pairs) / sizeof(pairs[0]); i++) {
+        if (!i2c_install_pair(pairs[i][0], pairs[i][1])) continue;
+        uint8_t addr = 0;
+        if (bme_probe_quick(&addr)) {
+            ESP_LOGI(TAG, "BME280 FOUND on SDA=%d SCL=%d addr=0x%02x",
+                     pairs[i][0], pairs[i][1], addr);
+            s_bme_addr = addr;
+            bme280_init();
+            return;
+        }
+    }
+    ESP_LOGI(TAG, "I2C sweep: no BME280 on any candidate pin pair");
+    i2c_install_pair(HTSN_I2C_SDA, HTSN_I2C_SCL);
+}
+
 void htsn_sensor_init(const char *device_id, htsn_mqtt *mq) {
     if (device_id) snprintf(g_dev_id, sizeof(g_dev_id), "%s", device_id);
     g_mq = mq;
@@ -342,6 +500,11 @@ void htsn_sensor_init(const char *device_id, htsn_mqtt *mq) {
     i2c_ensure_installed();
 
     bme280_init();
+    if (!g_bme_ok) {
+        i2c_scan_bus();
+        i2c_line_test();
+        i2c_sweep_pairs();
+    }
     gpio_config_t io = {0};
     io.pin_bit_mask = (1ULL << HTSN_PIR_GPIO);
     io.mode = GPIO_MODE_INPUT;
@@ -504,6 +667,18 @@ void htsn_sensor_tick(void) {
     /* Only the device that actually has the sensors wired publishes telemetry.
      * Acccept both "esp32-01" (default) and a legacy "esp32-1" NVS id. */
     if (strcmp(g_dev_id, "esp32-01") != 0 && strcmp(g_dev_id, "esp32-1") != 0) return;
+
+    /* If the BME280 was not there at boot, keep looking: a reseated/loose
+     * sensor can appear later without a reboot. */
+    if (!g_bme_ok) {
+        static int64_t last_probe_us;
+        int64_t tprobe = esp_timer_get_time();
+        if (tprobe - last_probe_us > 10000000LL) {
+            last_probe_us = tprobe;
+            ESP_LOGI(TAG, "BME280 not present, retrying probe...");
+            bme280_init();
+        }
+    }
 
     float temp = -999, press = -999, hum = -999;
     bme280_read(&temp, &press, &hum);
