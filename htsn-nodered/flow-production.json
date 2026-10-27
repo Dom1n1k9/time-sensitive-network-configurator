@@ -3780,7 +3780,7 @@
     "name": "frameflows form",
     "group": "GRP_FLOW",
     "groupMode": "fixed",
-    "format": "<style>.ff{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.ff h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.ff .sub{margin:0 0 6px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.ff .help{margin:0 0 12px 0;font-size:11px;color:#b0bec5;line-height:1.5;}.ff table{border-collapse:collapse;width:100%;}.ff th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.ff td{padding:3px 5px;border-bottom:1px solid #eceff1;}.ff input,.ff select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.ff input:focus,.ff select:focus{outline:none;border-bottom:2px solid #009688;}.ff input[type=checkbox]{width:auto;}.ff .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.ff .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.ff .del:hover{background:#e57373;}.ff .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.ff .btn:hover{background:#00796b;}.ff pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"ff\" ng-init=\"rows=[{sender:'',receiver:'',pcp:5,tagged:true,arrival_model:'Periodic',period_ms:100,jitter_ns:1000,burst:1}]; _sl=false\"><span style=\"display:none\" ng-if=\"!_sl && msg && msg.saved\" ng-init=\"$parent._sl=true; $parent.rows=msg.saved.length?msg.saved:$parent.rows\"></span><h3>FrameFlows (802.1Q)</h3><div class=\"sub\">Define each Ethernet frame flow (talker &rarr; listener). <b>Create &amp; push</b> saves the table and pushes it to the TSN endpoint, which emits one 802.1Q-tagged frame per flow (visible in Wireshark). VLAN ID comes from the TSN endpoint config.</div><div class=\"help\">Arrival models: <b>Sporadic</b>=irregular gaps (spread by jitter) &middot; <b>Periodic</b>=fixed period &middot; <b>Isochronous</b>=strict fixed period &middot; <b>Burst</b>=`burst` frames each period &middot; <b>Mixed</b>=alternates single/burst &middot; <b>Random</b>=random period (0.5&ndash;2&times;).</div><table><thead><tr><th>Sender</th><th>Receiver</th><th>PCP 0-7</th><th>Tagged</th><th>Arrival model</th><th>Period (ms)</th><th>Jitter (ns)</th><th>Burst</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><select ng-model=\"r.sender\"><option value=\"\">(select device)</option><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{dv.name||dv.id}\">{dv.name||dv.id}</option></select></td><td><select ng-model=\"r.receiver\"><option value=\"\">(select device)</option><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{dv.name||dv.id}\">{dv.name||dv.id}</option></select></td><td><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"r.pcp\"></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.tagged\"></td><td><select ng-model=\"r.arrival_model\"><option>Sporadic</option><option>Periodic</option><option>Mixed</option><option>Burst</option><option>Isochronous</option><option>Random</option></select></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.period_ms\"></td><td><input type=\"number\" min=\"0\" step=\"1\" ng-model=\"r.jitter_ns\"></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.burst\"></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\" title=\"remove row\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"rows.push({sender:'',receiver:'',pcp:5,tagged:true,arrival_model:'Periodic',period_ms:100,jitter_ns:1000,burst:1})\">Add</button><button class=\"btn\" ng-click=\"send({payload:rows})\">Create</button></div>",
+    "format": "<style>.ff{font-family:Roboto,Arial,sans-serif;font-size:13px;color:#212121;padding:4px 6px;}.ff h3{margin:0 0 6px 0;font-size:16px;font-weight:500;color:#37474f;}.ff .sub{margin:0 0 6px 0;font-size:12px;color:#90a4ae;line-height:1.5;}.ff .help{margin:0 0 12px 0;font-size:11px;color:#b0bec5;line-height:1.5;}.ff table{border-collapse:collapse;width:100%;}.ff th{text-align:left;font-weight:500;color:#546e7a;font-size:12px;padding:6px 6px;border-bottom:2px solid #cfd8dc;white-space:nowrap;}.ff td{padding:3px 5px;border-bottom:1px solid #eceff1;}.ff input,.ff select{width:100%;box-sizing:border-box;padding:4px 2px;border:none;border-bottom:1px solid #b0bec5;background:transparent;font-size:13px;color:#212121;border-radius:0;}.ff input:focus,.ff select:focus{outline:none;border-bottom:2px solid #009688;}.ff input[type=checkbox]{width:auto;}.ff .add{margin:12px 0;padding:6px 14px;background:#eceff1;border:none;border-radius:3px;font-size:13px;cursor:pointer;}.ff .del{padding:2px 9px;background:#ef9a9a;border:none;border-radius:3px;color:#fff;font-size:14px;cursor:pointer;}.ff .del:hover{background:#e57373;}.ff .btn{margin:12px 0 0 8px;padding:9px 24px;background:#009688;color:#fff;border:none;border-radius:3px;font-size:14px;font-weight:500;cursor:pointer;}.ff .btn:hover{background:#00796b;}.ff pre{margin:0;white-space:pre-wrap;font-family:monospace;font-size:12px;color:#455a64;}</style>\n<div class=\"ff\" ng-init=\"rows=[{sender:'',receiver:'',pcp:5,tagged:true,arrival_model:'Periodic',period_ms:100,jitter_ns:1000,burst:1,preempt:false}]; _sl=false\"><span style=\"display:none\" ng-if=\"!_sl && msg && msg.saved\" ng-init=\"$parent._sl=true; $parent.rows=msg.saved.length?msg.saved:$parent.rows\"></span><h3>FrameFlows (802.1Q)</h3><div class=\"sub\">Define each Ethernet frame flow (talker &rarr; listener). <b>Create &amp; push</b> saves the table and pushes it to the TSN endpoint, which emits one 802.1Q-tagged frame per flow (visible in Wireshark). VLAN ID comes from the TSN endpoint config.</div><div class=\"help\">Arrival models: <b>Sporadic</b>=irregular gaps (spread by jitter) &middot; <b>Periodic</b>=fixed period &middot; <b>Isochronous</b>=strict fixed period &middot; <b>Burst</b>=`burst` frames each period &middot; <b>Mixed</b>=alternates single/burst &middot; <b>Random</b>=random period (0.5&ndash;2&times;).</div><table><thead><tr><th>Sender</th><th>Receiver</th><th>PCP 0-7</th><th>Tagged</th><th>Arrival model</th><th>Period (ms)</th><th>Jitter (ns)</th><th>Burst</th><th>Preemption</th><th></th></tr></thead><tbody><tr ng-repeat=\"r in rows\"><td><select ng-model=\"r.sender\"><option value=\"\">(select device)</option><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{dv.name||dv.id}\">{dv.name||dv.id}</option></select></td><td><select ng-model=\"r.receiver\"><option value=\"\">(select device)</option><option ng-repeat=\"dv in (msg.payload||[])\" value=\"{dv.name||dv.id}\">{dv.name||dv.id}</option></select></td><td><input type=\"number\" min=\"0\" max=\"7\" step=\"1\" ng-model=\"r.pcp\"></td><td align=\"center\"><input type=\"checkbox\" ng-model=\"r.tagged\"></td><td><select ng-model=\"r.arrival_model\"><option>Sporadic</option><option>Periodic</option><option>Mixed</option><option>Burst</option><option>Isochronous</option><option>Random</option></select></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.period_ms\"></td><td><input type=\"number\" min=\"0\" step=\"1\" ng-model=\"r.jitter_ns\"></td><td><input type=\"number\" min=\"1\" step=\"1\" ng-model=\"r.burst\"></td><td><select ng-model=\"r.preempt\" ng-options=\"v for v in [false,true]\"></select></td><td><button class=\"del\" ng-click=\"rows.splice($index,1)\" title=\"remove row\">&minus;</button></td></tr></tbody></table><button class=\"add\" ng-click=\"rows.push({sender:'',receiver:'',pcp:5,tagged:true,arrival_model:'Periodic',period_ms:100,jitter_ns:1000,burst:1,preempt:false})\">Add</button><button class=\"btn\" ng-click=\"send({payload:rows})\">Create</button></div>",
     "storeOutMessages": "false",
     "cd": "false",
     "js": "",
@@ -3791,7 +3791,8 @@
     "y": 120,
     "wires": [
       [
-        "FN_FLOW"
+        "FN_FLOW",
+        "FN_PREEMPT_FROM_FLOWS"
       ]
     ]
   },
@@ -3800,7 +3801,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "validate frame flows",
-    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nvar sql = [];\nsql.push({topic:\"CREATE TABLE IF NOT EXISTS frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,receiver TEXT,pcp INTEGER,vlan_tagged INTEGER,arrival_model TEXT,period_ms INTEGER,jitter_ns INTEGER,burst INTEGER,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM frame_flows\"});\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],size=[];\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nfunction S(v){return String(v==null?'':v);}\nvar DEF={sender:'',receiver:'',pcp:5,tagged:true,arrival_model:'Periodic',period_ms:100,jitter_ns:1000,burst:1};\nfunction touched(r){for(var k in DEF){if(S(r[k])!==S(DEF[k]))return true;}return false;}\n\nrows.forEach(function(r){\n  if(!r) return;\n  var sender=String(r.sender||'').trim();\n  var receiver=String(r.receiver||'').trim();\n  var P=C(r.pcp,0,7,5);\n  var tagged=!!r.tagged;\n  var am=MODELS.hasOwnProperty(r.arrival_model)?r.arrival_model:'Periodic';\n  var pm=C(r.period_ms,1,60000,100);\n  var jt=C(r.jitter_ns,0,1000000000,1000);\n  var bu=C(r.burst,1,1000,1);\n  if(!touched({sender:sender,receiver:receiver,pcp:P,tagged:tagged,arrival_model:am,period_ms:pm,jitter_ns:jt,burst:bu})) return;\n  var t1=tagged?1:0;\n  sql.push({topic:\"INSERT INTO frame_flows(sender,receiver,pcp,vlan_tagged,arrival_model,period_ms,jitter_ns,burst) VALUES('\"+E(sender)+\"','\"+E(receiver)+\"',\"+P+\",\"+t1+\",'\"+am+\"',\"+pm+\",\"+jt+\",\"+bu+\")\"});\n  pcp.push(P); vlan.push(tagged?0:65535); model.push(MODELS[am]); per.push(pm*1000); jit.push(jt); burst.push(bu); size.push(64);\n  n++;\n});\nvar flat={count:n,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,size:size};\n\nif(n===0){ sql.length=1; node.status({fill:'yellow',shape:'dot',text:'no changes - nothing saved'}); return [sql]; }\n\nnode.status({fill:'green',shape:'dot',text:'saved + push '+n+' flow(s)'});\nreturn [sql, {datatype:\"String\", topic:\"ns=1;i=52\", payload:JSON.stringify(flat)}];\n",
+    "func": "var rows = msg.payload || [];\nfunction C(v,lo,hi,df){var n=parseInt(v,10);if(isNaN(n))n=df;return Math.max(lo,Math.min(hi,n));}\nfunction E(s){return String(s==null?'':s).replace(/'/g,\"''\");}\nvar MODELS={Sporadic:0,Periodic:1,Mixed:2,Burst:3,Isochronous:4,Random:5};\nvar sql = [];\nsql.push({topic:\"DROP TABLE IF EXISTS frame_flows\"});\nsql.push({topic:\"CREATE TABLE frame_flows(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT,receiver TEXT,pcp INTEGER,vlan_tagged INTEGER,arrival_model TEXT,period_ms INTEGER,jitter_ns INTEGER,burst INTEGER,preempt INTEGER DEFAULT 0,created_at INTEGER DEFAULT (strftime('%s','now')))\"});\nsql.push({topic:\"DELETE FROM frame_flows\"});\nvar pcp=[],vlan=[],model=[],per=[],jit=[],burst=[],size=[];\nvar n=0;\nif(Object.prototype.toString.call(rows)!=='[object Array]'){rows=[];}\nfunction S(v){return String(v==null?'':v);}\nvar DEF={sender:'',receiver:'',pcp:5,tagged:true,arrival_model:'Periodic',period_ms:100,jitter_ns:1000,burst:1,preempt:false};\nfunction touched(r){for(var k in DEF){if(S(r[k])!==S(DEF[k]))return true;}return false;}\n\nrows.forEach(function(r){\n  if(!r) return;\n  var sender=String(r.sender||'').trim();\n  var receiver=String(r.receiver||'').trim();\n  var P=C(r.pcp,0,7,5);\n  var tagged=!!r.tagged;\n  var am=MODELS.hasOwnProperty(r.arrival_model)?r.arrival_model:'Periodic';\n  var pm=C(r.period_ms,1,60000,100);\n  var jt=C(r.jitter_ns,0,1000000000,1000);\n  var bu=C(r.burst,1,1000,1);\n  var pre=(r.preempt===true||r.preempt==='true'||r.preempt===1)?1:0;\n  if(!touched({sender:sender,receiver:receiver,pcp:P,tagged:tagged,arrival_model:am,period_ms:pm,jitter_ns:jt,burst:bu,preempt:(pre?true:false)})) return;\n  var t1=tagged?1:0;\n  sql.push({topic:\"INSERT INTO frame_flows(sender,receiver,pcp,vlan_tagged,arrival_model,period_ms,jitter_ns,burst,preempt) VALUES('\"+E(sender)+\"','\"+E(receiver)+\"',\"+P+\",\"+t1+\",'\"+am+\"',\"+pm+\",\"+jt+\",\"+bu+\",\"+pre+\")\"});\n  pcp.push(P); vlan.push(tagged?0:65535); model.push(MODELS[am]); per.push(pm*1000); jit.push(jt); burst.push(bu); size.push(64);\n  n++;\n});\nvar flat={count:n,pcp:pcp,vlan:vlan,model:model,period_us:per,jitter_ns:jit,burst:burst,size:size};\n\nif(n===0){ sql.length=1; node.status({fill:'yellow',shape:'dot',text:'no changes - nothing saved'}); return [sql]; }\n\nnode.status({fill:'green',shape:'dot',text:'saved + push '+n+' flow(s)'});\nreturn [sql, {datatype:\"String\", topic:\"ns=1;i=52\", payload:JSON.stringify(flat)}];\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -3858,7 +3859,7 @@
     "name": "read frame flows",
     "mydb": "SQLCFG",
     "sqlquery": "fixed",
-    "sql": "SELECT sender,receiver,pcp,vlan_tagged,arrival_model,period_ms,jitter_ns,burst FROM frame_flows ORDER BY id",
+    "sql": "SELECT sender,receiver,pcp,vlan_tagged,arrival_model,period_ms,jitter_ns,burst,preempt FROM frame_flows ORDER BY id",
     "x": 360,
     "y": 240,
     "wires": [
@@ -3872,7 +3873,7 @@
     "type": "function",
     "z": "FLOWTAB",
     "name": "format flows",
-    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){ rows=[]; }\ncontext.global.set('HTSN_SAVED_FLOW', rows.map(function(r){ return {sender:r.sender||'',receiver:r.receiver||'',pcp:Number(r.pcp)||0,tagged:!!r.vlan_tagged,arrival_model:r.arrival_model||'Periodic',period_ms:Number(r.period_ms)||100,jitter_ns:Number(r.jitter_ns)||0,burst:Number(r.burst)||1}; }));\nif(rows.length===0){ msg.payload = '(no frame flows saved yet)'; return msg; }\nmsg.payload = rows.map(function(r){\n  return (r.sender||'-')+' -> '+(r.receiver||'-')+' | PCP '+r.pcp+' | '+(r.vlan_tagged?'tagged':'untagged')+' | '+r.arrival_model+' | period '+r.period_ms+'ms | jitter '+r.jitter_ns+'ns | burst '+r.burst;\n}).join('\\n');\nreturn msg;\n",
+    "func": "var rows = msg.payload || [];\nif(Object.prototype.toString.call(rows)!=='[object Array]'){ rows=[]; }\ncontext.global.set('HTSN_SAVED_FLOW', rows.map(function(r){ return {sender:r.sender||'',receiver:r.receiver||'',pcp:Number(r.pcp)||0,tagged:!!r.vlan_tagged,arrival_model:r.arrival_model||'Periodic',period_ms:Number(r.period_ms)||100,jitter_ns:Number(r.jitter_ns)||0,burst:Number(r.burst)||1,preempt:!!r.preempt}; }));\nif(rows.length===0){ msg.payload = '(no frame flows saved yet)'; return msg; }\nmsg.payload = rows.map(function(r){\n  return (r.sender||'-')+' -> '+(r.receiver||'-')+' | PCP '+r.pcp+' | '+(r.vlan_tagged?'tagged':'untagged')+' | '+r.arrival_model+' | period '+r.period_ms+'ms | jitter '+r.jitter_ns+'ns | burst '+r.burst+' | preempt '+(r.preempt?'on':'off');\n}).join('\\n');\nreturn msg;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -5521,5 +5522,223 @@
         "HTML_VCFG"
       ]
     ]
+  },
+  {
+    "id": "SW_PREEMPT",
+    "type": "ui_switch",
+    "z": "FLOWTAB",
+    "group": "GRP_TSNSTAT",
+    "order": 10,
+    "width": "6",
+    "name": "preempt demo",
+    "label": "Inject 802.3br demo",
+    "tooltip": "Start/stop the htsn-preempt software 802.3br preemption injector",
+    "decimals": 0,
+    "className": "",
+    "onvalue": "true",
+    "onvalueType": "bool",
+    "offvalue": "false",
+    "offvalueType": "bool",
+    "topic": "preempt",
+    "topicType": "str",
+    "x": 100,
+    "y": 1660,
+    "wires": [
+      [
+        "FN_PREEMPT_ROUTE"
+      ]
+    ]
+  },
+  {
+    "id": "FN_PREEMPT_ROUTE",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "preempt on/off",
+    "func": "var on=(msg.payload===true||msg.payload==='true'||msg.payload===1||msg.payload==='on');\nmsg.payload='';\nreturn on?[msg,null]:[null,msg];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 320,
+    "y": 1660,
+    "wires": [
+      [
+        "EXEC_PSTART"
+      ],
+      [
+        "EXEC_PSTOP"
+      ]
+    ]
+  },
+  {
+    "id": "EXEC_PSTART",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "start htsn-preempt",
+    "command": "sudo /usr/bin/systemctl start htsn-preempt",
+    "addpay": false,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 560,
+    "y": 1640,
+    "wires": [
+      [],
+      [],
+      []
+    ]
+  },
+  {
+    "id": "EXEC_PSTOP",
+    "type": "exec",
+    "z": "FLOWTAB",
+    "name": "stop htsn-preempt",
+    "command": "sudo /usr/bin/systemctl stop htsn-preempt",
+    "addpay": false,
+    "append": "",
+    "useSpawn": false,
+    "timer": "",
+    "oldmode": false,
+    "defer": false,
+    "x": 560,
+    "y": 1680,
+    "wires": [
+      [],
+      [],
+      []
+    ]
+  },
+  {
+    "id": "FN_PREEMPT_FROM_FLOWS",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "any flow preempt?",
+    "func": "var rows=msg.payload||[];var any=false;if(Object.prototype.toString.call(rows)==='[object Array]'){rows.forEach(function(r){if(r&&(r.preempt===true||r.preempt==='true'||r.preempt===1))any=true;});}msg.payload=any;return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 470,
+    "y": 1660,
+    "wires": [
+      [
+        "FN_PREEMPT_ROUTE"
+      ]
+    ]
+  },
+  {
+    "id": "MQ_ENV",
+    "type": "mqtt in",
+    "z": "FLOWTAB",
+    "name": "esp environment (BME280)",
+    "topic": "tsn/sensors",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "BRK1",
+    "x": 100,
+    "y": 2400,
+    "wires": [
+      [
+        "FN_ENV"
+      ]
+    ]
+  },
+  {
+    "id": "FN_ENV",
+    "type": "function",
+    "z": "FLOWTAB",
+    "name": "parse environment",
+    "func": "// Live environment (BME280) readouts for the Monitor panel.\nvar p = msg.payload;\nif (!p || !Array.isArray(p.sensors)) return null;\nvar v = {};\nfor (var i = 0; i < p.sensors.length; i++) {\n    var s = p.sensors[i];\n    v[s.sensor_id] = (s.healthy === 1) ? s.value : null;\n}\nmsg.id    = p.id || '';\nmsg.temp  = v.temp1;\nmsg.press = v.press1;\nmsg.hum   = v.hum1;\nmsg.light = v.light1;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 320,
+    "y": 2400,
+    "wires": [
+      [
+        "T_ENV_T",
+        "T_ENV_P",
+        "T_ENV_H",
+        "T_ENV_L"
+      ]
+    ]
+  },
+  {
+    "id": "GRP_ENV",
+    "type": "ui_group",
+    "z": "FLOWTAB",
+    "name": "Environment (BME280)",
+    "tab": "TABMON",
+    "width": "6",
+    "order": 3,
+    "label": "Environment (BME280)",
+    "className": ""
+  },
+  {
+    "id": "T_ENV_T",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ENV",
+    "label": "Temperature",
+    "format": "{{ msg.temp == null ? '\u2014 no data \u2014' : msg.temp.toFixed(1) + ' \u00b0C' }}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "20",
+    "color": "#000000",
+    "x": 560,
+    "y": 2360,
+    "wires": []
+  },
+  {
+    "id": "T_ENV_P",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ENV",
+    "label": "Pressure",
+    "format": "{{ msg.press == null ? '\u2014 no data \u2014' : msg.press.toFixed(1) + ' hPa' }}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "20",
+    "color": "#000000",
+    "x": 560,
+    "y": 2400,
+    "wires": []
+  },
+  {
+    "id": "T_ENV_H",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ENV",
+    "label": "Humidity",
+    "format": "{{ msg.hum == null ? '\u2014 no data \u2014' : msg.hum.toFixed(1) + ' %' }}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "20",
+    "color": "#000000",
+    "x": 560,
+    "y": 2440,
+    "wires": []
+  },
+  {
+    "id": "T_ENV_L",
+    "type": "ui_text",
+    "z": "FLOWTAB",
+    "group": "GRP_ENV",
+    "label": "Light",
+    "format": "{{ msg.light == null ? '\u2014 no data \u2014' : Math.round(msg.light) + ' lx' }}",
+    "layout": "row-spread",
+    "style": "",
+    "font": "",
+    "fontSize": "20",
+    "color": "#000000",
+    "x": 560,
+    "y": 2480,
+    "wires": []
   }
 ]
