@@ -698,13 +698,16 @@ void htsn_sensor_tick(void) {
     if (pir == 1) g_pir_latch = now_us;
     int pir_report = (pir == 1) ? 1 : ((now_us - g_pir_latch) < 5000000LL ? 1 : 0);
 
-    char buf[768];
+    /* Kept static: htsn_sensor_tick() runs in the main task (3584-byte stack),
+     * and these arrays (~1.3 KB) on the stack caused intermittent overflow
+     * -> panic -> reboot. Single caller, so static is safe. */
+    static char buf[768];
     int n = snprintf(buf, sizeof(buf) - 1,
             "{\"id\":\"%s\",\"ts\":%lld,\"sensors\":[", g_dev_id, (long long)time(NULL));
     size_t m = (size_t)n;
 
     int written = 0;
-    char buf_temp[96], buf_press[96], buf_hum[96], buf_light[96], buf_pir[96], buf_wfm[80];
+    static char buf_temp[96], buf_press[96], buf_hum[96], buf_light[96], buf_pir[96], buf_wfm[80];
     buf_temp[0] = buf_press[0] = buf_hum[0] = buf_light[0] = buf_pir[0] = buf_wfm[0] = 0;
     if (temp > -500) {
         snprintf(buf_temp, sizeof(buf_temp),

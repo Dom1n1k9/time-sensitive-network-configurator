@@ -10,6 +10,11 @@ CONFIG_ESP_WIFI_CSI_ENABLED=y
 # connect on some networks; enlarge it so connecting does not reboot the node.
 CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
 
+# The main task (sensor tick + MQTT + display + heartbeat) intermittently
+# overflowed its 3584-byte stack -> panic -> reboot (dropped the BME and made
+# the LED flicker). Enlarge it.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
 # LWIP
 CONFIG_LWIP_DHCP_GET_HOSTNAME=y
 
