@@ -687,12 +687,16 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
                 /* startup test click: pulse the relay module trigger (mode 7)
                  * ~0.3 s after boot so the actor is audibly confirmed. */
                 htsn_sensor_actor_set(7);
-                /* actor board: OLED (SDD1306 I2C) + K1..K4 buttons */
-                htsn_display_init(g_device_id, g_mqtt);
-                htsn_display_set_btn_cb(display_btn_action, NULL);
-                htsn_display_set_hud(true);   /* 4-corner sensor HUD */
-                htsn_display_status(g_device_id, "online");
             }
+            /* OLED (SSD1306/SH1106 I2C) + K1..K4 buttons: available on BOTH
+             * boards. On the sensor board (esp32-01) the OLED shares the I2C
+             * bus (SDA21/SCL22) with the BME280; on the actor board (esp32-02)
+             * it's a dedicated bus. Safe to init always: if no panel answers
+             * the display part stays blank and the buttons read their pull-up. */
+            htsn_display_init(g_device_id, g_mqtt);
+            htsn_display_set_btn_cb(display_btn_action, NULL);
+            htsn_display_set_hud(true);   /* 4-corner sensor HUD */
+            htsn_display_status(g_device_id, "online");
             ESP_LOGI(TAG, "agent %s broker %s:%d", g_device_id, mqtt_host, ctx->port);
         }
     }
@@ -968,15 +972,14 @@ void app_main(void) {
     int64_t last_beat = 0;
     while (1) {
         htsn_sensor_tick();
-        /* actor board: refresh OLED and scan the K1..K4 buttons */
-        if (!g_has_sensors) {
-            htsn_display_tick();
-            int btn = htsn_display_btn_last();
-            if (btn) {
-                /* A physical button was pressed: publish a labelled event and
-                 * show it on the OLED. Handlers are wired in on_command(). */
-                htsn_display_status(g_device_id, "btn pressed");
-            }
+        /* OLED + K1..K4 buttons (both boards): refresh + scan. On the sensor
+         * board (esp32-01) this shares the I2C bus with the BME280. */
+        htsn_display_tick();
+        int btn = htsn_display_btn_last();
+        if (btn) {
+            /* A physical button was pressed: publish a labelled event and
+             * show it on the OLED. Handlers are wired in on_command(). */
+            htsn_display_status(g_device_id, "btn pressed");
         }
         /* periodic heartbeat so the webgui can mark offline if we disappear */
         if (g_mqtt && esp_timer_get_time() - last_beat >= 10000000) {

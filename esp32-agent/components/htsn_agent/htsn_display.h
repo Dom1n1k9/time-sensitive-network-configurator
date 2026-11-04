@@ -36,7 +36,7 @@ extern "C" {
 #define HTSN_BTN1_GPIO GPIO_NUM_32
 #endif
 #ifndef HTSN_BTN2_GPIO
-#define HTSN_BTN2_GPIO GPIO_NUM_33
+#define HTSN_BTN2_GPIO GPIO_NUM_4   /* was GPIO33 (motion LED on the sensor board) */
 #endif
 #ifndef HTSN_BTN3_GPIO
 #define HTSN_BTN3_GPIO GPIO_NUM_34
