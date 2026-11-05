@@ -707,23 +707,23 @@ void htsn_sensor_tick(void) {
     size_t m = (size_t)n;
 
     int written = 0;
-    static char buf_temp[96], buf_press[96], buf_hum[96], buf_light[96], buf_pir[96], buf_wfm[80];
+    static char buf_temp[128], buf_press[128], buf_hum[128], buf_light[96], buf_pir[96], buf_wfm[80];
     buf_temp[0] = buf_press[0] = buf_hum[0] = buf_light[0] = buf_pir[0] = buf_wfm[0] = 0;
     if (temp > -500) {
         snprintf(buf_temp, sizeof(buf_temp),
-             "{\"sensor_id\":\"temp1\",\"type\":0,\"value\":%.1f,\"unit\":\"C\",\"healthy\":1}",
+              "{\"sensor_id\":\"temp1\",\"type\":0,\"value\":%.1f,\"unit\":\"C\",\"min\":-40,\"max\":85,\"acc\":0.5,\"healthy\":1}",
              temp);
         m += (size_t)snprintf(buf + m, sizeof(buf) - m, "%s%s", written++ ? "," : "", buf_temp);
     }
     if (press > -500) {
         snprintf(buf_press, sizeof(buf_press),
-             "{\"sensor_id\":\"press1\",\"type\":1,\"value\":%.1f,\"unit\":\"hPa\",\"healthy\":1}",
+              "{\"sensor_id\":\"press1\",\"type\":1,\"value\":%.1f,\"unit\":\"hPa\",\"min\":300,\"max\":1100,\"acc\":1,\"healthy\":1}",
              press);
         m += (size_t)snprintf(buf + m, sizeof(buf) - m, "%s%s", written++ ? "," : "", buf_press);
     }
     if (hum > 0) {
         snprintf(buf_hum, sizeof(buf_hum),
-             "{\"sensor_id\":\"hum1\",\"type\":0,\"value\":%.1f,\"unit\":\"%%\",\"healthy\":1}",
+              "{\"sensor_id\":\"hum1\",\"type\":0,\"value\":%.1f,\"unit\":\"%%\",\"min\":0,\"max\":100,\"acc\":3,\"healthy\":1}",
              hum);
         m += (size_t)snprintf(buf + m, sizeof(buf) - m, "%s%s", written++ ? "," : "", buf_hum);
     }
