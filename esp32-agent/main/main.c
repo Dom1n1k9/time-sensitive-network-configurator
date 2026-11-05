@@ -694,9 +694,9 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
              * it's a dedicated bus. Safe to init always: if no panel answers
              * the display part stays blank and the buttons read their pull-up. */
             if (g_has_sensors) {
-                /* sensor board (esp32-01): K1..K4 on GPIO16/17/18/19 (16/18 are
+                /* sensor board (esp32-01): K1..K4 on GPIO19/18/17/16 (16/18 are
                  * the sonar servo pins, but the sonar is esp32-02-only). */
-                htsn_display_set_btn_pins(16, 17, 18, 19);
+                htsn_display_set_btn_pins(19, 18, 17, 16);
             } else {
                 /* actor board (esp32-02): keep clear of the sonar (16/18). */
                 htsn_display_set_btn_pins(32, 4, 34, 35);
