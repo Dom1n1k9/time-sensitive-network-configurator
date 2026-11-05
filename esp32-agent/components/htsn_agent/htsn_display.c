@@ -98,9 +98,20 @@ static void *g_btn_ud = NULL;
 
 /* ---- buttons ---- */
 #define BTN_COUNT 4
-static const gpio_num_t g_btn_gpio[BTN_COUNT] = {
+static gpio_num_t g_btn_gpio[BTN_COUNT] = {
     HTSN_BTN1_GPIO, HTSN_BTN2_GPIO, HTSN_BTN3_GPIO, HTSN_BTN4_GPIO,
 };
+
+/* Board-specific override of the button pins (call before htsn_display_init).
+ * The defaults above are the actor board (esp32-02) pins; the sensor board
+ * (esp32-01) re-maps K1..K4 to GPIO16/17/18/19 (16/18 are the sonar servo
+ * pins, but the sonar is esp32-02-only so they're free on the sensor board). */
+void htsn_display_set_btn_pins(int k1, int k2, int k3, int k4) {
+    g_btn_gpio[0] = (gpio_num_t)k1;
+    g_btn_gpio[1] = (gpio_num_t)k2;
+    g_btn_gpio[2] = (gpio_num_t)k3;
+    g_btn_gpio[3] = (gpio_num_t)k4;
+}
 /* Active-low (pressed = GND). */
 static volatile uint32_t g_btn_levels = 0;      /* debounced 0/1 per button */
 static volatile uint32_t g_btn_rising = 0;      /* level rise seen since last tick */

@@ -51,6 +51,10 @@ extern "C" {
  * if no SSD1306 answers on I2C the display part simply stays blank. */
 void htsn_display_init(const char *device_id, htsn_mqtt *mq);
 
+/* Override the K1..K4 button GPIOs at runtime (call before htsn_display_init)
+ * so each board picks its own pins. Defaults in the .c are the actor board's. */
+void htsn_display_set_btn_pins(int k1, int k2, int k3, int k4);
+
 /* Set arbitrary 2-line status (label + value). */
 void htsn_display_status(const char *line1, const char *line2);
 
