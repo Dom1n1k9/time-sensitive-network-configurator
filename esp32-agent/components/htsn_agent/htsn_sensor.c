@@ -54,7 +54,7 @@ static const char *TAG = "sensor";
 #define HTSN_ACTOR_GPIO GPIO_NUM_26
 #endif
 
-#define HTSN_I2C_FREQ_HZ 10000
+#define HTSN_I2C_FREQ_HZ 100000
 #define BME280_ADDR     0x76
 #define BME280_ID_REG   0xD0
 #define BME280_CTRL_MEAS 0xF4

@@ -143,52 +143,33 @@ static bool i2c_write_cmd(uint8_t cmd) {
 
 /* Write the whole framebuffer using HORIZONTAL addressing mode (0x20 0x00).
  *
- * In horizontal mode the X/Y pointer auto-advances the column and wraps to the
- * next page, so one linear 1024-byte stream fills the entire panel. We set the
- * page range (0x22) and column range (0x21) once, then stream the framebuffer
- * in 128-byte I2C chunks (the pointer keeps advancing across transactions).
- *
- * This is the addressing the panel reliably honours. The previous per-page
- * approach used the 0xB0+page command, which is only valid on SH1106 clones —
- * on a real SSD1306 the page command is 0x80+page, so 0xB0 was ignored and
- * every page of data landed in the wrong place, turning any column-varying
- * image into fuzz while uniform fills (0xFF / 0xAA) still looked fine.
- * 128-byte chunks also stay well under the I2C transfer timeout. */
+ * Each of the 8 pages is written in its OWN I2C transaction with an explicit
+ * page range (0x22 page..page) + column range (0x21) before its 128 data bytes.
+ * We deliberately do NOT rely on the panel's X/Y pointer auto-advancing across
+ * separate I2C transactions: that drifted on this panel, so the last/lower page
+ * landed misaligned (a single line was wrong at the bottom). Addressing every
+ * page explicitly makes each write deterministic and drift-free.
+ * NOTE: each 128-byte chunk takes ~120 ms at 10 kHz, so the transfer timeout
+ * must exceed that (500 ms) or the write is aborted with ESP_ERR_TIMEOUT. */
 static void ssd1306_flush(void) {
     int col_off = g_sh1106 ? 2 : 0;   /* SH1106 has 132 segs, first 2 invisible */
     static int errs = 0;
 
-    /* Set page + column ranges (this also positions the pointer at page 0,
-     * column col_off), then stream the first 128 bytes (page 0). */
-    i2c_cmd_handle_t c0 = i2c_cmd_link_create();
-    i2c_master_start(c0);
-    i2c_master_write_byte(c0, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
-    i2c_master_write_byte(c0, SSD1306_CTRL_CMD, 1);
-    i2c_master_write_byte(c0, 0x22, 1);                    /* page address range */
-    i2c_master_write_byte(c0, 0x00, 1);                    /*   page start */
-    i2c_master_write_byte(c0, 0x07, 1);                    /*   page end   */
-    i2c_master_write_byte(c0, 0x21, 1);                    /* column address range */
-    i2c_master_write_byte(c0, (uint8_t)col_off, 1);        /*   column start */
-    i2c_master_write_byte(c0, (uint8_t)(col_off + 127), 1);/*   column end   */
-    i2c_master_write_byte(c0, SSD1306_CTRL_DATA, 1);       /* data mode */
-    i2c_master_write(c0, g_fb, 128, 1);                    /* page 0 */
-    i2c_master_stop(c0);
-    esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0, c0, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(c0);
-    if (err != ESP_OK) {
-        errs++;
-        ESP_LOGE(TAG, "flush range+page0 FAILED err=0x%x", err);
-    }
-
-    /* Pages 1..7: data only — the pointer auto-advances from the last byte. */
-    for (int page = 1; page < 8; page++) {
+    for (int page = 0; page < 8; page++) {
         i2c_cmd_handle_t c = i2c_cmd_link_create();
         i2c_master_start(c);
         i2c_master_write_byte(c, (ssd1306_addr() << 1) | I2C_MASTER_WRITE, 1);
-        i2c_master_write_byte(c, SSD1306_CTRL_DATA, 1);
+        i2c_master_write_byte(c, SSD1306_CTRL_CMD, 1);
+        i2c_master_write_byte(c, 0x22, 1);                    /* page address range */
+        i2c_master_write_byte(c, (uint8_t)page, 1);           /*   page start       */
+        i2c_master_write_byte(c, (uint8_t)page, 1);           /*   page end (1 page) */
+        i2c_master_write_byte(c, 0x21, 1);                    /* column address range */
+        i2c_master_write_byte(c, (uint8_t)col_off, 1);        /*   column start      */
+        i2c_master_write_byte(c, (uint8_t)(col_off + 127), 1);/*   column end        */
+        i2c_master_write_byte(c, SSD1306_CTRL_DATA, 1);       /* data mode           */
         i2c_master_write(c, &g_fb[page * 128], 128, 1);
         i2c_master_stop(c);
-        err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(100));
+        esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0, c, pdMS_TO_TICKS(500));
         i2c_cmd_link_delete(c);
         if (err != ESP_OK) {
             errs++;
@@ -198,11 +179,13 @@ static void ssd1306_flush(void) {
     }
 }
 
-static int ssd1306_init_seq(void) {
+static int ssd1306_init_seq(bool full) {
     int ok = 0;
 #define W(cmd) do { if (i2c_write_cmd(cmd)) ok++; \
                     else ESP_LOGE(TAG, "init 0x%02X FAILED", (cmd)); } while (0)
-    W(SSD1306_CMD_DISPLAY_OFF);
+    /* Only power-cycle the panel on a genuine (re)init. The periodic re-init
+     * after first contact passes full=false so the display never blinks off. */
+    if (full) W(SSD1306_CMD_DISPLAY_OFF);
     W(SSD1306_CMD_SET_MUX_RATIO); W(SSD1306_CMD_MUX_64);
     W(SSD1306_CMD_DISP_OFFSET);   W(0x00);
     W(SSD1306_CMD_SET_START_LINE | 0x00);
@@ -528,7 +511,7 @@ void htsn_display_init(const char *device_id, htsn_mqtt *mq) {
 static bool display_probe_init(void) {
     if (!ssd1306_present()) return false;
     vTaskDelay(pdMS_TO_TICKS(20));   /* settle after first contact */
-    int ok = ssd1306_init_seq();
+    int ok = ssd1306_init_seq(true);
     vTaskDelay(pdMS_TO_TICKS(20));
     /* Boot straight into the 4-value info panel (no "display: OK" splash) so
      * the first thing on the glass is the same panel seen in steady state.
@@ -621,7 +604,7 @@ bool htsn_display_hud(void) { return g_hud; }
 bool htsn_display_set_controller(bool sh1106) {
     g_sh1106 = sh1106;
     if (g_present) {
-        ssd1306_init_seq();
+        ssd1306_init_seq(true);
         fb_clear();
         fb_text(0, 0, g_dev_id);
         fb_text(0, 2, sh1106 ? "sh1106" : "ssd1306");
@@ -645,7 +628,7 @@ void htsn_display_fill(uint8_t pattern) {
      * commands (charge pump, display-on) were lost and the panel shows
      * static. Re-initialising right before the fill guarantees the control
      * state is correct at the moment we test it. */
-    ssd1306_init_seq();
+    ssd1306_init_seq(true);
     vTaskDelay(pdMS_TO_TICKS(20));
     memset(g_fb, pattern, sizeof(g_fb));
     ssd1306_flush();
@@ -662,7 +645,7 @@ void htsn_display_freeze(bool on) { g_freeze = on; }
  * the panel config must be adjusted. */
 void htsn_display_quad(void) {
     if (!g_present) return;
-    ssd1306_init_seq();
+    ssd1306_init_seq(true);
     vTaskDelay(pdMS_TO_TICKS(20));
     fb_clear();
     for (int y = 0; y < 64; y++) {
@@ -683,7 +666,7 @@ void htsn_display_quad(void) {
  * fault (text would look like noise). */
 void htsn_display_bars(void) {
     if (!g_present) return;
-    ssd1306_init_seq();
+    ssd1306_init_seq(true);
     vTaskDelay(pdMS_TO_TICKS(20));
     fb_clear();
     for (int bar = 0; bar < 4; bar++) {
@@ -897,7 +880,7 @@ void htsn_display_tick(void) {
         int64_t now = esp_timer_get_time();
         if (now - last_reinit_us >= 1000000LL) {
             last_reinit_us = now;
-            ssd1306_init_seq();
+            ssd1306_init_seq(false);   /* no DISPLAY_OFF: avoid a visible blink */
         }
     }
 
