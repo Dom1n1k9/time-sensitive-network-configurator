@@ -21,6 +21,7 @@
 #include "htsn_sensor.h"
 #include "htsn_display.h"
 #include "htsn_sonar.h"
+#include "htsn_audio.h"
 #include "htsn_version.h"
 #include "htsn_ota.h"
 
@@ -407,6 +408,21 @@ static void on_command(const char *topic, const char *payload, void *ud) {
         snprintf(topic, sizeof(topic), "tsn/ack/%s", g_device_id);
         htsn_mqtt_publish(g_mqtt, topic, ack);
         return;
+    } else if (strcmp(cmd, "tone") == 0) {
+        /* speaker self-test: {"hz":880,"ms":400} -> play a tone on esp32-01 */
+        int hz = 880, ms = 400;
+        htsn_json_get_int(payload, "hz", &hz);
+        htsn_json_get_int(payload, "ms", &ms);
+        if (htsn_audio_ready()) { htsn_audio_tone(hz, ms); send_ack(true, "tone"); }
+        else send_ack(false, "no_audio");
+        return;
+    } else if (strcmp(cmd, "audio") == 0) {
+        /* play a WAV (TTS) served by the brain: {"url":"http://host:port/x.wav"} */
+        char url[256] = {0};
+        htsn_json_get_str(payload, "url", url, sizeof(url));
+        if (url[0] && htsn_audio_ready()) { htsn_audio_play_url(url); send_ack(true, "audio"); }
+        else send_ack(false, "audio_bad");
+        return;
     } else if (strcmp(cmd, "ping") == 0) {
         /* reply with the device IP so the CNC can show src(PC)->dst(ESP) in the monitor,
          * and blink the LED so the responder is visually identifiable */
@@ -697,6 +713,7 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id, void *da
                 /* sensor board (esp32-01): K1..K4 on GPIO16/17/18/19 (16/18 are
                  * the sonar servo pins, but the sonar is esp32-02-only). */
                 htsn_display_set_btn_pins(16, 17, 18, 19);
+                htsn_audio_init();   /* MAX98357A I2S speaker (esp32-01) */
             } else {
                 /* actor board (esp32-02): keep clear of the sonar (16/18). */
                 htsn_display_set_btn_pins(32, 4, 34, 35);

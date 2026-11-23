@@ -115,6 +115,10 @@ static void on_connected(esp_mqtt_event_handle_t e, htsn_mqtt *m) {
     esp_mqtt_client_subscribe(m->c, t, 0);
     snprintf(t, sizeof(t), "tsn/cmd/%s/bars", m->device_id[0] ? m->device_id : "+");
     esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/tone", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
+    snprintf(t, sizeof(t), "tsn/cmd/%s/audio", m->device_id[0] ? m->device_id : "+");
+    esp_mqtt_client_subscribe(m->c, t, 0);
     ESP_LOGI(TAG, "subscribed to commands for device '%s'", m->device_id);
     if (m->conn_cb) m->conn_cb("", m->ud);
 }
